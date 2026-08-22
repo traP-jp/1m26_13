@@ -1,0 +1,11 @@
+{
+  "recommendations": [
+    "Vue.volar",
+    "oxc.oxc-vscode",
+    "dbaeumer.vscode-eslint",
+    "stylelint.vscode-stylelint",
+    "EditorConfig.EditorConfig",
+    "golang.go",
+    "vitest.explorer"
+  ]
+}
