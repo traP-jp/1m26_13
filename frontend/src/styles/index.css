@@ -1,0 +1,13 @@
+:root {
+  color: CanvasText;
+  background: Canvas;
+  font-family: Inter, "M PLUS 1p", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizelegibility;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}

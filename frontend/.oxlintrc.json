@@ -1,0 +1,11 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "ignorePatterns": ["dist/**", "coverage/**"],
+  "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "vue", "vitest"],
+  "categories": {
+    "correctness": "error"
+  },
+  "options": {
+    "reportUnusedDisableDirectives": "error"
+  }
+}

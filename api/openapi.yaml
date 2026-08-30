@@ -1,0 +1,30 @@
+openapi: 3.1.0
+info:
+  title: 1m26_13 API
+  version: 0.1.0
+servers:
+  - url: /api/v1
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Check whether the API is available
+      responses:
+        "200":
+          description: The API is available
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
