@@ -1,24 +1,29 @@
 package httpapi
 
 import (
-	"encoding/json"
+	"context"
 	"net/http"
+
+	"github.com/traP-jp/1m26_13/backend/internal/api"
 )
 
-type healthResponse struct {
-	Status string `json:"status"`
-}
+const apiBaseURL = "/api/v1"
+
+type server struct{}
 
 func NewHandler() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/health", handleHealth)
+	strictHandler := api.NewStrictHandler(server{}, nil)
 
-	return mux
+	return api.HandlerWithOptions(strictHandler, api.StdHTTPServerOptions{
+		BaseURL: apiBaseURL,
+	})
 }
 
-func handleHealth(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	_ = json.NewEncoder(w).Encode(healthResponse{Status: "ok"})
+func (server) GetHealth(
+	context.Context,
+	api.GetHealthRequestObject,
+) (api.GetHealthResponseObject, error) {
+	return api.GetHealth200JSONResponse{
+		Status: api.Ok,
+	}, nil
 }

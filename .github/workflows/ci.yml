@@ -64,6 +64,13 @@ jobs:
           install_args: --locked go@1.26.4
           cache: false
 
+      - name: Verify generated OpenAPI code
+        working-directory: backend
+        run: |
+          go generate ./...
+          git diff --exit-code -- internal/api/server.gen.go
+          test -z "$(git status --porcelain --untracked-files=all -- internal/api/server.gen.go)"
+
       - name: Check formatting
         working-directory: backend
         run: test -z "$(gofmt -l .)"

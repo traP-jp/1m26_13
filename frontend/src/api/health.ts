@@ -1,12 +1,15 @@
-export interface HealthResponse {
-  status: string;
-}
+import { apiClient } from "@/api/client";
+import type { ApiClient } from "@/api/client";
+import type { components } from "@/api/schema";
 
-export async function getHealth(fetcher: typeof fetch = fetch): Promise<HealthResponse> {
-  const response = await fetcher("/api/health");
-  if (!response.ok) {
+export type HealthResponse = components["schemas"]["HealthResponse"];
+
+export async function getHealth(client: ApiClient = apiClient): Promise<HealthResponse> {
+  const { data, response } = await client.GET("/health");
+
+  if (!response.ok || data === undefined) {
     throw new Error(`health request failed: ${response.status}`);
   }
 
-  return (await response.json()) as HealthResponse;
+  return data;
 }

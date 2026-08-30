@@ -47,6 +47,21 @@ pnpm dev
 <http://localhost:8080> で起動します。Viteは`/api`へのリクエストをバックエンドへ
 プロキシします。
 
+APIは`/api/v1`以下で提供します。API schemaとendpoint pathのsource of truthは
+[`api/openapi.yaml`](api/openapi.yaml)です。`/api/v1`というprefixはOpenAPIの
+`servers`、Goルーターの`BaseURL`、フロントエンドAPIクライアントの`baseUrl`に
+それぞれ設定します。
+
+仕様を変更した場合は、GoとTypeScriptのコードを再生成します。
+
+```sh
+cd backend
+go generate ./...
+
+cd ../frontend
+pnpm generate:api
+```
+
 ## チェック
 
 フロントエンド:
@@ -71,6 +86,7 @@ go build ./...
 
 ```text
 .
+├── api/       # OpenAPI仕様
 ├── backend/   # Goバックエンド
 └── frontend/  # Vueフロントエンド
 ```

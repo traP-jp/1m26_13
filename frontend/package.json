@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "build": "pnpm run typecheck && vite build",
-    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test",
+    "check": "pnpm run generate:api:check && pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test",
     "dev": "vite",
     "format": "oxfmt --config oxfmt.config.ts",
     "format:check": "oxfmt --check --config oxfmt.config.ts",
+    "generate:api": "openapi-typescript ../api/openapi.yaml -o src/api/schema.d.ts",
+    "generate:api:check": "openapi-typescript ../api/openapi.yaml -o src/api/schema.d.ts --check",
     "lint": "pnpm run lint:oxlint && pnpm run lint:eslint && pnpm run lint:stylelint",
     "lint:eslint": "eslint . --max-warnings 0",
     "lint:fix": "pnpm run lint:fix:oxlint && pnpm run lint:fix:eslint && pnpm run lint:fix:stylelint",
@@ -23,6 +25,7 @@
     "typecheck": "vue-tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "openapi-fetch": "0.17.0",
     "vue": "3.5.41"
   },
   "devDependencies": {
@@ -35,13 +38,14 @@
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-oxlint": "1.77.0",
     "eslint-plugin-vue": "10.10.0",
+    "openapi-typescript": "7.13.0",
     "oxfmt": "0.62.0",
     "oxlint": "1.77.0",
     "postcss-html": "2.0.0",
     "stylelint": "17.14.1",
     "stylelint-config-standard": "40.0.0",
     "stylelint-config-standard-vue": "2.0.0",
-    "typescript": "6.0.3",
+    "typescript": "5.9.3",
     "vite": "8.2.0",
     "vitest": "4.1.10",
     "vue-tsc": "3.3.9"

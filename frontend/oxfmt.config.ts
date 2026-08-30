@@ -1,7 +1,7 @@
 import { defineConfig } from "oxfmt";
 
 export default defineConfig({
-  ignorePatterns: ["dist/**", "coverage/**", "pnpm-lock.yaml"],
+  ignorePatterns: ["dist/**", "coverage/**", "pnpm-lock.yaml", "src/api/schema.d.ts"],
   semi: true,
   singleQuote: false,
   trailingComma: "all",

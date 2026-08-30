@@ -9,7 +9,7 @@ import (
 func TestHealth(t *testing.T) {
 	t.Parallel()
 
-	request := httptest.NewRequest(http.MethodGet, "/api/health", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
 	response := httptest.NewRecorder()
 
 	NewHandler().ServeHTTP(response, request)
@@ -30,7 +30,7 @@ func TestHealth(t *testing.T) {
 func TestHealthRejectsPost(t *testing.T) {
 	t.Parallel()
 
-	request := httptest.NewRequest(http.MethodPost, "/api/health", nil)
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/health", nil)
 	response := httptest.NewRecorder()
 
 	NewHandler().ServeHTTP(response, request)
