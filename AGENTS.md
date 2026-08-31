@@ -8,6 +8,14 @@
 - Keep the `/api/v1` prefix aligned across the OpenAPI `servers` entry, the Go router's `BaseURL`, and the frontend API client's `baseUrl`.
 - Keep traQ Bot credentials on the backend. Do not expose them to the frontend or add a generic traQ API proxy.
 - In production, trust `X-Forwarded-User` only because the backend is reachable through NeoShowcase authentication. Do not expose the backend through an unauthenticated ingress.
+- Run the Go backend and Vue frontend on the host during local development. Use `compose.yaml` only for supporting infrastructure unless containerizing an application solves a concrete problem.
+
+## Database
+
+- NeoShowcase and the local environment expose MariaDB connection settings through `NS_MARIADB_*` variables. Keep this naming aligned instead of inventing a production-only mapping.
+- Bind local MariaDB and Adminer ports to loopback only.
+- Treat Adminer as an inspection tool. Do not rely on manual Adminer operations to establish application schema or seed data.
+- Do not add initialization SQL, migrations, or a fixed schema until the product model decisions below have been made.
 
 ## traQ directory
 
@@ -43,14 +51,14 @@ Before handing off a change, run the checks relevant to the files changed.
 
 ```sh
 cd frontend
-pnpm check
-pnpm build
+mise exec -- pnpm check
+mise exec -- pnpm build
 
 cd ../backend
-test -z "$(gofmt -l .)"
-go vet ./...
-go test ./...
-go build ./...
+test -z "$(mise exec -- gofmt -l .)"
+mise exec -- go vet ./...
+mise exec -- go test ./...
+mise exec -- go build ./...
 ```
 
 If the OpenAPI document changed, regenerate both clients and confirm that no generated diff remains after generation.
