@@ -11,6 +11,7 @@ traP 1-Monthon 2026 13班のプロジェクトです。
 - Go 1.26.4
 - Node.js 24.19.0
 - pnpm 11.20.0
+- Docker EngineまたはDocker Desktop（Compose v2を含む）
 
 Go、Node.js、pnpmのバージョンはmiseで管理しています。miseを使用しない場合も、
 `mise.toml`と同じバージョンを用意してください。
@@ -21,19 +22,53 @@ Go、Node.js、pnpmのバージョンはmiseで管理しています。miseを�
 mise install --locked
 
 cd frontend
-pnpm install --frozen-lockfile
+mise exec -- pnpm install --frozen-lockfile
 
 cd ../backend
 cp .env.example .env
 ```
 
-miseをshellで有効化していない場合は、`go`や`pnpm`の代わりに
-`mise exec -- go`、`mise exec -- pnpm`を使用できます。
+READMEのコマンドはmiseをshellで有効化していない環境でも動くよう、
+`mise exec --`を明示しています。miseをshellで有効化している場合は省略できます。
 
 `backend/.env`の`TRAQ_BOT_ACCESS_TOKEN`には、ユーザー一覧とユーザーグループ一覧を
 取得できるtraQ Botのアクセストークンを設定してください。`.env`はGitの管理対象外です。
 ローカル開発では`DEV_USER`に自分のtraQ IDを設定すると、NeoShowcaseを経由しなくても
 認証済みユーザーとして動作を確認できます。
+
+## ローカルデータベース
+
+MariaDBとAdminerだけをDocker Composeで起動します。GoとVueはコンテナに入れず、
+ホスト上で実行します。現在のGoバックエンドにはDB接続処理をまだ実装していないため、
+ここで用意するのはローカルDB環境と将来使用する接続設定までです。
+
+```sh
+docker compose up -d
+docker compose ps
+```
+
+MariaDBは`127.0.0.1:3307`、Adminerは <http://127.0.0.1:8081> で利用できます。
+Adminerには次の値で接続します。
+
+```text
+Server: mariadb
+Username: app
+Password: password
+Database: 1m26_13
+```
+
+コンテナを停止してもnamed volumeのデータは残ります。
+
+```sh
+docker compose down
+```
+
+データも含めて初期化するときだけ、`docker compose down --volumes`を使用してください。
+Adminerは内容の確認にのみ使用し、テーブル定義は今後導入するマイグレーションで管理します。
+
+WSLでDockerが利用できないという案内が出たら、まずDocker Desktopが起動しているか
+確認してください。起動後も利用できない場合は、Docker DesktopのSettingsからResources、
+WSL Integrationを開き、使用中のdistributionが有効になっているか確認します。
 
 ## 開発サーバー
 
@@ -44,14 +79,14 @@ cd backend
 set -a
 . ./.env
 set +a
-go run ./cmd/server
+mise exec -- go run ./cmd/server
 ```
 
 別のターミナルでフロントエンドを起動します。
 
 ```sh
 cd frontend
-pnpm dev
+mise exec -- pnpm dev
 ```
 
 フロントエンドは <http://localhost:5173>、バックエンドは
@@ -70,10 +105,10 @@ APIは`/api/v1`以下で提供します。API schemaとendpoint pathのsource of
 
 ```sh
 cd backend
-go generate ./...
+mise exec -- go generate ./...
 
 cd ../frontend
-pnpm generate:api
+mise exec -- pnpm generate:api
 ```
 
 ## traQユーザー・グループ
@@ -92,12 +127,14 @@ pnpm generate:api
 
 同じFQDNにPath Overlayで次の2コンテキストを配置する想定です。
 
-- フロントエンド: Static、context pathは`/`、SPAを有効化、priorityはHard
-- バックエンド: Runtime、context pathは`/api`、portは`8080`、strip prefixは無効、priorityはHard
+- フロントエンド: Static、context pathは`/`、SPAを有効化、部員認証はHARD
+- バックエンド: Runtime、context pathは`/api`、portは`8080`、strip prefixは無効、部員認証はHARD
 
 バックエンドには`APP_ENV=production`と`TRAQ_BOT_ACCESS_TOKEN`を環境変数として
 設定します。バックエンドをNeoShowcaseの認証を通らない別経路で公開しないでください。
 認証されたtraQ IDはNeoShowcaseが付与する`X-Forwarded-User`から受け取ります。
+MariaDBはバックエンドアプリの作成時に有効化します。NeoShowcaseが接続情報を
+`NS_MARIADB_*`環境変数として自動設定するため、値を手動で追加する必要はありません。
 
 ## チェック
 
@@ -105,18 +142,18 @@ pnpm generate:api
 
 ```sh
 cd frontend
-pnpm check
-pnpm build
+mise exec -- pnpm check
+mise exec -- pnpm build
 ```
 
 バックエンド:
 
 ```sh
 cd backend
-test -z "$(gofmt -l .)"
-go vet ./...
-go test ./...
-go build ./...
+test -z "$(mise exec -- gofmt -l .)"
+mise exec -- go vet ./...
+mise exec -- go test ./...
+mise exec -- go build ./...
 ```
 
 ## ディレクトリ構成
@@ -125,7 +162,8 @@ go build ./...
 .
 ├── api/       # OpenAPI仕様
 ├── backend/   # Goバックエンド
-└── frontend/  # Vueフロントエンド
+├── frontend/  # Vueフロントエンド
+└── compose.yaml  # ローカル開発用MariaDB・Adminer
 ```
 
 ## ブランチ運用
