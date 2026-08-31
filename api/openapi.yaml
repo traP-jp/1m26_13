@@ -16,8 +16,58 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
+  /users/me:
+    get:
+      operationId: getCurrentUser
+      summary: Get the authenticated user
+      description: Returns the traQ user identified by NeoShowcase authentication.
+      responses:
+        "200":
+          description: The authenticated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+        "401":
+          description: Authentication is missing or the user is unknown
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: The traQ user directory is temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
+    CurrentUser:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - traqId
+        - displayName
+      properties:
+        id:
+          type: string
+          format: uuid
+        traqId:
+          type: string
+        displayName:
+          type: string
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
     HealthResponse:
       type: object
       additionalProperties: false

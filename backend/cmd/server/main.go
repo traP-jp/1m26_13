@@ -11,7 +11,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/traP-jp/1m26_13/backend/internal/config"
 	"github.com/traP-jp/1m26_13/backend/internal/httpapi"
+	"github.com/traP-jp/1m26_13/backend/internal/traq"
 )
 
 func main() {
@@ -25,14 +27,39 @@ func main() {
 }
 
 func run(ctx context.Context) error {
-	addr := os.Getenv("APP_ADDR")
-	if addr == "" {
-		addr = ":8080"
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
 	}
 
+	traqClient, err := traq.NewClient(
+		cfg.TraQAPIBaseURL,
+		cfg.TraQBotAccessToken,
+		&http.Client{Timeout: cfg.TraQAPITimeout},
+	)
+	if err != nil {
+		return fmt.Errorf("create traQ client: %w", err)
+	}
+	directory, err := traq.NewDirectoryCache(
+		traqClient,
+		cfg.TraQCacheRefreshInterval,
+		cfg.TraQCacheMaxStale,
+	)
+	if err != nil {
+		return fmt.Errorf("create traQ directory cache: %w", err)
+	}
+	if err := directory.Refresh(ctx); err != nil {
+		return fmt.Errorf("initialize traQ directory cache: %w", err)
+	}
+	go directory.Run(ctx, slog.Default())
+
 	server := &http.Server{
-		Addr:              addr,
-		Handler:           httpapi.NewHandler(),
+		Addr: cfg.Address,
+		Handler: httpapi.NewHandler(httpapi.HandlerOptions{
+			Directory:       directory,
+			DevelopmentUser: cfg.DevelopmentUser,
+			Logger:          slog.Default(),
+		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,
@@ -41,7 +68,7 @@ func run(ctx context.Context) error {
 
 	serveError := make(chan error, 1)
 
-	slog.Info("starting server", "address", addr)
+	slog.Info("starting server", "address", cfg.Address)
 	go func() {
 		serveError <- server.ListenAndServe()
 	}()
