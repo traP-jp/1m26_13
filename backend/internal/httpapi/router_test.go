@@ -101,13 +101,13 @@ func TestCurrentUser(t *testing.T) {
 	handler := NewHandler(HandlerOptions{Directory: fakeDirectory{
 		user: traq.User{
 			ID:          testUserID,
-			Name:        "jizi",
-			DisplayName: "JIZI",
+			Name:        "alice",
+			DisplayName: "Alice",
 		},
 		found: true,
 	}})
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/users/me", nil)
-	request.Header.Set(forwardedUserHeader, "jizi")
+	request.Header.Set(forwardedUserHeader, "alice")
 	response := httptest.NewRecorder()
 
 	handler.ServeHTTP(response, request)
@@ -115,7 +115,7 @@ func TestCurrentUser(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, response.Code)
 	}
-	if got, want := response.Body.String(), "{\"displayName\":\"JIZI\",\"id\":\""+testUserID+"\",\"traqId\":\"jizi\"}\n"; got != want {
+	if got, want := response.Body.String(), "{\"displayName\":\"Alice\",\"id\":\""+testUserID+"\",\"traqId\":\"alice\"}\n"; got != want {
 		t.Fatalf("expected body %q, got %q", want, got)
 	}
 }
@@ -141,10 +141,10 @@ func TestCurrentUserUsesDevelopmentUser(t *testing.T) {
 
 	handler := NewHandler(HandlerOptions{
 		Directory: fakeDirectory{
-			user:  traq.User{ID: testUserID, Name: "jizi", DisplayName: "JIZI"},
+			user:  traq.User{ID: testUserID, Name: "alice", DisplayName: "Alice"},
 			found: true,
 		},
-		DevelopmentUser: "jizi",
+		DevelopmentUser: "alice",
 	})
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/users/me", nil)
 	response := httptest.NewRecorder()
@@ -161,7 +161,7 @@ func TestCurrentUserDirectoryUnavailable(t *testing.T) {
 
 	handler := NewHandler(HandlerOptions{Directory: fakeDirectory{err: traq.ErrDirectoryUnavailable}})
 	request := httptest.NewRequest(http.MethodGet, "/api/v1/users/me", nil)
-	request.Header.Set(forwardedUserHeader, "jizi")
+	request.Header.Set(forwardedUserHeader, "alice")
 	response := httptest.NewRecorder()
 
 	handler.ServeHTTP(response, request)

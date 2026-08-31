@@ -27,7 +27,7 @@ func TestDirectoryCache(t *testing.T) {
 
 	now := time.Date(2026, time.August, 31, 0, 0, 0, 0, time.UTC)
 	source := &fakeSource{
-		users: []User{{ID: "user-id", Name: "JIZI", DisplayName: "JIZI"}},
+		users: []User{{ID: "user-id", Name: "Alice", DisplayName: "Alice"}},
 		groups: []Group{{
 			ID:      "group-id",
 			Name:    "group",
@@ -36,14 +36,14 @@ func TestDirectoryCache(t *testing.T) {
 	}
 	cache := newDirectoryCache(source, 5*time.Minute, 15*time.Minute, func() time.Time { return now })
 
-	if _, _, err := cache.UserByName("jizi"); !errors.Is(err, ErrDirectoryUnavailable) {
+	if _, _, err := cache.UserByName("alice"); !errors.Is(err, ErrDirectoryUnavailable) {
 		t.Fatalf("expected unavailable before refresh, got %v", err)
 	}
 	if err := cache.Refresh(context.Background()); err != nil {
 		t.Fatalf("refresh cache: %v", err)
 	}
 
-	user, found, err := cache.UserByName("jizi")
+	user, found, err := cache.UserByName("alice")
 	if err != nil {
 		t.Fatalf("look up user: %v", err)
 	}
@@ -51,7 +51,7 @@ func TestDirectoryCache(t *testing.T) {
 		t.Fatalf("unexpected user lookup result: %#v, %v", user, found)
 	}
 	user, found, err = cache.UserByID("user-id")
-	if err != nil || !found || user.Name != "JIZI" {
+	if err != nil || !found || user.Name != "Alice" {
 		t.Fatalf("unexpected user ID lookup result: %#v, %v, %v", user, found, err)
 	}
 	group, found, err := cache.GroupByID("group-id")
@@ -81,7 +81,7 @@ func TestDirectoryCacheRetainsOnlyBoundedStaleSnapshot(t *testing.T) {
 
 	now := time.Date(2026, time.August, 31, 0, 0, 0, 0, time.UTC)
 	source := &fakeSource{
-		users:  []User{{ID: "old-user", Name: "jizi"}},
+		users:  []User{{ID: "old-user", Name: "alice"}},
 		groups: []Group{},
 	}
 	cache := newDirectoryCache(source, 5*time.Minute, 15*time.Minute, func() time.Time { return now })
@@ -95,12 +95,12 @@ func TestDirectoryCacheRetainsOnlyBoundedStaleSnapshot(t *testing.T) {
 	if err := cache.Refresh(context.Background()); err == nil {
 		t.Fatal("expected refresh to fail")
 	}
-	if user, found, err := cache.UserByName("jizi"); err != nil || !found || user.ID != "old-user" {
+	if user, found, err := cache.UserByName("alice"); err != nil || !found || user.ID != "old-user" {
 		t.Fatalf("expected previous snapshot, got %#v, %v, %v", user, found, err)
 	}
 
 	now = now.Add(11 * time.Minute)
-	if _, _, err := cache.UserByName("jizi"); !errors.Is(err, ErrDirectoryUnavailable) {
+	if _, _, err := cache.UserByName("alice"); !errors.Is(err, ErrDirectoryUnavailable) {
 		t.Fatalf("expected stale cache to become unavailable, got %v", err)
 	}
 }

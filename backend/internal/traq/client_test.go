@@ -31,7 +31,7 @@ func TestClientFetchesDirectory(t *testing.T) {
 			var body string
 			switch request.URL.Path {
 			case "/api/v3/users":
-				body = `[{"id":"user-id","name":"jizi","displayName":"JIZI","iconFileId":"icon-id","bot":false,"state":1}]`
+				body = `[{"id":"user-id","name":"alice","displayName":"Alice","iconFileId":"icon-id","bot":false,"state":1}]`
 			case "/api/v3/groups":
 				body = `[{"id":"group-id","name":"group","description":"","type":"","members":[{"id":"user-id","role":""}],"admins":[]}]`
 			default:
@@ -61,7 +61,7 @@ func TestClientFetchesDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fetch users: %v", err)
 	}
-	if len(users) != 1 || users[0].Name != "jizi" {
+	if len(users) != 1 || users[0].Name != "alice" {
 		t.Fatalf("unexpected users: %#v", users)
 	}
 

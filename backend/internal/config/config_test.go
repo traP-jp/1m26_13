@@ -27,7 +27,7 @@ func TestLoad(t *testing.T) {
 func TestLoadRejectsDevelopmentUserInProduction(t *testing.T) {
 	clearConfigEnvironment(t)
 	t.Setenv("TRAQ_BOT_ACCESS_TOKEN", "token")
-	t.Setenv("DEV_USER", "jizi")
+	t.Setenv("DEV_USER", "alice")
 
 	if _, err := Load(); err == nil {
 		t.Fatal("expected config load to fail")
