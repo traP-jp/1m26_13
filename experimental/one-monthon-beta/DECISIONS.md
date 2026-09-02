@@ -443,6 +443,19 @@
 - 再検討する条件: 認証・権限を実装する時点で、物理削除を管理者専用のアーカイブ/復元へ置き換える要件が確定した場合。
 - 参照: 本人指定のtraQレビュー（18:38、18:41、18:48、18:50、`https://q.trap.jp/channels/event/1-Monthon/26/13/Zenn`、読み取り専用）、`app/ui/views/WorkshopWizardView.ts`、`app/db/repository.ts`
 
+## D-20260902-034 — 開催削除は共通保存の差分として扱い、最後の1件を保護する
+
+- 状態: decided
+- 判断が必要だった理由: 追加レビューで開催カードごとの「−」削除が求められた。専用削除APIを増やすか、講習会/開催を同時編集する既存PUTの意味を完成させるか、また開催0件を通常更新で許すかを決める必要があった。
+- 選択肢:
+  1. 開催専用DELETE APIを追加し、各ボタンから即時削除する。
+  2. フォームから除外した開催を講習会PUT時の差分として削除し、最後の1件だけはUIとドメイン制約の両方で保護する。
+- 決定: 選択肢2。各カードにbasiQ-ui danger outlineの「−」を置き、2件以上のときだけ操作可能にする。repositoryは入力に残らない既存開催を同じD1 batchで削除し、他開催・関係の保存と原子的に反映する。
+- 根拠: ウィザードと通常フォームが同じ講習会/開催データへ保存される設計を維持でき、削除だけ先に確定して保存失敗時に部分反映されることを避けられる。単発は第1回だけというレビュー文言とも一致する。
+- 影響: `OccurrenceFields`、`WorkshopWizardView`、repository、API統合テストを更新する。専用API・依存・migrationはない。ホームカードの高さずれにはbasiQ-ui Cardを行高へ伸ばす共通レイアウト規則1件だけを追加し、独自外観は作らない。
+- 再検討する条件: 開催単位の監査・復元・権限や、開催0件で講習会を維持する運用が確定した場合。
+- 参照: 本人指定のtraQレビュー（19:06、19:08、`https://q.trap.jp/channels/event/1-Monthon/26/13/Zenn`、読み取り専用）、`app/ui/components/OccurrenceFields.ts`、`app/ui/components/WorkshopSummaryCard.ts`、`app/db/repository.ts`
+
 ---
 
 ## 追記テンプレート
