@@ -276,7 +276,7 @@
 
 ## D-20260902-021 — 新規作成は案内付きへ統一し、プロフィールを3タブとして完成させる
 
-- 状態: decided
+- 状態: decided（プロフィールでbasiQ-uiの`Button`外観を使う部分だけD-20260902-027でsuperseded。新規作成の統一とARIA/キーボード操作は継続）
 - 判断が必要だった理由: 追加の内部レビューで、新規作成時に「案内付き」と「通常フォーム」を選ばせる必要性が薄く、プロフィールの3領域もタブとして明確に扱うことが求められた。
 - 選択肢:
   1. 新規作成の二経路と、現状のプロフィール表示を維持する。
@@ -351,6 +351,19 @@
 - 影響: ラベルだけを変更し、回番号の既定値1、シリーズ名のnullable入力、API、D1、CSSは変更しない。
 - 再検討する条件: 単発/複数回を先に選ぶ入力方式へ変更し、回番号を自動決定できるようになった場合。
 - 参照: 本人指定のtraQレビュー（`https://q.trap.jp/channels/event/1-Monthon/26/13/Zenn`、読み取り専用）、`app/ui/components/OccurrenceFields.ts`
+
+## D-20260902-027 — プロフィールの3切替を下線型ARIAタブとして表現する
+
+- 状態: decided
+- 判断が必要だった理由: 追加レビューで、ARIA上はタブでもbasiQ-uiの塗り/枠付きボタン外観のため、ボタン切替に見えると確認された。
+- 選択肢:
+  1. basiQ-uiの`Button`へ`role=tab`を付けた現状を維持する。
+  2. Tabs部品がない不足分だけ、native buttonを下線型タブとして実装する。
+- 決定: 選択肢2。選択タブだけaccentの下線と文字色を付け、背景塗りと囲み枠をなくす。既存の`tablist`/`tab`/`tabpanel`、roving tabindex、左右矢印/Home/End操作は維持する。
+- 根拠: タブの意味・見た目・キーボード操作が一致する。basiQ-uiにTabsはなく、既存部品を誤った外観で流用するよりbasiQ tokenだけを使う最小不足部品が妥当。
+- 影響: D-20260902-021のbasiQ-ui`Button`外観採用部分を置換する。再試行など通常操作は引き続きbasiQ-uiの`Button`を使う。追加依存・汎用コンポーネントはない。
+- 再検討する条件: basiQ-uiに正式なTabsが追加された場合は置換する。
+- 参照: 本人指定のtraQレビュー（`https://q.trap.jp/channels/event/1-Monthon/26/13/Zenn`、読み取り専用）、`app/ui/views/ProfileView.ts`、`app/styles/pages.css`
 
 ---
 
