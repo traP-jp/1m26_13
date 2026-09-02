@@ -80,7 +80,7 @@ export default defineComponent({
   template: `
     <main class="page roadmap-editor-page" tabindex="-1">
       <a class="back-link" href="/admin" data-route>運営向けページへ戻る</a>
-      <header class="page-heading"><div><p class="eyebrow">ロードマップ管理</p><h1>{{ isEdit ? 'ロードマップを編集' : 'ロードマップを作成' }}</h1><p>閲覧ページに表示する講習会と順番を設定します。</p></div></header>
+      <header class="page-heading"><div><h1>{{ isEdit ? 'ロードマップを編集' : 'ロードマップを作成' }}</h1><p>閲覧ページに表示する講習会と順番を設定します。</p></div></header>
       <div v-if="notice" class="feedback" :class="noticeTone === 'success' ? 'feedback-success' : 'feedback-error'" role="status">{{ notice }}</div>
       <div v-if="loading" class="feedback" role="status">ロードマップを読み込んでいます。</div>
       <div v-else-if="error && !form.title && isEdit" class="feedback feedback-error" role="alert"><div><strong>表示できませんでした</strong><p>{{ error }}</p></div></div>
@@ -108,7 +108,14 @@ export default defineComponent({
           </ol>
         </section>
 
-        <div class="editor-actions"><BasiqButton v-if="isEdit" type="button" tone="danger" variant="outline" :disabled="deleting || saving" @click="destroy">{{ deleting ? '削除中…' : 'ロードマップを削除' }}</BasiqButton><span></span><a class="secondary-link" href="/admin" data-route>キャンセル</a><BasiqButton type="submit" :disabled="saving || deleting">{{ saving ? '保存中…' : '保存' }}</BasiqButton></div>
+        <div class="editor-actions">
+          <BasiqButton v-if="isEdit" type="button" tone="danger" variant="outline" :disabled="deleting || saving" @click="destroy">{{ deleting ? '削除中…' : 'ロードマップを削除' }}</BasiqButton>
+          <span></span>
+          <div class="admin-row-actions">
+            <BasiqButton type="button" tone="neutral" variant="outline" :disabled="saving || deleting" @click="$emit('navigate', '/admin')">キャンセル</BasiqButton>
+            <BasiqButton type="submit" :disabled="saving || deleting">{{ saving ? '保存中…' : '保存' }}</BasiqButton>
+          </div>
+        </div>
       </form>
     </main>`,
 });
