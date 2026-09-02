@@ -122,9 +122,9 @@ export default defineComponent({
               <div class="badge-detail-mark" aria-hidden="true"><span>1M</span></div>
               <div class="badge-detail-copy">
                 <strong>{{ selectedBadge.title }}</strong>
-                <dl><div><dt>年度</dt><dd>{{ selectedBadge.year }}年度</dd></div><div><dt>獲得日</dt><dd>{{ formatDate(selectedBadge.completedAt) }}</dd></div></dl>
+                <dl><div><dt>年度</dt><dd>{{ selectedBadge.year }}年度</dd></div><div><dt>受講完了日</dt><dd>{{ formatDate(selectedBadge.completedAt) }}</dd></div></dl>
               </div>
-              <template #footer><a class="action-link" :href="'/workshops/' + selectedBadge.workshopId" data-route>講習会の詳細を見る</a></template>
+              <template #footer><div class="empty-actions"><a class="action-link" :href="'/workshops/' + selectedBadge.workshopId" data-route>講習会の詳細を見る</a></div></template>
             </BasiqCard>
           </aside>
         </section>
