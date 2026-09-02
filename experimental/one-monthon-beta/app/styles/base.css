@@ -91,7 +91,6 @@ main:focus, [tabindex='-1']:focus { outline: none; }
   font-weight: 700;
 }
 .kind-label { color: var(--basiq-color-content-accent); background: var(--app-accent-soft); }
-.kind-label.neutral { color: var(--basiq-color-content-subtle); background: var(--basiq-color-surface-container); }
 .primary-link, .action-link {
   min-height: 42px;
   display: inline-flex;
