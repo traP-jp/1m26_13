@@ -3,8 +3,6 @@
   background: var(--basiq-color-surface-base);
   --app-content-max: 1280px;
   --app-sidebar-width: 240px;
-  --app-accent-soft: color-mix(in srgb, var(--basiq-color-accent-default) 9%, var(--basiq-color-surface-base));
-  --app-accent-faint: color-mix(in srgb, var(--basiq-color-accent-default) 5%, var(--basiq-color-surface-base));
   --app-success: #24734a;
   --app-success-soft: #edf7f1;
 }
@@ -20,7 +18,13 @@ body {
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
-.theme-root { min-height: 100vh; color: var(--basiq-color-content-default); background: var(--basiq-color-surface-base); }
+.theme-root {
+  min-height: 100vh;
+  color: var(--basiq-color-content-default);
+  background: var(--basiq-color-surface-base);
+  --app-accent-soft: color-mix(in srgb, var(--basiq-color-accent-default) 9%, var(--basiq-color-surface-base));
+  --app-accent-faint: color-mix(in srgb, var(--basiq-color-accent-default) 5%, var(--basiq-color-surface-base));
+}
 a { color: var(--basiq-color-content-accent); text-underline-offset: 3px; }
 button, input, select, textarea { font: inherit; }
 button, summary { cursor: pointer; }

@@ -84,7 +84,7 @@ export default defineComponent({
               <div><dt>講習会</dt><dd>{{ roadmap.workshopCount }}件</dd></div>
             </dl>
           </div>
-          <BasiqButton type="button" tone="neutral" variant="outline" aria-controls="roadmap-share-panel" :aria-expanded="shareOpen" @click="shareOpen = !shareOpen; shareCopied = false; shareError = ''">ロードマップを共有</BasiqButton>
+          <BasiqButton type="button" tone="neutral" variant="outline" aria-controls="roadmap-share-panel" :aria-expanded="shareOpen" @click="shareOpen = !shareOpen; shareCopied = false; shareError = ''">{{ shareOpen ? '共有画面を閉じる' : 'ロードマップを共有' }}</BasiqButton>
         </header>
 
         <section v-if="shareOpen" id="roadmap-share-panel" aria-label="共有用Markdown">
