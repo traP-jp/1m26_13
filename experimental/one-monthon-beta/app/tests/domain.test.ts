@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { assertRelations, DomainError, hasCycle, parsePositiveId, validateWorkshopInput } from '../lib/domain.ts';
+
+const occurrence = { sequenceNumber: 1, kind: 'standard', title: null, description: ' 学べること ', team: ' Web班 ', year: 2026, scheduledAt: null, location: '', instructor: '', audience: ' 初心者 ', prerequisites: '', materialUrl: 'https://example.com/material', materialLabel: '教材', status: 'published' };
+const input = { title: ' 講習会 ', summary: ' 概要 ', prerequisiteIds: [1], successorIds: [2], occurrences: [occurrence] };
+
+test('講習会と開催の入力を正規化する', () => { const result = validateWorkshopInput(input); assert.equal(result.title, '講習会'); assert.equal(result.occurrences[0].description, '学べること'); assert.equal(result.occurrences[0].team, 'Web班'); });
+test('開催を必須としフィールド別エラーを返す', () => { assert.throws(() => validateWorkshopInput({ title: '', summary: '', occurrences: [] }), (error: unknown) => error instanceof DomainError && error.fields?.title.includes('入力') === true && error.fields?.occurrences.includes('1件') === true); });
+test('年度、日時、教材URLを検証する', () => { assert.throws(() => validateWorkshopInput({ ...input, occurrences: [{ ...occurrence, year: 1999, scheduledAt: 'invalid', materialUrl: 'javascript:alert(1)' }] }), (error: unknown) => error instanceof DomainError && Boolean(error.fields?.['occurrences.0.year']) && Boolean(error.fields?.['occurrences.0.scheduledAt']) && Boolean(error.fields?.['occurrences.0.materialUrl'])); });
+test('連番IDだけを受理する', () => { assert.equal(parsePositiveId('42'), 42); assert.throws(() => parsePositiveId('web-basics'), (error: unknown) => error instanceof DomainError && error.status === 404); });
+test('有向グラフの循環を検出する', () => { assert.equal(hasCycle([{ prerequisiteId: 1, successorId: 2 }, { prerequisiteId: 2, successorId: 3 }]), false); assert.equal(hasCycle([{ prerequisiteId: 1, successorId: 2 }, { prerequisiteId: 2, successorId: 1 }]), true); });
+test('深い関係を再帰なしで検査する', () => { const edges = Array.from({ length: 20_000 }, (_, i) => ({ prerequisiteId: i + 1, successorId: i + 2 })); assert.equal(hasCycle(edges), false); edges.push({ prerequisiteId: 20_001, successorId: 1 }); assert.equal(hasCycle(edges), true); });
+test('編集対象の既存関係を置換し循環を拒否する', () => { assert.deepEqual(assertRelations([1, 2, 3], [{ prerequisiteId: 1, successorId: 2 }], 2, [3], []), [{ prerequisiteId: 3, successorId: 2 }]); assert.throws(() => assertRelations([1, 2, 3], [{ prerequisiteId: 1, successorId: 3 }], 2, [3], [1]), (error: unknown) => error instanceof DomainError && error.code === 'relation_cycle'); });
