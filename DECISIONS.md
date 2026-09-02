@@ -588,6 +588,19 @@
 - 再検討する条件: basiQ-uiへtoast/notification centerが追加される、保存操作を画面上部へ移す、または利用者テストで自動スクロールが編集継続を妨げると判明した場合。
 - 参照: 本人指定のtraQレビュー（2026-09-03 01:39まで、同URL、CLI閲覧のみ）、`app/ui/views/RoadmapEditorView.ts`、`app/styles/pages.css`
 
+## D-20260903-045 — 小さな補助操作はbasiQ-ui outlineとボタン内状態変化で示す
+
+- 状態: decided
+- 判断が必要だった理由: 追加レビューで、開催カードの青い教材操作が本文より強く見えることと、Markdownコピー成功feedbackが後続内容へ覆いかぶさることが指摘された。
+- 選択肢:
+  1. 独自CSSで教材リンクとコピー通知の色・位置を個別調整する。
+  2. 教材を実basiQ-ui neutral outlineボタンへ置き換え、コピー成功は同じボタンのvariantと文言を変更して示す。失敗時だけ既存error feedbackを出す。
+- 決定: 選択肢2。教材ボタンは既存`section-heading`の右端に置く。コピー前はaccent solidの「Markdownをコピー」、成功後はneutral outlineの「コピーしました」とし、独立した成功feedbackを表示しない。
+- 根拠: 主操作と補助操作の強弱がbasiQ-uiの既定variantで揃い、追加の色指定や位置指定を作らずに意図した見た目と状態伝達を実現できる。成功結果を操作元へ集約するため、後続内容を押し下げたり重ねたりしない。
+- 影響: 複数開催の教材はリンク要素から新しいタブを開くボタンへ変わるが、キーボード操作と実URLは維持する。Clipboard失敗時はテキスト選択を促すerror feedbackを維持する。新規CSS、依存、API変更なし。
+- 再検討する条件: basiQ-uiに外部リンクボタン、ClipboardButton、toastが追加される、または新規タブを開く操作をリンクへ統一するアクセシビリティ方針が決まる場合。
+- 参照: 本人指定のtraQレビュー（2026-09-03 01:48〜01:57、同URL、CLI閲覧のみ）、`app/ui/views/WorkshopDetailView.ts`、`app/ui/views/RoadmapDetailView.ts`
+
 ---
 
 ## 追記テンプレート

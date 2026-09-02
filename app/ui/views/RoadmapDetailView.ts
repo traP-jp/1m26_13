@@ -12,7 +12,8 @@ export default defineComponent({
     const loading = ref(true);
     const error = ref('');
     const shareOpen = ref(false);
-    const shareNotice = ref('');
+    const shareCopied = ref(false);
+    const shareError = ref('');
 
     const progressPercent = computed(() => {
       if (!roadmap.value?.workshopCount) return 0;
@@ -36,12 +37,13 @@ export default defineComponent({
     });
 
     const copyShareMarkdown = async () => {
-      shareNotice.value = '';
+      shareCopied.value = false;
+      shareError.value = '';
       try {
         await navigator.clipboard.writeText(shareMarkdown.value);
-        shareNotice.value = '共有用Markdownをコピーしました。';
+        shareCopied.value = true;
       } catch {
-        shareNotice.value = 'コピーできませんでした。テキストを選択してコピーしてください。';
+        shareError.value = 'コピーできませんでした。テキストを選択してコピーしてください。';
       }
     };
 
@@ -59,7 +61,7 @@ export default defineComponent({
     };
 
     watch(() => props.roadmapId, load, { immediate: true });
-    return { roadmap, loading, error, load, nextWorkshop, pathItems, progressPercent, shareMarkdown, shareNotice, shareOpen, copyShareMarkdown };
+    return { roadmap, loading, error, load, nextWorkshop, pathItems, progressPercent, shareMarkdown, shareCopied, shareError, shareOpen, copyShareMarkdown };
   },
   template: `
     <main class="page roadmap-page" tabindex="-1">
@@ -82,14 +84,14 @@ export default defineComponent({
               <div><dt>講習会</dt><dd>{{ roadmap.workshopCount }}件</dd></div>
             </dl>
           </div>
-          <BasiqButton type="button" tone="neutral" variant="outline" aria-controls="roadmap-share-panel" :aria-expanded="shareOpen" @click="shareOpen = !shareOpen; shareNotice = ''">ロードマップを共有</BasiqButton>
+          <BasiqButton type="button" tone="neutral" variant="outline" aria-controls="roadmap-share-panel" :aria-expanded="shareOpen" @click="shareOpen = !shareOpen; shareCopied = false; shareError = ''">ロードマップを共有</BasiqButton>
         </header>
 
         <section v-if="shareOpen" id="roadmap-share-panel" aria-label="共有用Markdown">
           <BasiqCard title="共有用Markdown">
             <label class="field"><span>部員向けの投稿へそのまま貼り付けられます</span><textarea :value="shareMarkdown" readonly rows="8" @focus="$event.currentTarget.select()"></textarea></label>
-            <div class="form-actions"><BasiqButton type="button" @click="copyShareMarkdown">Markdownをコピー</BasiqButton></div>
-            <div v-if="shareNotice" class="feedback" :class="shareNotice.includes('できませんでした') ? 'feedback-error' : 'feedback-success'" role="status">{{ shareNotice }}</div>
+            <div class="form-actions"><BasiqButton type="button" :tone="shareCopied ? 'neutral' : 'accent'" :variant="shareCopied ? 'outline' : 'solid'" aria-live="polite" @click="copyShareMarkdown">{{ shareCopied ? 'コピーしました' : 'Markdownをコピー' }}</BasiqButton></div>
+            <div v-if="shareError" class="feedback feedback-error" role="alert">{{ shareError }}</div>
           </BasiqCard>
         </section>
 

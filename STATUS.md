@@ -1,7 +1,7 @@
 # Status
 
 更新日: 2026-09-03
-フェーズ: β版中心体験・内部レビュー反映完成 — `PLAN.md` B1〜B32を達成
+フェーズ: β版中心体験・内部レビュー反映完成 — `PLAN.md` B1〜B33を達成
 
 ## 現在地
 
@@ -52,6 +52,12 @@
   - Chrome PC（1414px）: 5項目のグラフィックスロードマップで連続する縦線と横あふれ0を目視。公開→非公開、非公開→公開の両保存で操作前に下端へ移動し、成功後`scrollY = 0`とstatusを確認。最終状態は公開へ復元した。
   - Chrome PC/390×844: `/workshops`、`/roadmaps/270002`、`/workshops/3#1`、`/admin/roadmaps/1`で横あふれ0。複数開催本文の教材リンク2件と`#1`を確認。console warning/error 0件。
   - 参照添付から個人名、正確な日程・場所、内部URLを成果物へ転載していない。新規依存、basiQ-ui外観上書き、Vault/Daily変更、デプロイなし。
+
+- 2026-09-03 教材導線・Markdownコピー結果の整理後:
+  - `npm run check`: 成功。TypeScript、ESLint、ドメインテスト12/12、traQ CLIテスト8/8、隔離D1 API統合テスト1/1、Vinext build全5段階、fail/skip/todo 0。
+  - Chrome PC（1414px）/390×844: 複数開催の教材ボタン2件が実basiQ-ui neutral outlineとなり、背景透明、灰色枠`rgb(135, 149, 163)`、カード右端との差17px、横あふれ0を確認。
+  - Chrome PC/390×844: Markdownコピーを実操作し、ボタン文言が「Markdownをコピー」から「コピーしました」へ変わり、成功feedbackは0件。コピー後はneutral outline、横あふれ0、console warning/error 0件。
+  - 新規CSS、依存、API、D1変更なし。既存basiQ-ui `Button`と既存`section-heading`レイアウトだけを再利用した。
 
 - 2026-09-03 ロードマップ共有・開催内教材・seed再実行保護反映後:
   - `npm install`: 成功。既存lockfileどおり`up to date`。追加依存・lockfile変更なし。空D1からの初回migration/fixtureは下記API統合テストで確認した。
