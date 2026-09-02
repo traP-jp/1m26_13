@@ -25,8 +25,7 @@ export default defineComponent({
         <label class="field"><span>回番号（単発講習会なら1で）</span><input :value="modelValue.sequenceNumber" type="number" min="1" max="99" @input="update('sequenceNumber', eventNumber($event))" /></label>
         <label class="field"><span>種別</span><select :value="modelValue.kind" @change="update('kind', eventValue($event))"><option value="standard">通常開催</option><option value="rebroadcast">再放送</option><option value="digest">総集編</option></select></label>
         <label class="field"><span>公開状態</span><select :value="modelValue.status" @change="update('status', eventValue($event))"><option value="draft">下書き</option><option value="published">公開</option></select></label>
-        <label class="field field-wide"><span>シリーズ名（あれば）</span><input :value="modelValue.title ?? ''" placeholder="例: なろう講習会" @input="update('title', eventValue($event) || null)" /></label>
-        <label class="field field-wide"><span>学べること <em>必須</em></span><textarea :value="modelValue.description" rows="4" @input="update('description', eventValue($event))"></textarea></label>
+        <label class="field field-wide"><span>この回で学べること <em>必須</em></span><textarea :value="modelValue.description" rows="4" @input="update('description', eventValue($event))"></textarea></label>
         <label class="field"><span>開催する組織・班 <em>必須</em></span><input :value="modelValue.team" placeholder="例: Webエンジニア班" @input="update('team', eventValue($event))" /></label>
         <label class="field"><span>日時</span><input :value="dateValue" type="datetime-local" @input="updateScheduledAt" /></label>
         <label class="field"><span>場所</span><input :value="modelValue.location" @input="update('location', eventValue($event))" /></label>

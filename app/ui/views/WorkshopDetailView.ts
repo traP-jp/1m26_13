@@ -39,7 +39,7 @@ export default defineComponent({
 
         <div v-if="visibleGroup && primaryOccurrence" class="workshop-detail-layout">
           <div :id="String(visibleGroup.number)" class="workshop-detail-main" tabindex="-1">
-            <section class="detail-section" aria-labelledby="outcome-title"><h2 id="outcome-title">学べること</h2><template v-if="simple"><p class="lead-copy">{{ primaryOccurrence.description }}</p></template><div v-else class="occurrence-stack"><article v-for="occurrence in visibleGroup.occurrences" :key="occurrence.id" class="occurrence-detail"><header><span v-if="kindLabel(occurrence.kind)" class="kind-label">{{ kindLabel(occurrence.kind) }}</span><div><h3>{{ occurrence.title || '第' + occurrence.sequenceNumber + '回' }}</h3><p>{{ occurrence.team }} · {{ occurrence.year }}年度</p></div></header><p>{{ occurrence.description }}</p></article></div></section>
+            <section class="detail-section" aria-labelledby="outcome-title"><h2 id="outcome-title">この回で学べること</h2><template v-if="simple"><p class="lead-copy">{{ primaryOccurrence.description }}</p></template><div v-else class="occurrence-stack"><article v-for="occurrence in visibleGroup.occurrences" :key="occurrence.id" class="occurrence-detail"><header><span v-if="kindLabel(occurrence.kind)" class="kind-label">{{ kindLabel(occurrence.kind) }}</span><div><h3>{{ occurrence.title || '第' + occurrence.sequenceNumber + '回' }}</h3><p>{{ occurrence.team }} · {{ occurrence.year }}年度</p></div></header><p>{{ occurrence.description }}</p></article></div></section>
 
             <section class="detail-section audience-section" aria-label="対象者と前提知識"><div><h2>対象者</h2><p>{{ primaryOccurrence.audience }}</p></div><div><h2>前提知識</h2><p>{{ primaryOccurrence.prerequisites || '特になし' }}</p></div></section>
 

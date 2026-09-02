@@ -3,16 +3,17 @@ import { assertRelations, DomainError } from '../lib/domain';
 import { getD1 } from './index';
 import { databaseConstants, ensureDatabase } from './setup';
 
-type SummaryRow = { id: number; title: string; summary: string; teams: string | null; years: string | null; occurrence_count: number; latest_scheduled_at: string | null };
+type SummaryRow = { id: number; title: string; summary: string; published: number; teams: string | null; years: string | null; occurrence_count: number; latest_scheduled_at: string | null };
 type OccurrenceRow = { id: number; sequence_number: number; kind: WorkshopOccurrence['kind']; copied_from_occurrence_id: number | null; title: string | null; description: string; team: string; year: number; scheduled_at: string | null; location: string; instructor: string; audience: string; prerequisites: string; material_url: string | null; material_label: string; status: WorkshopOccurrence['status'] };
 
-export async function listDiscovery(rawQuery = '', rawTeam = '', rawYear = ''): Promise<DiscoveryResponse> {
+export async function listDiscovery(rawQuery = '', rawTeam = '', rawYear = '', includeDrafts = false): Promise<DiscoveryResponse> {
   await ensureDatabase(); const d1 = getD1(); const query = rawQuery.trim().slice(0, 120); const team = rawTeam.trim().slice(0, 120); const year = /^\d{4}$/.test(rawYear) ? Number(rawYear) : null;
-  const conditions = [`EXISTS (SELECT 1 FROM beta_occurrences visible WHERE visible.workshop_id = w.id AND visible.status = 'published')`]; const values: unknown[] = [];
+  const conditions = includeDrafts ? [] : [`EXISTS (SELECT 1 FROM beta_occurrences visible WHERE visible.workshop_id = w.id AND visible.status = 'published')`]; const values: unknown[] = [];
   if (query) { conditions.push(`(instr(lower(w.title), lower(?)) > 0 OR instr(lower(w.summary), lower(?)) > 0 OR EXISTS (SELECT 1 FROM beta_occurrences oq WHERE oq.workshop_id = w.id AND oq.status = 'published' AND instr(lower(oq.description), lower(?)) > 0))`); values.push(query, query, query); }
   if (team) { conditions.push(`EXISTS (SELECT 1 FROM beta_occurrences ot WHERE ot.workshop_id = w.id AND ot.status = 'published' AND ot.team = ?)`); values.push(team); }
   if (year) { conditions.push(`EXISTS (SELECT 1 FROM beta_occurrences oy WHERE oy.workshop_id = w.id AND oy.status = 'published' AND oy.year = ?)`); values.push(year); }
-  const statement = d1.prepare(`${summarySelect} WHERE ${conditions.join(' AND ')} GROUP BY w.id ORDER BY latest_scheduled_at DESC, w.id DESC`);
+  const order = includeDrafts ? 'w.updated_at DESC, w.id DESC' : 'latest_scheduled_at DESC, w.id DESC';
+  const statement = d1.prepare(`${summarySelect(includeDrafts)}${conditions.length ? ` WHERE ${conditions.join(' AND ')}` : ''} GROUP BY w.id ORDER BY ${order}`);
   const workshopRows = await (values.length ? statement.bind(...values) : statement).all<SummaryRow>();
   const [facets, roadmapRows] = await Promise.all([
     d1.prepare(`SELECT DISTINCT team, year FROM beta_occurrences WHERE status = 'published' ORDER BY year DESC, team`).all<{ team: string; year: number }>(),
@@ -23,7 +24,7 @@ export async function listDiscovery(rawQuery = '', rawTeam = '', rawYear = ''): 
 
 export async function getWorkshopDetail(id: number, userId: string = databaseConstants.demoUserId, manage = false): Promise<WorkshopDetail> {
   await ensureDatabase(); const d1 = getD1();
-  const row = await d1.prepare(`${summarySelect} WHERE w.id = ? GROUP BY w.id`).bind(id).first<SummaryRow & { created_at: string; updated_at: string }>();
+  const row = await d1.prepare(`${summarySelect(manage)} WHERE w.id = ? GROUP BY w.id`).bind(id).first<SummaryRow & { created_at: string; updated_at: string }>();
   if (!row) throw new DomainError(404, 'workshop_not_found', '講習会が見つかりません。');
   const [occurrences, prerequisites, successors, completion, roadmaps] = await Promise.all([
     d1.prepare(`SELECT id, sequence_number, kind, copied_from_occurrence_id, title, description, team, year, scheduled_at, location, instructor, audience, prerequisites, material_url, material_label, status FROM beta_occurrences WHERE workshop_id = ? ${manage ? '' : `AND status = 'published'`} ORDER BY sequence_number, CASE kind WHEN 'standard' THEN 0 WHEN 'rebroadcast' THEN 1 ELSE 2 END, scheduled_at`).bind(id).all<OccurrenceRow>(),
@@ -151,8 +152,8 @@ async function replaceRoadmapData(id: number, input: RoadmapInput, now: string, 
   await d1.batch(statements);
 }
 
-const summarySelect = `SELECT w.id, w.title, w.summary, w.created_at, w.updated_at, GROUP_CONCAT(DISTINCT CASE WHEN o.status = 'published' THEN o.team END) teams, GROUP_CONCAT(DISTINCT CASE WHEN o.status = 'published' THEN o.year END) years, COUNT(DISTINCT CASE WHEN o.status = 'published' THEN o.id END) occurrence_count, MAX(CASE WHEN o.status = 'published' THEN o.scheduled_at END) latest_scheduled_at FROM beta_workshops w LEFT JOIN beta_occurrences o ON o.workshop_id = w.id`;
-function toSummary(row: SummaryRow): WorkshopSummary { return { type: 'workshop', id: Number(row.id), title: row.title, summary: row.summary, teams: row.teams?.split(',').filter(Boolean) ?? [], years: row.years?.split(',').map(Number).filter(Boolean).sort((a, b) => b - a) ?? [], occurrenceCount: Number(row.occurrence_count), latestScheduledAt: row.latest_scheduled_at } }
+function summarySelect(includeDrafts = false) { const visible = includeDrafts ? 'o.id IS NOT NULL' : `o.status = 'published'`; return `SELECT w.id, w.title, w.summary, w.created_at, w.updated_at, MAX(CASE WHEN o.status = 'published' THEN 1 ELSE 0 END) published, GROUP_CONCAT(DISTINCT CASE WHEN ${visible} THEN o.team END) teams, GROUP_CONCAT(DISTINCT CASE WHEN ${visible} THEN o.year END) years, COUNT(DISTINCT CASE WHEN ${visible} THEN o.id END) occurrence_count, MAX(CASE WHEN ${visible} THEN o.scheduled_at END) latest_scheduled_at FROM beta_workshops w LEFT JOIN beta_occurrences o ON o.workshop_id = w.id`; }
+function toSummary(row: SummaryRow): WorkshopSummary { return { type: 'workshop', id: Number(row.id), title: row.title, summary: row.summary, published: Boolean(row.published), teams: row.teams?.split(',').filter(Boolean) ?? [], years: row.years?.split(',').map(Number).filter(Boolean).sort((a, b) => b - a) ?? [], occurrenceCount: Number(row.occurrence_count), latestScheduledAt: row.latest_scheduled_at } }
 function toOccurrence(row: OccurrenceRow): WorkshopOccurrence { return { id: Number(row.id), sequenceNumber: Number(row.sequence_number), kind: row.kind, copiedFromOccurrenceId: row.copied_from_occurrence_id ? Number(row.copied_from_occurrence_id) : null, title: row.title, description: row.description, team: row.team, year: Number(row.year), scheduledAt: row.scheduled_at, location: row.location, instructor: row.instructor, audience: row.audience, prerequisites: row.prerequisites, materialUrl: row.material_url, materialLabel: row.material_label, status: row.status } }
 function toRoadmapSummary(row: { id: number; title: string; summary: string; audience: string; workshop_count: number; completed_count: number }): RoadmapSummary { return { type: 'roadmap', id: Number(row.id), title: row.title, summary: row.summary, audience: row.audience, workshopCount: Number(row.workshop_count), completedCount: Number(row.completed_count) } }
 
