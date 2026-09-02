@@ -313,6 +313,19 @@
 - 再検討する条件: 段階ごとの到達目標や公開範囲が、実運用上の必須情報として具体例とともに確認された場合、または本番移行時に互換列を削除できるDB保守時間が確保された場合。
 - 参照: 本人指定のtraQレビュー（`https://q.trap.jp/channels/event/1-Monthon/26/13/Zenn`、読み取り専用）、`app/drizzle/0002_roadmap_published_boolean.sql`、`app/ui/views/RoadmapDetailView.ts`、`app/ui/views/RoadmapEditorView.ts`
 
+## D-20260902-024 — ロードマップ管理一覧の操作と公開状態を部品・色で区別する
+
+- 状態: decided
+- 判断が必要だった理由: push後の再確認で、一覧の文字リンクでは閲覧・編集が操作に見えにくく、公開状態と非公開状態の識別も弱いという追加レビューがあった。
+- 選択肢:
+  1. 文字リンクと無彩色の状態表示を維持する。
+  2. 閲覧・編集をbasiQ-uiの`Button`へ置換し、既存の完了色とbasiQ-uiのdanger tokenで公開/非公開を区別する。
+- 決定: 選択肢2。閲覧はneutral outline、編集はaccent solidとし、非公開ロードマップには学習者向け閲覧ボタンを出さない。ページ名と重複する小見出し「運営」も削除する。
+- 根拠: 操作の優先度と状態を追加データなしで明確にでき、独自ボタン外観を作らずbasiQ-uiの標準状態・フォーカスを利用できる。
+- 影響: 新規CSSセレクタや独自コンポーネントは追加しない。2ボタンが収まるよう既存一覧グリッドの操作列幅だけを120pxから156pxへ変更する。
+- 再検討する条件: 非公開状態のプレビュー機能を権限付きで実装する場合、またはbasiQ-uiに成功状態専用token/componentが追加された場合。
+- 参照: 本人指定のtraQレビュー（`https://q.trap.jp/channels/event/1-Monthon/26/13/Zenn`、読み取り専用）、`app/ui/views/AdminHomeView.ts`
+
 ---
 
 ## 追記テンプレート
