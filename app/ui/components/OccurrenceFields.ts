@@ -11,20 +11,24 @@ export default defineComponent({
     const dateValue = computed(() => props.modelValue.scheduledAt?.slice(0, 16) ?? '');
     const eventValue = (event: Event) => (event.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).value;
     const eventNumber = (event: Event) => Number(eventValue(event));
-    return { update, dateValue, eventValue, eventNumber };
+    const updateScheduledAt = (event: Event) => {
+      const value = eventValue(event);
+      const year = /^\d{4}-/.test(value) ? Number(value.slice(0, 4)) : props.modelValue.year;
+      emit('update:modelValue', { ...props.modelValue, scheduledAt: value || null, year });
+    };
+    return { update, updateScheduledAt, dateValue, eventValue, eventNumber };
   },
   template: `
     <BasiqCard class="occurrence-form-card">
-      <template #header><div class="form-card-heading"><div><h3>開催 {{ index + 1 }}</h3><span v-if="modelValue.copiedFromOccurrenceId">開催 #{{ modelValue.copiedFromOccurrenceId }} から複製</span></div><div v-if="showCopy" class="copy-actions"><BasiqButton tone="neutral" variant="outline" :disabled="copying" @click="$emit('copy', 'rebroadcast')">再放送として複製</BasiqButton><BasiqButton tone="neutral" variant="outline" :disabled="copying" @click="$emit('copy', 'standard')">次回として複製</BasiqButton></div></div></template>
+      <template #header><div class="form-card-heading"><div><h3>第{{ modelValue.sequenceNumber }}回の開催</h3><span v-if="modelValue.copiedFromOccurrenceId">開催 #{{ modelValue.copiedFromOccurrenceId }} から複製</span></div><div v-if="showCopy" class="copy-actions"><BasiqButton tone="neutral" variant="outline" :disabled="copying" @click="$emit('copy', 'rebroadcast')">再放送として複製</BasiqButton><BasiqButton tone="neutral" variant="outline" :disabled="copying" @click="$emit('copy', 'standard')">次回として複製</BasiqButton></div></div></template>
       <div class="form-grid">
         <label class="field"><span>回番号（単発講習会なら1で）</span><input :value="modelValue.sequenceNumber" type="number" min="1" max="99" @input="update('sequenceNumber', eventNumber($event))" /></label>
         <label class="field"><span>種別</span><select :value="modelValue.kind" @change="update('kind', eventValue($event))"><option value="standard">通常開催</option><option value="rebroadcast">再放送</option><option value="digest">総集編</option></select></label>
         <label class="field"><span>公開状態</span><select :value="modelValue.status" @change="update('status', eventValue($event))"><option value="draft">下書き</option><option value="published">公開</option></select></label>
         <label class="field field-wide"><span>シリーズ名（あれば）</span><input :value="modelValue.title ?? ''" placeholder="例: なろう講習会" @input="update('title', eventValue($event) || null)" /></label>
         <label class="field field-wide"><span>学べること <em>必須</em></span><textarea :value="modelValue.description" rows="4" @input="update('description', eventValue($event))"></textarea></label>
-        <label class="field"><span>班 <em>必須</em></span><input :value="modelValue.team" placeholder="例: Webエンジニア班" @input="update('team', eventValue($event))" /></label>
-        <label class="field"><span>年度 <em>必須</em></span><input :value="modelValue.year" type="number" min="2000" max="2100" @input="update('year', eventNumber($event))" /></label>
-        <label class="field"><span>日時</span><input :value="dateValue" type="datetime-local" @input="update('scheduledAt', eventValue($event) || null)" /></label>
+        <label class="field"><span>開催する組織・班 <em>必須</em></span><input :value="modelValue.team" placeholder="例: Webエンジニア班" @input="update('team', eventValue($event))" /></label>
+        <label class="field"><span>日時</span><input :value="dateValue" type="datetime-local" @input="updateScheduledAt" /></label>
         <label class="field"><span>場所</span><input :value="modelValue.location" @input="update('location', eventValue($event))" /></label>
         <label class="field"><span>講師・運営</span><input :value="modelValue.instructor" @input="update('instructor', eventValue($event))" /></label>
         <label class="field field-wide"><span>対象者 <em>必須</em></span><textarea :value="modelValue.audience" rows="2" @input="update('audience', eventValue($event))"></textarea></label>

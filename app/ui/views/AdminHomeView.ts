@@ -24,7 +24,7 @@ export default defineComponent({
       <header class="page-heading"><div><h1>運営向けページ</h1><p>講習会とロードマップの作成・編集をここから行います。</p></div></header>
 
       <section class="admin-section" aria-labelledby="admin-workshop-title">
-        <div class="section-heading"><div><h2 id="admin-workshop-title">講習会</h2><p>案内に沿って、講習会と最初の開催を登録します。</p></div><BasiqButton type="button" @click="$emit('navigate', '/admin/workshops/new')">講習会を作成</BasiqButton></div>
+        <div class="section-heading"><div><h2 id="admin-workshop-title">講習会</h2><p>講習会を作成してから、開催ごとの内容を追加します。</p></div><BasiqButton type="button" @click="$emit('navigate', '/admin/workshops/new')">講習会を作成</BasiqButton></div>
       </section>
 
       <section class="admin-section" aria-labelledby="admin-roadmap-title">

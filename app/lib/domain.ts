@@ -19,7 +19,7 @@ export function parsePositiveId(raw: string, label = 'ID'): number {
   return id;
 }
 
-export function validateWorkshopInput(value: unknown): WorkshopInput {
+export function validateWorkshopInput(value: unknown, options: { allowEmptyOccurrences?: boolean } = {}): WorkshopInput {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new DomainError(422, 'validation_error', '入力内容を確認してください。', { form: '入力形式が正しくありません。' });
   const input = value as Record<string, unknown>; const fields: Record<string, string> = {};
   const title = requiredText(input.title, 'title', '講習会名', 100, fields);
@@ -27,7 +27,7 @@ export function validateWorkshopInput(value: unknown): WorkshopInput {
   const prerequisiteIds = idList(input.prerequisiteIds, 'prerequisiteIds', fields);
   const successorIds = idList(input.successorIds, 'successorIds', fields);
   const occurrences = Array.isArray(input.occurrences) ? input.occurrences.map((item, index) => validateOccurrence(item, index, fields)) : [];
-  if (!occurrences.length) fields.occurrences = '開催を1件以上入力してください。';
+  if (!occurrences.length && !options.allowEmptyOccurrences) fields.occurrences = '開催を1件以上入力してください。';
   if (occurrences.length > 30) fields.occurrences = '開催は30件以内で入力してください。';
   if (Object.keys(fields).length) throw new DomainError(422, 'validation_error', '入力内容を確認してください。', fields);
   return { title, summary, prerequisiteIds, successorIds, occurrences };

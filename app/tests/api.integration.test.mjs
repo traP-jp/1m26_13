@@ -17,10 +17,11 @@ test('β中心導線を隔離D1で登録・公開・発見・複製・完了・�
   const tempRoot = await mkdtemp(path.join(tmpdir(), 'one-monthon-beta-api-')); const persist = path.join(tempRoot, 'state'); await mkdir(persist); const port = await reservePort(); let server;
   try {
     server = await start(port, persist);
-    const initial = await json(server.baseUrl, '/api/workshops'); assert.equal(initial.response.status, 200); assert.equal(initial.body.workshops.length, 3); assert.equal(initial.body.roadmaps.length, 1);
+    const initial = await json(server.baseUrl, '/api/workshops'); assert.equal(initial.response.status, 200); assert.equal(initial.body.workshops.length, 10); assert.equal(initial.body.roadmaps.length, 1); assert.ok(initial.body.workshops.some((item) => item.teams.includes('グラフィックス班'))); assert.ok(initial.body.workshops.some((item) => item.teams.includes('ゲーム班')));
     const single = await json(server.baseUrl, '/api/workshops/1'); assert.equal(single.body.workshop.occurrences.length, 1); assert.equal(single.body.workshop.occurrences[0].kind, 'standard');
     const multiple = await json(server.baseUrl, '/api/workshops/2'); assert.deepEqual(multiple.body.workshop.occurrences.map((item) => item.sequenceNumber), [1, 2, 3]);
     const rebroadcast = await json(server.baseUrl, '/api/workshops/3'); assert.equal(rebroadcast.body.workshop.occurrences.filter((item) => item.sequenceNumber === 1).length, 2); assert.ok(rebroadcast.body.workshop.occurrences.some((item) => item.kind === 'rebroadcast' && item.copiedFromOccurrenceId === 5));
+    const unity = await json(server.baseUrl, '/api/workshops/5'); assert.deepEqual(unity.body.workshop.occurrences.map((item) => item.title), ['Unity講習会第一回', 'Unity講習会第二回', 'Unity講習会第三回']);
     const hidden = await json(server.baseUrl, '/api/workshops/4'); assert.equal(hidden.response.status, 404); const manageable = await json(server.baseUrl, '/api/workshops/4?manage=1'); assert.equal(manageable.response.status, 200); assert.equal(manageable.body.workshop.occurrences[0].status, 'draft');
 
     const singleManage = await json(server.baseUrl, '/api/workshops/1?manage=1'); const cyclicInput = { title: '更新されてはいけない名前', summary: singleManage.body.workshop.summary, prerequisiteIds: [2], successorIds: [3], occurrences: singleManage.body.workshop.occurrences };
@@ -28,8 +29,11 @@ test('β中心導線を隔離D1で登録・公開・発見・複製・完了・�
     const afterCyclic = await json(server.baseUrl, '/api/workshops/1?manage=1'); assert.equal(afterCyclic.body.workshop.title, 'はじめてのGit'); assert.deepEqual(afterCyclic.body.workshop.successors.map((item) => item.id), [2]);
 
     const invalid = await json(server.baseUrl, '/api/workshops', { method: 'POST', body: JSON.stringify({ title: '', summary: '', occurrences: [] }) }); assert.equal(invalid.response.status, 422); assert.equal(invalid.body.error.code, 'validation_error');
-    const title = `β統合テスト ${Date.now()}`; const payload = { title, summary: '登録ウィザードと編集画面が共用する保存データです。', prerequisiteIds: [1], successorIds: [], occurrences: [occurrence()] };
-    const created = await json(server.baseUrl, '/api/workshops', { method: 'POST', body: JSON.stringify(payload) }); assert.equal(created.response.status, 201); assert.equal(typeof created.body.workshop.id, 'number'); const id = created.body.workshop.id; const occurrenceId = created.body.workshop.occurrences[0].id;
+    const title = `β統合テスト ${Date.now()}`; const summary = '講習会を先に作り、同じ保存データへ開催を追加します。';
+    const created = await json(server.baseUrl, '/api/workshops', { method: 'POST', body: JSON.stringify({ title, summary, prerequisiteIds: [], successorIds: [], occurrences: [] }) }); assert.equal(created.response.status, 201); assert.equal(typeof created.body.workshop.id, 'number'); assert.deepEqual(created.body.workshop.occurrences, []); const id = created.body.workshop.id;
+    const hiddenBeforeOccurrence = await json(server.baseUrl, `/api/workshops/${id}`); assert.equal(hiddenBeforeOccurrence.response.status, 404); const manageableBeforeOccurrence = await json(server.baseUrl, `/api/workshops/${id}?manage=1`); assert.equal(manageableBeforeOccurrence.response.status, 200);
+    const payload = { title, summary, prerequisiteIds: [1], successorIds: [], occurrences: [occurrence()] };
+    const firstOccurrence = await json(server.baseUrl, `/api/workshops/${id}`, { method: 'PUT', body: JSON.stringify(payload) }); assert.equal(firstOccurrence.response.status, 200); const occurrenceId = firstOccurrence.body.workshop.occurrences[0].id;
 
     await stop(server); server = await start(port, persist);
     const persisted = await json(server.baseUrl, `/api/workshops/${id}`); assert.equal(persisted.body.workshop.title, title); assert.deepEqual(persisted.body.workshop.prerequisites.map((item) => item.id), [1]);
