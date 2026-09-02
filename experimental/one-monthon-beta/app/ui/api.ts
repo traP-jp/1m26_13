@@ -13,8 +13,9 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-export function fetchDiscovery(query = '', team = '', year = '') {
+export function fetchDiscovery(query = '', team = '', year = '', includeDrafts = false) {
   const params = new URLSearchParams(); if (query.trim()) params.set('q', query.trim()); if (team) params.set('team', team); if (year) params.set('year', year);
+  if (includeDrafts) params.set('includeDrafts', '1');
   return requestJson<DiscoveryResponse>(`/api/workshops${params.size ? `?${params}` : ''}`);
 }
 export async function fetchWorkshop(id: string | number, manage = false) { const result = await requestJson<{ workshop: WorkshopDetail }>(`/api/workshops/${encodeURIComponent(id)}?userId=demo-learner${manage ? '&manage=1' : ''}`); return result.workshop; }

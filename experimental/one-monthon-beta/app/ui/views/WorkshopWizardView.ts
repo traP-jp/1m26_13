@@ -36,7 +36,7 @@ export default defineComponent({
       if (!form.summary.trim()) errors.summary = '概要を入力してください。';
       if (isEdit.value && !form.occurrences.length) errors.occurrences = '開催を1件以上入力してください。';
       if (isEdit.value) form.occurrences.forEach((item, index) => {
-        if (!item.description.trim()) errors[`occurrences.${index}.description`] = `開催${index + 1}の「学べること」を入力してください。`;
+        if (!item.description.trim()) errors[`occurrences.${index}.description`] = `開催${index + 1}の「この回で学べること」を入力してください。`;
         if (!item.team.trim()) errors[`occurrences.${index}.team`] = `開催${index + 1}の開催する組織・班を入力してください。`;
         if (!item.audience.trim()) errors[`occurrences.${index}.audience`] = `開催${index + 1}の対象者を入力してください。`;
       });
@@ -82,7 +82,7 @@ export default defineComponent({
             <div class="form-grid"><label class="field field-wide"><span>講習会名 <em>必須</em></span><input v-model="form.title" required maxlength="100" placeholder="例: なろう講習会" :aria-invalid="Boolean(fieldErrors.title)" /></label><label class="field field-wide"><span>概要 <em>必須</em></span><textarea v-model="form.summary" required maxlength="240" rows="3" :aria-invalid="Boolean(fieldErrors.summary)"></textarea></label></div>
           </BasiqCard>
           <template v-if="isEdit">
-            <section class="form-section" aria-labelledby="occurrences-form-title"><div class="section-heading"><div><h2 id="occurrences-form-title">開催</h2><p>シリーズものの講習会であれば、回ごとに教材や対象者や学べることを書いてください。</p></div><BasiqButton type="button" tone="neutral" variant="outline" aria-label="開催を追加" @click="addOccurrence">＋</BasiqButton></div><OccurrenceFields v-for="(occurrence, index) in form.occurrences" :key="occurrence.id ?? 'new-' + index" v-model="form.occurrences[index]" :index="index" :show-copy="Boolean(occurrence.id)" :copying="copyingId === occurrence.id" @copy="copy(occurrence.id, $event)" /></section>
+            <section class="form-section" aria-labelledby="occurrences-form-title"><div class="section-heading"><div><h2 id="occurrences-form-title">開催</h2><p>シリーズものの講習会であれば、回ごとに教材や対象者やこの回で学べることを書いてください。</p></div><BasiqButton type="button" tone="neutral" variant="outline" aria-label="開催を追加" @click="addOccurrence">＋</BasiqButton></div><OccurrenceFields v-for="(occurrence, index) in form.occurrences" :key="occurrence.id ?? 'new-' + index" v-model="form.occurrences[index]" :index="index" :show-copy="Boolean(occurrence.id)" :copying="copyingId === occurrence.id" @copy="copy(occurrence.id, $event)" /></section>
             <BasiqCard><template #header><div class="form-section-title"><h2>学びのつながり</h2><p>検索とは別に、先に学ぶ内容と次に進む内容を示します。どちらも任意です。</p></div></template>
               <div class="relation-columns"><section><h3>先に学ぶ</h3><ul class="relation-options"><li v-for="item in options" :key="'before-' + item.id"><BasiqToggleButton :model-value="form.prerequisiteIds.includes(item.id)" :aria-label="item.title + 'を先に学ぶ講習会に設定'" @update:model-value="toggleRelation('prerequisiteIds', item.id, $event)">✓</BasiqToggleButton><span><strong>{{ item.title }}</strong><small>{{ item.summary }}</small></span></li></ul></section><section><h3>次に学ぶ</h3><ul class="relation-options"><li v-for="item in options" :key="'after-' + item.id"><BasiqToggleButton :model-value="form.successorIds.includes(item.id)" :aria-label="item.title + 'を次に学ぶ講習会に設定'" @update:model-value="toggleRelation('successorIds', item.id, $event)">✓</BasiqToggleButton><span><strong>{{ item.title }}</strong><small>{{ item.summary }}</small></span></li></ul></section></div>
             </BasiqCard>

@@ -15,12 +15,13 @@ export default defineComponent({
     workshop: { type: Object as PropType<WorkshopSummary>, required: true },
   },
   setup(props) {
-    const primaryTeam = computed(() => props.workshop.teams[0] ?? '班未定');
+    const primaryTeam = computed(() => props.workshop.teams[0] ?? '未定');
     const teamMark = computed(() => compactTeamName(primaryTeam.value));
-    return { primaryTeam, teamMark };
+    const target = computed(() => props.workshop.published ? `/workshops/${props.workshop.id}` : `/admin/workshops/${props.workshop.id}`);
+    return { primaryTeam, target, teamMark };
   },
   template: `
-    <a class="workshop-card-link" :href="'/workshops/' + workshop.id" data-route>
+    <a class="workshop-card-link" :href="target" data-route>
       <BasiqCard>
         <template #header>
           <div class="workshop-card-heading">
@@ -29,13 +30,13 @@ export default defineComponent({
           </div>
         </template>
         <dl class="workshop-card-facts">
-          <div><dt>班</dt><dd>{{ workshop.teams.join(' / ') || '未設定' }}</dd></div>
-          <div><dt>年度</dt><dd>{{ workshop.years.map(y => y + '年度').join(' / ') || '未設定' }}</dd></div>
+          <div><dt>班</dt><dd>{{ workshop.teams.join(' / ') || '未定' }}</dd></div>
+          <div><dt>年度</dt><dd>{{ workshop.years.map(y => y + '年度').join(' / ') || '未定' }}</dd></div>
         </dl>
         <template #footer>
           <div class="workshop-card-footer">
-            <span>{{ workshop.occurrenceCount === 1 ? '1回完結' : workshop.occurrenceCount + '開催' }}</span>
-            <span class="workshop-card-open">詳細を見る<AppIcon name="chevron" :size="18" /></span>
+            <span>{{ workshop.occurrenceCount === 0 ? '開催未定' : workshop.occurrenceCount === 1 ? '1回完結' : workshop.occurrenceCount + '開催' }}</span>
+            <span class="workshop-card-open">{{ workshop.published ? '詳細を見る' : '編集を続ける' }}<AppIcon name="chevron" :size="18" /></span>
           </div>
         </template>
       </BasiqCard>

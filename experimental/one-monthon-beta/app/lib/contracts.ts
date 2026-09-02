@@ -25,6 +25,7 @@ export type WorkshopSummary = {
   id: number;
   title: string;
   summary: string;
+  published: boolean;
   teams: string[];
   years: number[];
   occurrenceCount: number;

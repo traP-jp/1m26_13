@@ -5,7 +5,7 @@ import { apiFailure, readJson } from '../../../lib/http';
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
-    const result = await listDiscovery(url.searchParams.get('q') ?? '', url.searchParams.get('team') ?? '', url.searchParams.get('year') ?? '');
+    const result = await listDiscovery(url.searchParams.get('q') ?? '', url.searchParams.get('team') ?? '', url.searchParams.get('year') ?? '', url.searchParams.get('includeDrafts') === '1');
     return Response.json(result, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     return apiFailure(error);
