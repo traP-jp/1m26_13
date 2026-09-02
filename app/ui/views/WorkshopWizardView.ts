@@ -5,7 +5,7 @@ import OccurrenceFields from '../components/OccurrenceFields';
 import { ApiClientError, copyOccurrence, fetchDiscovery, fetchWorkshop, saveWorkshop } from '../api';
 import { blankOccurrence, blankWorkshop, detailToInput } from '../forms/workshopForm';
 
-type EditorMode = 'wizard' | 'form' | 'edit';
+type EditorMode = 'wizard' | 'edit';
 
 export default defineComponent({
   name: 'WorkshopEditorView', components: { BasiqButton, BasiqCard, BasiqToggleButton, OccurrenceFields },
@@ -26,7 +26,7 @@ export default defineComponent({
   },
   template: `
     <main class="page editor-page" tabindex="-1">
-      <header class="page-heading"><div><h1>{{ isEdit ? '講習会を編集' : '講習会を登録' }}</h1><p>{{ isEdit ? '講習会の概要と、開催ごとの情報を編集します。' : isWizard ? '案内に沿って、最初の開催まで登録します。' : '必要な情報を一画面で直接入力します。' }}</p></div><nav v-if="!isEdit" class="editor-mode" aria-label="入力方法"><a href="/admin/workshops/new" data-route :aria-current="isWizard ? 'page' : undefined">案内付き</a><a href="/admin/workshops/new?mode=form" data-route :aria-current="!isWizard ? 'page' : undefined">通常フォーム</a></nav></header>
+      <header class="page-heading"><div><h1>{{ isEdit ? '講習会を編集' : '講習会を登録' }}</h1><p>{{ isEdit ? '講習会の概要と、開催ごとの情報を編集します。' : '案内に沿って、最初の開催まで登録します。' }}</p></div></header>
       <div v-if="loading" class="feedback" role="status">編集内容を読み込んでいます。</div>
       <template v-else>
         <div v-if="restored" class="feedback feedback-success" role="status">このブラウザに残っていた下書きを復元しました。</div>

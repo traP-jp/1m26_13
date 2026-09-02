@@ -28,15 +28,14 @@ npm run dev
 - `/workshops?view=roadmaps`: 学習者向けロードマップ一覧
 - `/workshops/:id`: 講習会まとめ兼開催詳細。複数回は`#3`のような回番号で移動
 - `/roadmaps/:id`: 段階ごとの講習会と、完了記録から導出した進捗
-- `/admin/workshops/new`: 案内付き登録
-- `/admin/workshops/new?mode=form`: 一画面の通常フォーム
+- `/admin/workshops/new`: 案内付き登録。新規作成はこの画面へ統一
 - `/admin/workshops/:id`: 講習会・開催の編集、再放送/次回の複製
 - `/admin`: 講習会作成とロードマップ管理を集約した運営向けページ
 - `/admin/roadmaps/new`: ロードマップの作成
 - `/admin/roadmaps/:id`: ロードマップの編集・公開状態変更・削除
 - `/users/demo-learner`: 完了履歴、講習会ごとのバッジ、ロードマップ進捗
 
-案内付き登録と通常フォームは、同じ講習会/開催データ型と保存APIを使います。認証は未実装で、`demo-learner`は個人情報と結び付かない固定のローカル試用personaです。
+案内付き登録と既存講習会の通常編集画面は、同じ講習会/開催データ型と保存APIを使います。認証は未実装で、`demo-learner`は個人情報と結び付かない固定のローカル試用personaです。
 
 ## 検証
 

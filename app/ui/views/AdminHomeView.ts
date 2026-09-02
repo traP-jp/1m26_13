@@ -1,4 +1,4 @@
-import { BasiqButton, BasiqCard } from 'basiq-ui';
+import { BasiqButton } from 'basiq-ui';
 import { defineComponent, onMounted, ref } from 'vue/dist/vue.esm-bundler.js';
 import type { RoadmapManage } from '../../lib/contracts';
 import { ApiClientError, fetchManagedRoadmaps } from '../api';
@@ -6,7 +6,8 @@ import AppIcon from '../components/AppIcon';
 
 export default defineComponent({
   name: 'AdminHomeView',
-  components: { AppIcon, BasiqButton, BasiqCard },
+  components: { AppIcon, BasiqButton },
+  emits: ['navigate'],
   setup() {
     const roadmaps = ref<RoadmapManage[]>([]); const loading = ref(true); const error = ref('');
     const load = async () => {
@@ -23,11 +24,7 @@ export default defineComponent({
       <header class="page-heading"><div><p class="eyebrow">運営</p><h1>運営向けページ</h1><p>講習会とロードマップの作成・編集をここから行います。</p></div></header>
 
       <section class="admin-section" aria-labelledby="admin-workshop-title">
-        <div class="section-heading"><div><h2 id="admin-workshop-title">講習会</h2><p>同じ講習会データを、案内付きまたは通常フォームで登録します。</p></div></div>
-        <div class="admin-action-grid">
-          <BasiqCard title="案内に沿って作成" description="入力内容を確認しながら段階的に登録します。"><template #footer><a class="action-link" href="/admin/workshops/new" data-route>ウィザードを開く<AppIcon name="chevron" :size="18" /></a></template></BasiqCard>
-          <BasiqCard title="通常フォームで作成" description="すべての項目を一画面で直接入力します。"><template #footer><a class="action-link" href="/admin/workshops/new?mode=form" data-route>フォームを開く<AppIcon name="chevron" :size="18" /></a></template></BasiqCard>
-        </div>
+        <div class="section-heading"><div><h2 id="admin-workshop-title">講習会</h2><p>案内に沿って、講習会と最初の開催を登録します。</p></div><BasiqButton type="button" @click="$emit('navigate', '/admin/workshops/new')">講習会を作成</BasiqButton></div>
       </section>
 
       <section class="admin-section" aria-labelledby="admin-roadmap-title">

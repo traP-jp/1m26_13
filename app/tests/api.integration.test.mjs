@@ -28,7 +28,7 @@ test('β中心導線を隔離D1で登録・公開・発見・複製・完了・�
     const afterCyclic = await json(server.baseUrl, '/api/workshops/1?manage=1'); assert.equal(afterCyclic.body.workshop.title, 'はじめてのGit'); assert.deepEqual(afterCyclic.body.workshop.successors.map((item) => item.id), [2]);
 
     const invalid = await json(server.baseUrl, '/api/workshops', { method: 'POST', body: JSON.stringify({ title: '', summary: '', occurrences: [] }) }); assert.equal(invalid.response.status, 422); assert.equal(invalid.body.error.code, 'validation_error');
-    const title = `β統合テスト ${Date.now()}`; const payload = { title, summary: '通常フォームとウィザードが共用する保存データです。', prerequisiteIds: [1], successorIds: [], occurrences: [occurrence()] };
+    const title = `β統合テスト ${Date.now()}`; const payload = { title, summary: '登録ウィザードと編集画面が共用する保存データです。', prerequisiteIds: [1], successorIds: [], occurrences: [occurrence()] };
     const created = await json(server.baseUrl, '/api/workshops', { method: 'POST', body: JSON.stringify(payload) }); assert.equal(created.response.status, 201); assert.equal(typeof created.body.workshop.id, 'number'); const id = created.body.workshop.id; const occurrenceId = created.body.workshop.occurrences[0].id;
 
     await stop(server); server = await start(port, persist);
