@@ -1,0 +1,58 @@
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { mkdtemp, mkdir, rm } from 'node:fs/promises';
+import { createServer } from 'node:net';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import test from 'node:test';
+
+const root = process.cwd(); const bin = path.join(root, 'node_modules', '.bin', 'vinext'); const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+async function reservePort() { const server = createServer(); await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); }); const address = server.address(); assert.ok(address && typeof address === 'object'); await new Promise((resolve) => server.close(resolve)); return address.port; }
+async function start(port, persistPath) { const child = spawn(bin, ['dev', '--host', '127.0.0.1', '--port', String(port)], { cwd: root, env: { ...process.env, BETA_PERSIST_PATH: persistPath, NO_COLOR: '1' }, stdio: ['ignore', 'pipe', 'pipe'] }); let output = ''; const remember = (chunk) => { output = `${output}${chunk}`.slice(-30_000); }; child.stdout.on('data', remember); child.stderr.on('data', remember); const baseUrl = `http://localhost:${port}`; for (let i = 0; i < 225; i += 1) { if (child.exitCode !== null) throw new Error(`server exited\n${output}`); try { if ((await fetch(`${baseUrl}/api/workshops`)).ok) return { child, baseUrl, output: () => output }; } catch {} await delay(200); } child.kill(); throw new Error(`server timeout\n${output}`); }
+async function stop(server) { if (!server || server.child.exitCode !== null) return; server.child.kill('SIGTERM'); await Promise.race([new Promise((resolve) => server.child.once('exit', resolve)), delay(5000)]); if (server.child.exitCode === null) server.child.kill('SIGKILL'); }
+async function json(base, route, init) { const response = await fetch(`${base}${route}`, { ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } }); return { response, body: await response.json() }; }
+const occurrence = (overrides = {}) => ({ sequenceNumber: 1, kind: 'standard', copiedFromOccurrenceId: null, title: null, description: 'API統合テストで学べる内容です。', team: 'テスト班', year: 2026, scheduledAt: '2026-09-02T10:00', location: '部室', instructor: '運営', audience: '初めて学ぶ人', prerequisites: '特になし', materialUrl: 'https://example.com/material', materialLabel: '教材を開く', status: 'published', ...overrides });
+
+test('β中心導線を隔離D1で登録・公開・発見・複製・完了・ロードマップまで一巡する', { timeout: 120_000 }, async () => {
+  const tempRoot = await mkdtemp(path.join(tmpdir(), 'one-monthon-beta-api-')); const persist = path.join(tempRoot, 'state'); await mkdir(persist); const port = await reservePort(); let server;
+  try {
+    server = await start(port, persist);
+    const initial = await json(server.baseUrl, '/api/workshops'); assert.equal(initial.response.status, 200); assert.equal(initial.body.workshops.length, 3); assert.equal(initial.body.roadmaps.length, 1);
+    const single = await json(server.baseUrl, '/api/workshops/1'); assert.equal(single.body.workshop.occurrences.length, 1); assert.equal(single.body.workshop.occurrences[0].kind, 'standard');
+    const multiple = await json(server.baseUrl, '/api/workshops/2'); assert.deepEqual(multiple.body.workshop.occurrences.map((item) => item.sequenceNumber), [1, 2, 3]);
+    const rebroadcast = await json(server.baseUrl, '/api/workshops/3'); assert.equal(rebroadcast.body.workshop.occurrences.filter((item) => item.sequenceNumber === 1).length, 2); assert.ok(rebroadcast.body.workshop.occurrences.some((item) => item.kind === 'rebroadcast' && item.copiedFromOccurrenceId === 5));
+    const hidden = await json(server.baseUrl, '/api/workshops/4'); assert.equal(hidden.response.status, 404); const manageable = await json(server.baseUrl, '/api/workshops/4?manage=1'); assert.equal(manageable.response.status, 200); assert.equal(manageable.body.workshop.occurrences[0].status, 'draft');
+
+    const singleManage = await json(server.baseUrl, '/api/workshops/1?manage=1'); const cyclicInput = { title: '更新されてはいけない名前', summary: singleManage.body.workshop.summary, prerequisiteIds: [2], successorIds: [3], occurrences: singleManage.body.workshop.occurrences };
+    const cyclic = await json(server.baseUrl, '/api/workshops/1', { method: 'PUT', body: JSON.stringify(cyclicInput) }); assert.equal(cyclic.response.status, 409); assert.equal(cyclic.body.error.code, 'relation_cycle');
+    const afterCyclic = await json(server.baseUrl, '/api/workshops/1?manage=1'); assert.equal(afterCyclic.body.workshop.title, 'はじめてのGit'); assert.deepEqual(afterCyclic.body.workshop.successors.map((item) => item.id), [2]);
+
+    const invalid = await json(server.baseUrl, '/api/workshops', { method: 'POST', body: JSON.stringify({ title: '', summary: '', occurrences: [] }) }); assert.equal(invalid.response.status, 422); assert.equal(invalid.body.error.code, 'validation_error');
+    const title = `β統合テスト ${Date.now()}`; const payload = { title, summary: '通常フォームとウィザードが共用する保存データです。', prerequisiteIds: [1], successorIds: [], occurrences: [occurrence()] };
+    const created = await json(server.baseUrl, '/api/workshops', { method: 'POST', body: JSON.stringify(payload) }); assert.equal(created.response.status, 201); assert.equal(typeof created.body.workshop.id, 'number'); const id = created.body.workshop.id; const occurrenceId = created.body.workshop.occurrences[0].id;
+
+    await stop(server); server = await start(port, persist);
+    const persisted = await json(server.baseUrl, `/api/workshops/${id}`); assert.equal(persisted.body.workshop.title, title); assert.deepEqual(persisted.body.workshop.prerequisites.map((item) => item.id), [1]);
+    const filtered = await json(server.baseUrl, `/api/workshops?q=${encodeURIComponent('β統合')}&team=${encodeURIComponent('テスト班')}&year=2026`); assert.deepEqual(filtered.body.workshops.map((item) => item.id), [id]);
+
+    const copied = await json(server.baseUrl, `/api/workshops/${id}/occurrences/${occurrenceId}/copy`, { method: 'POST', body: JSON.stringify({ kind: 'rebroadcast' }) }); assert.equal(copied.response.status, 201); assert.equal(copied.body.workshop.occurrences.length, 2); const copy = copied.body.workshop.occurrences.find((item) => item.id !== occurrenceId); assert.equal(copy.kind, 'rebroadcast'); assert.equal(copy.copiedFromOccurrenceId, occurrenceId); assert.equal(copy.description, persisted.body.workshop.occurrences[0].description);
+    const updatedInput = { title, summary: payload.summary, prerequisiteIds: [1], successorIds: [], occurrences: copied.body.workshop.occurrences.map((item) => ({ ...item, description: item.id === copy.id ? '複製後に独立して変更した内容です。' : item.description })) };
+    const updated = await json(server.baseUrl, `/api/workshops/${id}`, { method: 'PUT', body: JSON.stringify(updatedInput) }); assert.equal(updated.response.status, 200); assert.notEqual(updated.body.workshop.occurrences[0].description, updated.body.workshop.occurrences[1].description);
+
+    const [doneA, doneB] = await Promise.all([json(server.baseUrl, `/api/users/demo-learner/completions/${id}`, { method: 'PUT' }), json(server.baseUrl, `/api/users/demo-learner/completions/${id}`, { method: 'PUT' })]); assert.equal(doneA.response.status, 200); assert.equal(doneB.response.status, 200);
+    const profile = await json(server.baseUrl, '/api/users/demo-learner'); assert.equal(profile.body.profile.completions.filter((item) => item.workshopId === id).length, 1); assert.equal(profile.body.profile.badges.filter((item) => item.workshopId === id).length, 1);
+    const roadmapPayload = { title: 'API管理ロードマップ', summary: '作成・編集・削除を確認します。', audience: '内部試用者', status: 'draft', stages: [{ title: '準備', description: '最初の段階', items: [{ workshopId: 1, note: '先に受ける' }] }, { title: '実践', description: '次の段階', items: [{ workshopId: 2, note: '' }] }] };
+    const createdRoadmap = await json(server.baseUrl, '/api/roadmaps', { method: 'POST', body: JSON.stringify(roadmapPayload) }); assert.equal(createdRoadmap.response.status, 201); const createdRoadmapId = createdRoadmap.body.roadmap.id; assert.equal(createdRoadmap.body.roadmap.stages.length, 2);
+    const hiddenRoadmap = await json(server.baseUrl, `/api/roadmaps/${createdRoadmapId}`); assert.equal(hiddenRoadmap.response.status, 404);
+    const managedRoadmap = await json(server.baseUrl, `/api/roadmaps/${createdRoadmapId}?manage=1`); assert.equal(managedRoadmap.response.status, 200); assert.equal(managedRoadmap.body.roadmap.stages[0].items[0].note, '先に受ける');
+    const managedRoadmaps = await json(server.baseUrl, '/api/roadmaps'); assert.ok(managedRoadmaps.body.roadmaps.some((roadmap) => roadmap.id === createdRoadmapId));
+    const publishedRoadmap = await json(server.baseUrl, `/api/roadmaps/${createdRoadmapId}`, { method: 'PUT', body: JSON.stringify({ ...roadmapPayload, title: '更新済みAPI管理ロードマップ', status: 'published' }) }); assert.equal(publishedRoadmap.response.status, 200); assert.equal(publishedRoadmap.body.roadmap.status, 'published');
+    const visibleRoadmap = await json(server.baseUrl, `/api/roadmaps/${createdRoadmapId}`); assert.equal(visibleRoadmap.response.status, 200); assert.equal(visibleRoadmap.body.roadmap.workshopCount, 2);
+    const deletedRoadmap = await fetch(`${server.baseUrl}/api/roadmaps/${createdRoadmapId}`, { method: 'DELETE' }); assert.equal(deletedRoadmap.status, 204);
+    const deletedRoadmapLookup = await json(server.baseUrl, `/api/roadmaps/${createdRoadmapId}?manage=1`); assert.equal(deletedRoadmapLookup.response.status, 404);
+    const roadmapBefore = await json(server.baseUrl, '/api/roadmaps/1'); assert.equal(roadmapBefore.response.status, 200); const roadmapWorkshopId = roadmapBefore.body.roadmap.nextWorkshopId; await json(server.baseUrl, `/api/users/demo-learner/completions/${roadmapWorkshopId}`, { method: 'PUT' }); const roadmapAfter = await json(server.baseUrl, '/api/roadmaps/1'); assert.equal(roadmapAfter.body.roadmap.completedCount, roadmapBefore.body.roadmap.completedCount + 1);
+    const removed = await json(server.baseUrl, `/api/users/demo-learner/completions/${id}`, { method: 'DELETE' }); assert.equal(removed.body.profile.completions.some((item) => item.workshopId === id), false); assert.equal(removed.body.profile.badges.some((item) => item.workshopId === id), false);
+    const badId = await json(server.baseUrl, '/api/workshops/not-a-number'); assert.equal(badId.response.status, 404);
+  } catch (error) { if (server) process.stderr.write(`\n--- server output ---\n${server.output()}\n`); throw error; }
+  finally { await stop(server); await rm(tempRoot, { recursive: true, force: true }); }
+});
