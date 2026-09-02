@@ -31,6 +31,7 @@
 .form-card-heading > div:first-child { display: flex; flex-direction: column; }
 .form-card-heading span { color: var(--basiq-color-content-subtle); font-size: .78rem; }
 .occurrence-form-card { border: 1px solid var(--basiq-color-border-separator); background: var(--basiq-color-surface-base); }
+.occurrence-add-button { flex: 0 0 auto; white-space: nowrap; }
 .copy-actions, .form-actions { display: flex; gap: var(--basiq-space-200); }
 .form-actions {
   z-index: 10;

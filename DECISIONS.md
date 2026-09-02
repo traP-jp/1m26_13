@@ -456,6 +456,19 @@
 - 再検討する条件: 開催単位の監査・復元・権限や、開催0件で講習会を維持する運用が確定した場合。
 - 参照: 本人指定のtraQレビュー（19:06、19:08、`https://q.trap.jp/channels/event/1-Monthon/26/13/Zenn`、読み取り専用）、`app/ui/components/OccurrenceFields.ts`、`app/ui/components/WorkshopSummaryCard.ts`、`app/db/repository.ts`
 
+## D-20260902-035 — 編集の初期読込失敗時はフォームを隠して再試行へ限定する
+
+- 状態: decided
+- 判断が必要だった理由: 追加レビューで、サーバーへ接続できないときに未取得の編集情報を表示せず、再試行だけを提示することが求められた。保存中の失敗とは異なり、初期読込失敗では正しい編集対象を構成できない。
+- 選択肢:
+  1. 空フォームと失敗feedbackを同時に表示し、利用者が入力を始められるようにする。
+  2. 初期読込失敗を専用状態にし、フォーム全体を隠して再試行だけを出す。
+- 決定: 選択肢2。`loadFailed`を読込中・保存失敗と分け、同じ`load`を呼ぶbasiQ-ui neutral outlineの再試行ボタンを表示する。開催追加は記号だけのoutlineからaccent solidの「開催データを追加」へ置換する。
+- 根拠: 未取得情報を正しい値に見せて上書きする事故を防ぎ、利用者の次の操作を明確にできる。basiQ-uiの既存feedback/Button状態で実現できる。
+- 影響: `WorkshopWizardView`と、モバイルで追加ボタンの文言を保つレイアウト規則1件を更新する。保存失敗時は入力保持を維持し、初期読込失敗時だけフォームを隠す。新規依存・migrationはない。
+- 再検討する条件: オフライン編集やローカルキャッシュからの復元を、データ版管理付きで実装する場合。
+- 参照: 本人指定のtraQレビュー（19:13、`https://q.trap.jp/channels/event/1-Monthon/26/13/Zenn`、読み取り専用）、`app/ui/views/WorkshopWizardView.ts`
+
 ---
 
 ## 追記テンプレート
