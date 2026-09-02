@@ -35,7 +35,7 @@ export default defineComponent({
         </dl>
         <template #footer>
           <div class="workshop-card-footer">
-            <span>{{ workshop.occurrenceCount === 0 ? '開催未定' : workshop.occurrenceCount === 1 ? '1回完結' : workshop.occurrenceCount + '開催' }}</span>
+            <span>{{ workshop.occurrenceCount === 0 ? '開催未定' : workshop.occurrenceCount === 1 ? '1回完結' : '全' + workshop.occurrenceCount + '回' }}</span>
             <span class="workshop-card-open">詳細を見る<AppIcon name="chevron" :size="18" /></span>
           </div>
         </template>
