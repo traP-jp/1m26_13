@@ -417,6 +417,19 @@
 - 再検討する条件: 本番で運営者以外へ作成中講習会を見せない権限要件が確定した場合は、ホームの`includeDrafts`を認証済み管理者へ限定する。
 - 参照: 本人指定のtraQレビュー（18:25、18:27、`https://q.trap.jp/channels/event/1-Monthon/26/13/Zenn`、読み取り専用）、`app/db/repository.ts`、`app/ui/views/HomeView.ts`、`app/ui/components/WorkshopSummaryCard.ts`、`app/ui/components/OccurrenceFields.ts`
 
+## D-20260902-032 — 前後関係の複数選択を件数と明るい緑で明示する
+
+- 状態: decided
+- 判断が必要だった理由: 追加レビューで、「先に学ぶ」「次に学ぶ」を同時に1件以上選べないように見え、選択状態も背景が薄すぎて判別しづらいと確認された。実ブラウザでは両側の複数選択自体は成立していたため、モデルを広げる変更ではなく操作結果の可視化が必要だった。
+- 選択肢:
+  1. basiQ-ui `ToggleButton`の既定on-stateだけを維持する。
+  2. 両見出しへ選択件数を表示し、選択行と実コンポーネントのon-stateを既存の成功色tokenへ対応させる。
+- 決定: 選択肢2。両側は独立した配列として複数選択を維持し、重複IDを除く。同一講習会を前後へ同時指定する操作だけは直接の循環になるため、従来どおり反対側から外す。
+- 根拠: 2件+1件の同時選択と保存結果をその場で確認でき、独自トグルや新しい色を作らずbasiQ-uiの状態変数と既存の完了色でレビュー意図を満たせる。
+- 影響: `WorkshopWizardView`、ドメインテスト、API統合テストを更新する。新規CSSセレクタ、依存、migration、保存形式の変更はない。循環関係のAPI拒否も維持する。
+- 再検討する条件: 同じ講習会を前後へ同時指定することに循環以外の運用上の意味が確定した場合、またはbasiQ-uiに成功toneのToggleButtonが追加された場合。
+- 参照: 本人指定のtraQレビュー（18:32、`https://q.trap.jp/channels/event/1-Monthon/26/13/Zenn`、読み取り専用）、`app/ui/views/WorkshopWizardView.ts`、`app/lib/domain.ts`
+
 ---
 
 ## 追記テンプレート
