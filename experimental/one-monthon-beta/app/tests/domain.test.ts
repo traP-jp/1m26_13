@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { assertRelations, DomainError, hasCycle, parsePositiveId, validateRoadmapInput, validateWorkshopInput } from '../lib/domain.ts';
+import type { OccurrenceInput } from '../lib/contracts.ts';
+import { renumberOccurrenceGroups } from '../ui/forms/workshopForm.ts';
 
-const occurrence = { sequenceNumber: 1, kind: 'standard', title: null, description: ' この回で学べること ', team: ' Web班 ', year: 2026, scheduledAt: null, location: '', instructor: '', audience: ' 初心者 ', prerequisites: '', materialUrl: 'https://example.com/material', materialLabel: '教材', status: 'published' };
+const occurrence: OccurrenceInput = { sequenceNumber: 1, kind: 'standard', title: null, description: ' この回で学べること ', team: ' Web班 ', year: 2026, scheduledAt: null, location: '', instructor: '', audience: ' 初心者 ', prerequisites: '', materialUrl: 'https://example.com/material', materialLabel: '教材', status: 'published' };
 const input = { title: ' 講習会 ', summary: ' 概要 ', prerequisiteIds: [1], successorIds: [2], occurrences: [occurrence] };
 
 test('講習会と開催の入力を正規化する', () => { const result = validateWorkshopInput(input); assert.equal(result.title, '講習会'); assert.equal(result.occurrences[0].description, 'この回で学べること'); assert.equal(result.occurrences[0].team, 'Web班'); });
@@ -16,3 +18,4 @@ test('編集対象の既存関係を置換し循環を拒否する', () => { ass
 test('先に学ぶ・次に学ぶをそれぞれ複数選択できる', () => { assert.deepEqual(assertRelations([1, 2, 3, 4, 5], [], 5, [1, 2], [3, 4]), [{ prerequisiteId: 1, successorId: 5 }, { prerequisiteId: 2, successorId: 5 }, { prerequisiteId: 5, successorId: 3 }, { prerequisiteId: 5, successorId: 4 }]); });
 test('ロードマップ入力をboolean公開状態と講習会の順序として正規化する', () => { const result = validateRoadmapInput({ title: ' Web入門 ', summary: ' 基礎から進む ', audience: ' 初心者 ', published: true, stages: [{ items: [{ workshopId: 1, note: ' 先に受ける ' }] }] }); assert.equal(result.title, 'Web入門'); assert.equal(result.published, true); assert.equal(result.stages[0].items[0].note, '先に受ける'); });
 test('ロードマップ内の講習会重複、空の段階、非boolean公開状態を拒否する', () => { assert.throws(() => validateRoadmapInput({ title: '重複', summary: '概要', audience: '対象', published: false, stages: [{ items: [{ workshopId: 1 }] }, { items: [{ workshopId: 1 }] }] }), (error: unknown) => error instanceof DomainError && error.fields?.stages.includes('重複') === true); assert.throws(() => validateRoadmapInput({ title: '空', summary: '概要', audience: '対象', published: false, stages: [] }), (error: unknown) => error instanceof DomainError && error.fields?.stages.includes('1件') === true); assert.throws(() => validateRoadmapInput({ title: '公開状態不正', summary: '概要', audience: '対象', published: 'published', stages: [{ items: [{ workshopId: 1 }] }] }), (error: unknown) => error instanceof DomainError && Boolean(error.fields?.published)); });
+test('開催削除後は残る回と再放送を先頭から連番へ振り直す', () => { const result = renumberOccurrenceGroups([{ ...occurrence, sequenceNumber: 2 }, { ...occurrence, sequenceNumber: 2, kind: 'rebroadcast' }, { ...occurrence, sequenceNumber: 4 }]); assert.deepEqual(result.map((item) => item.sequenceNumber), [1, 1, 2]); });

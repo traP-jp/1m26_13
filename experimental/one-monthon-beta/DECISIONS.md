@@ -482,6 +482,19 @@
 - 再検討する条件: 認証・権限を実装し、管理preview URLを権限で保護する時点、または保存と公開を同一操作にする運用が確定した場合。
 - 参照: 本人指定のtraQレビュー（19:25、`https://q.trap.jp/channels/event/1-Monthon/26/13/Zenn`、読み取り専用）、`app/ui/views/WorkshopWizardView.ts`、`app/ui/views/WorkshopDetailView.ts`、`app/ui/components/WorkshopSummaryCard.ts`
 
+## D-20260903-037 — 開催削除後は回グループを再採番し、ロードマップ完了だけを成功色で示す
+
+- 状態: decided
+- 判断が必要だった理由: 追加レビューで、第1回削除後に第2回だけが残る番号飛び、ロードマップの現在地線と円マーカーの重なり、全件完了後も青い選択色のままになる表示が確認された。
+- 選択肢:
+  1. 回番号は利用者入力のまま残し、ロードマップの既存accent表現も維持する。
+  2. 削除操作の時点だけ残存回を1から再採番し、現在地は青、完了は既存成功色という意味分けを画面全体で揃える。
+- 決定: 選択肢2。開催は同じ`sequenceNumber`を持つ通常開催・再放送を1グループとして連番へ写像する。ロードマップ経路は行を12px内側へ置いて左のaccent線とマーカーを分離し、完了ロードマップの一覧行とbasiQ-ui `Card`は`--app-success`、`--app-success-soft`および`--basiq-color-card-background`で緑表示する。
+- 根拠: 再放送を回の中で区別する設計を壊さず、人向け番号の欠番を防げる。青を現在地・主操作、緑を完了に限定する既存β方針とも一致し、Card自体の描画はbasiQ-ui tokenに委ねられる。
+- 影響: `workshopForm`、`WorkshopWizardView`、`WorkshopListView`、ロードマップ既存CSS、ドメイン/APIテストを更新する。回番号の手入力、内部開催ID、コピー元、永続化形式、依存、migrationは変更しない。
+- 再検討する条件: 回番号を任意の章番号として欠番込みで保持する運用、またはbasiQ-uiにsuccess toneのCard/進捗部品が追加された場合。
+- 参照: 本人指定のtraQレビュー（2026-09-03 00:01〜00:04、`https://q.trap.jp/channels/event/1-Monthon/26/13/Zenn`、読み取り専用）、`app/ui/forms/workshopForm.ts`、`app/ui/views/WorkshopListView.ts`、`app/styles/pages.css`
+
 ---
 
 ## 追記テンプレート
