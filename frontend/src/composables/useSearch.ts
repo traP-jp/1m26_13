@@ -16,12 +16,22 @@ export function useSearch() {
     year: null,
     startDate: '',
     endDate: '',
-    format: ''
+    format: '',
+    roadmapId: ''
+  });
+
+  const selectedRoadmap = computed(() => {
+    if (!filter.value.roadmapId) return null;
+    return roadmaps.value.find((r) => r.id === filter.value.roadmapId) || null;
   });
 
   const filteredLectures = computed(() => {
     return lectures.value.filter((item) => {
-      // キーワード検索（タイトル、概要、講師名）
+      // ロードマップによる絞り込み
+      if (filter.value.roadmapId && !item.roadmapIds.includes(filter.value.roadmapId)) {
+        return false;
+      }
+      // キーワード検索
       if (filter.value.keyword) {
         const kw = filter.value.keyword.toLowerCase();
         const matchTitle = item.title.toLowerCase().includes(kw);
@@ -29,7 +39,7 @@ export function useSearch() {
         const matchInst = item.instructors.some((inst) => inst.toLowerCase().includes(kw));
         if (!matchTitle && !matchDesc && !matchInst) return false;
       }
-      // 講師（高度な検索）
+      // 講師
       if (filter.value.instructor) {
         const instKw = filter.value.instructor.toLowerCase();
         if (!item.instructors.some((i) => i.toLowerCase().includes(instKw))) return false;
@@ -40,7 +50,7 @@ export function useSearch() {
       if (filter.value.year && item.year !== filter.value.year) return false;
       // 形式
       if (filter.value.format && item.format !== filter.value.format) return false;
-      // 日付範囲
+      // 日付
       if (filter.value.startDate && item.date && item.date < filter.value.startDate) return false;
       if (filter.value.endDate && item.date && item.date > filter.value.endDate) return false;
 
@@ -62,6 +72,15 @@ export function useSearch() {
     });
   });
 
+  const selectRoadmapFilter = (roadmapId: string) => {
+    filter.value.roadmapId = roadmapId;
+    activeTab.value = 'lectures'; // 講習会一覧タブへ自動切替
+  };
+
+  const clearRoadmapFilter = () => {
+    filter.value.roadmapId = '';
+  };
+
   const resetFilter = () => {
     filter.value = {
       keyword: '',
@@ -70,7 +89,8 @@ export function useSearch() {
       year: null,
       startDate: '',
       endDate: '',
-      format: ''
+      format: '',
+      roadmapId: ''
     };
   };
 
@@ -78,8 +98,11 @@ export function useSearch() {
     activeTab,
     isModalOpen,
     filter,
+    selectedRoadmap,
     filteredLectures,
     filteredRoadmaps,
+    selectRoadmapFilter,
+    clearRoadmapFilter,
     resetFilter
   };
 }

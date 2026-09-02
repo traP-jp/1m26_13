@@ -2,14 +2,14 @@
   <div class="lecture-card" @click="goDetail">
     <div class="card-header">
       <span class="badge team">{{ session.team }}</span>
-      <span class="badge year">{{ session.year }}年度 {{ session.season }}</span>
+      <span class="badge year">{{ session.year }}年度</span>
       <span class="badge format">{{ session.format }}</span>
     </div>
     <h3 class="title">{{ session.title }}</h3>
     <p class="description">{{ session.description }}</p>
     <div class="card-footer">
       <span class="instructors">講師: {{ session.instructors.map(i => '@' + i).join(', ') }}</span>
-      <span v-if="session.date" class="date">{{ session.date }} {{ session.location }}</span>
+      <span v-if="session.date" class="date">{{ session.date }}</span>
     </div>
   </div>
 </template>

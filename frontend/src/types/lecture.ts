@@ -3,24 +3,23 @@ export type Team = 'SysAd' | 'Game' | 'CTF' | 'Algorithm' | 'Kaggle' | 'Graphics
 export type LectureFormat = '対面' | 'オンライン' | 'ハイブリッド' | 'アーカイブ/動画';
 
 export interface LectureSession {
-  id: string; // 例: "2026-sysad-web-1"
-  seriesId: string; // 例: "2026-sysad-web"
-  title: string; // 例: "Webエンジニアになろう講習会 第1回"
-  seriesTitle: string; // 例: "Webエンジニアになろう講習会"
-  sessionNumber: number; // 例: 1
-  year: number; // 例: 2026
-  season: '春' | '秋' | '通年';
+  id: string;
+  seriesId: string;
+  title: string;
+  seriesTitle: string;
+  sessionNumber: number;
+  year: number;
   team: Team;
-  instructors: string[]; // traQ ID (例: ["Lachite", "quarantineeeeeeeeee"])
+  instructors: string[];
   description: string;
-  prerequisites?: string; // 参加前の準備
+  prerequisites?: string;
   targetAudience: string;
   format: LectureFormat;
-  date?: string; // 例: "2026-06-09"
-  location?: string; // 例: "S2-204"
+  date?: string; // YYYY-MM-DD
+  location?: string;
   materials: { title: string; url: string }[];
   recordingUrl?: string;
-  roadmapIds: string[]; // 含まれるロードマップID
+  roadmapIds: string[];
 }
 
 export interface Roadmap {
@@ -40,4 +39,5 @@ export interface SearchFilter {
   startDate: string;
   endDate: string;
   format: LectureFormat | '';
+  roadmapId: string; // 特定ロードマップでの絞り込み用
 }
