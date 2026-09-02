@@ -2,6 +2,7 @@ import initialSchema from '../drizzle/0000_red_sleepwalker.sql?raw';
 import betaSchema from '../drizzle/0001_beta_model.sql?raw';
 import roadmapPublishedBoolean from '../drizzle/0002_roadmap_published_boolean.sql?raw';
 import betaSeedState from '../drizzle/0003_beta_seed_state.sql?raw';
+import extendedBetaCatalog from '../drizzle/0004_extended_beta_catalog.sql?raw';
 
 type LocalMigration = {
   id: string;
@@ -38,5 +39,9 @@ export const localMigrations: LocalMigration[] = [
   {
     id: '0003_beta_seed_state',
     statements: parseInitialMigration(betaSeedState),
+  },
+  {
+    id: '0004_extended_beta_catalog',
+    statements: parseInitialMigration(extendedBetaCatalog),
   },
 ];

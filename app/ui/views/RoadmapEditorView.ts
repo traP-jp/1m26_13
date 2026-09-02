@@ -1,5 +1,5 @@
 import { BasiqButton, BasiqCard, BasiqToggleButton } from 'basiq-ui';
-import { computed, defineComponent, ref, watch, type PropType } from 'vue/dist/vue.esm-bundler.js';
+import { computed, defineComponent, nextTick, ref, watch, type PropType } from 'vue/dist/vue.esm-bundler.js';
 import type { RoadmapInput, RoadmapInputStage, WorkshopSummary } from '../../lib/contracts';
 import { ApiClientError, fetchDiscovery, fetchManagedRoadmap, removeRoadmap, saveRoadmap } from '../api';
 
@@ -41,6 +41,12 @@ export default defineComponent({
     const onWorkshopChange = (stage: RoadmapInputStage, workshopId: number, event: Event) => toggleWorkshop(stage, workshopId, (event.currentTarget as HTMLInputElement).checked);
     const addStage = () => form.value.stages.push(blankStage());
     const removeStage = (index: number) => { if (form.value.stages.length > 1) form.value.stages.splice(index, 1); };
+    const revealPublicationNotice = async (published: boolean) => {
+      noticeTone.value = published ? 'success' : 'danger';
+      notice.value = published ? 'ロードマップを公開しました。' : 'ロードマップを非公開にしました。';
+      await nextTick();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
     const submit = async () => {
       saving.value = true; error.value = ''; fields.value = {}; notice.value = '';
       try {
@@ -50,8 +56,7 @@ export default defineComponent({
         if (!isEdit.value) {
           emit('navigate', `/admin/roadmaps/${roadmap.id}`);
         } else if (previousPublished !== roadmap.published) {
-          noticeTone.value = roadmap.published ? 'success' : 'danger';
-          notice.value = roadmap.published ? 'ロードマップを公開しました。' : 'ロードマップを非公開にしました。';
+          await revealPublicationNotice(roadmap.published);
         } else {
           noticeTone.value = 'success';
           notice.value = 'ロードマップを保存しました。';
