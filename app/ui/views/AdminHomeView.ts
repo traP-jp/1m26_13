@@ -35,8 +35,8 @@ export default defineComponent({
         <ul v-else class="admin-roadmap-list">
           <li v-for="roadmap in roadmaps" :key="roadmap.id">
             <span><strong>{{ roadmap.title }}</strong><small>{{ roadmap.summary }}</small></span>
-            <span class="status-label" :class="roadmap.status === 'published' ? 'published' : 'draft'">{{ roadmap.status === 'published' ? '公開中' : '下書き' }}</span>
-            <span class="admin-row-actions"><a v-if="roadmap.status === 'published'" :href="'/roadmaps/' + roadmap.id" data-route>閲覧</a><a :href="'/admin/roadmaps/' + roadmap.id" data-route>編集</a></span>
+            <span class="status-label" :class="roadmap.published ? 'published' : 'draft'">{{ roadmap.published ? '公開中' : '下書き' }}</span>
+            <span class="admin-row-actions"><a v-if="roadmap.published" :href="'/roadmaps/' + roadmap.id" data-route>閲覧</a><a :href="'/admin/roadmaps/' + roadmap.id" data-route>編集</a></span>
           </li>
         </ul>
       </section>

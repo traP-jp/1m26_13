@@ -21,6 +21,7 @@ export default defineComponent({
       if (!current?.nextWorkshopId) return null;
       return current.stages.flatMap((stage) => stage.items).find((item) => item.workshopId === current.nextWorkshopId) ?? null;
     });
+    const pathItems = computed(() => roadmap.value?.stages.flatMap((stage) => stage.items) ?? []);
 
     const load = async () => {
       loading.value = true;
@@ -36,7 +37,7 @@ export default defineComponent({
     };
 
     watch(() => props.roadmapId, load, { immediate: true });
-    return { roadmap, loading, error, load, nextWorkshop, progressPercent };
+    return { roadmap, loading, error, load, nextWorkshop, pathItems, progressPercent };
   },
   template: `
     <main class="page roadmap-page" tabindex="-1">
@@ -73,31 +74,21 @@ export default defineComponent({
               <p>このロードマップに講習会が追加されると、ここに順番が表示されます。</p>
             </div>
 
-            <ol v-else class="roadmap-stage-list">
-              <li v-for="stage in roadmap.stages" :key="stage.id" class="roadmap-stage">
-                <header class="roadmap-stage-heading">
-                  <span class="roadmap-stage-number" aria-hidden="true">{{ stage.position }}</span>
-                  <div><h3>{{ stage.title }}</h3><p>{{ stage.description }}</p></div>
-                </header>
-                <ol class="roadmap-path-list">
-                  <li
-                    v-for="item in stage.items"
-                    :key="item.workshopId"
-                    class="roadmap-path-item"
-                    :class="{ 'is-completed': item.completed, 'is-next': item.workshopId === roadmap.nextWorkshopId }"
-                  >
-                    <span class="roadmap-path-node" aria-hidden="true">{{ item.completed ? '✓' : '' }}</span>
-                    <a :href="'/workshops/' + item.workshopId" data-route>
-                      <span class="roadmap-item-copy">
-                        <span class="roadmap-item-status">{{ item.completed ? '完了' : item.workshopId === roadmap.nextWorkshopId ? '次に進む' : '未受講' }}</span>
-                        <strong>{{ item.title }}</strong>
-                        <span>{{ item.summary }}</span>
-                        <small v-if="item.note">{{ item.note }}</small>
-                      </span>
-                      <span class="roadmap-item-link-copy">詳細を見る</span>
-                    </a>
-                  </li>
-                </ol>
+            <ol v-else class="roadmap-path-list">
+              <li
+                v-for="item in pathItems"
+                :key="item.workshopId"
+                class="roadmap-path-item"
+                :class="{ 'is-completed': item.completed, 'is-next': item.workshopId === roadmap.nextWorkshopId }"
+              >
+                <span class="roadmap-path-node" aria-hidden="true">{{ item.completed ? '✓' : '' }}</span>
+                <a :href="'/workshops/' + item.workshopId" data-route>
+                  <span class="roadmap-item-copy">
+                    <span class="roadmap-item-status">{{ item.completed ? '完了' : item.workshopId === roadmap.nextWorkshopId ? '次に進む' : '未受講' }}</span>
+                    <strong>{{ item.title }}</strong>
+                  </span>
+                  <span class="roadmap-item-link-copy">詳細を見る</span>
+                </a>
               </li>
             </ol>
           </section>

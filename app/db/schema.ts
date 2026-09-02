@@ -134,6 +134,8 @@ export const betaRoadmaps = sqliteTable('beta_roadmaps', {
   title: text('title').notNull(),
   summary: text('summary').notNull(),
   audience: text('audience').notNull(),
+  // 0002以降の公開状態の正本。statusは既存D1を壊さない移行互換のためだけに残す。
+  published: integer('published', { mode: 'boolean' }).notNull().default(false),
   status: text('status').notNull(),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
