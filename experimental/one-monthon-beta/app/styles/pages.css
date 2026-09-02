@@ -218,7 +218,8 @@
 .workshop-checklist label:last-child { border-bottom: 1px solid var(--basiq-color-border-separator); }
 .workshop-checklist label > span { min-width: 0; display: flex; flex-direction: column; }
 .workshop-checklist small { color: var(--basiq-color-content-subtle); }
-.editor-actions { position: sticky; z-index: 10; bottom: 0; display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: var(--basiq-space-300); padding-block: var(--basiq-space-300); border-top: 1px solid var(--basiq-color-border-separator); background: var(--basiq-color-surface-base); }
+.editor-actions { position: sticky; z-index: 10; bottom: 0; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: var(--basiq-space-300); padding-block: var(--basiq-space-300); border-top: 1px solid var(--basiq-color-border-separator); background: var(--basiq-color-surface-base); }
+.editor-actions > span { flex: 1; }
 
 @media (max-width: 1050px) {
   .workshop-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -268,9 +269,7 @@
   .roadmap-heading-meta { flex-wrap: wrap; }
   .admin-roadmap-list li { grid-template-columns: minmax(0, 1fr) auto; }
   .admin-row-actions { grid-column: 1 / -1; justify-content: flex-start; }
-  .editor-actions { bottom: calc(64px + env(safe-area-inset-bottom)); grid-template-columns: 1fr 1fr; }
-  .editor-actions > span { display: none; }
-  .editor-actions > * { width: 100%; }
+  .editor-actions { bottom: calc(64px + env(safe-area-inset-bottom)); }
 }
 
 @media (max-width: 480px) {

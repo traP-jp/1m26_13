@@ -1,7 +1,7 @@
 # Status
 
 更新日: 2026-09-03
-フェーズ: β版中心体験・内部レビュー反映完成 — `PLAN.md` B1〜B34を達成
+フェーズ: β版中心体験・内部レビュー反映完成 — `PLAN.md` B1〜B35を達成
 
 ## 現在地
 
@@ -44,6 +44,12 @@
 - Cron連携: Keychainのservice `codex.1-monthon.traq-bot-token`、account `1-monthon`から実行時に資格情報を取得する。既存10分heartbeat `zenn`はCLIを最初に実行し、`count=0`なら重い処理を行わず終了する指示へ更新済み。Cronプロンプトとリポジトリに秘密値は含まれない。
 
 ## 最終検証
+
+- 2026-09-03 ロードマップ編集/作成の補助操作整理後:
+  - `npm run check`: 成功。TypeScript、ESLint、ドメイン12/12、traQ CLI 8/8、隔離D1 API統合1/1、Vinext build全5段階。fail/skip/todo 0。
+  - 02:41の追加フィードバック1件をpush後のCLIで確認し、最新投稿だけに`:eyes:`を付与。キャンセルの幅と重複管理ラベルを修正した。
+  - Chrome PC（1414px）: 作成/編集のキャンセル110.55px・保存62px、同じ高さで右端配置。390px: キャンセル105.59px・保存60px。編集だけ削除を上の行へ折り返し、キャンセル・保存は同じ行を維持した。
+  - 作成/編集とも「ロードマップ管理」0件、横あふれ0。Enter/クリックのキャンセルで`/admin`へ戻り、console warning/error 0件。確認用D1以外の利用者データは変更していない。
 
 - 2026-09-03 共有開閉・経路線・複数開催表記の整理後:
   - `npm run check`: 最終ソースで成功。TypeScript、ESLint、ドメイン12/12、traQ CLI 8/8、隔離D1 API統合1/1、Vinext build全5段階。fail/skip/todo 0。
