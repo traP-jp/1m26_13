@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { RouterLink } from 'vue-router'
+import { ref } from 'vue'
+import { useRouter, RouterLink } from 'vue-router'
 import SearchBar from '@/components/SearchBar.vue'
-import { useSearch } from '@/composables/useSearch'
+
+const router = useRouter()
+const searchKeyword = ref('')
 
 const userId = import.meta.env.VITE_TRAQ_USER_ID
 
@@ -10,8 +13,14 @@ const userIconUrl = userId
   ? `https://q.trap.jp/api/v3/public/icon/${userId}`
   : 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="%23cbd5e1"/></svg>'
 
-// 検索ロジックと状態の取得
-const { filter, isModalOpen } = useSearch()
+// 検索ボタン押下またはEnter時に /search?q=キーワード へ遷移
+const executeSearch = () => {
+  if (!searchKeyword.value.trim()) return
+  router.push({
+    path: '/search',
+    query: { q: searchKeyword.value.trim() }
+  })
+}
 </script>
 
 <template>
@@ -23,8 +32,8 @@ const { filter, isModalOpen } = useSearch()
     <!-- ヘッダー中央の検索バー -->
     <div class="search-container">
       <SearchBar
-        v-model="filter.keyword"
-        @open-modal="isModalOpen = true"
+        v-model="searchKeyword"
+        @search="executeSearch"
       />
     </div>
 
