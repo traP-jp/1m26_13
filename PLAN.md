@@ -189,6 +189,16 @@
 
 検証: 全ゲートを成功させ、ChromeのPC/390pxで指定ラベル、横あふれなし、console warning/error 0件を確認する。
 
+### B17. 内部レビューに基づくプロフィール切替のタブ化
+
+状態: 完了（2026-09-02）
+
+- basiQ-uiボタン外観だった3切替を、下線で現在地を示すタブ外観へ変更する。
+- `tablist`/`tab`/`tabpanel`、選択状態、roving tabindex、左右矢印/Home/End操作は維持する。
+- basiQ-uiにTabsがないため、native buttonとbasiQ tokenだけで不足部品を最小実装する。
+
+検証: 全ゲートを成功させ、ChromeのPC/390pxでタブ外観、クリックとキーボード切替、フォーカス、横あふれなし、console warning/error 0件を確認する。
+
 ---
 
 # α版 自律実行計画（完了記録）

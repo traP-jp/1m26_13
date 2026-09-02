@@ -87,9 +87,9 @@ export default defineComponent({
         </header>
 
         <nav class="profile-tabs" aria-label="プロフィール" role="tablist">
-          <BasiqButton id="profile-tab-badges" type="button" tone="neutral" :variant="activeSection === 'badges' ? 'solid' : 'outline'" role="tab" :tabindex="activeSection === 'badges' ? 0 : -1" :aria-selected="activeSection === 'badges'" aria-controls="profile-badges" @click="activeSection = 'badges'" @keydown="handleTabKey">バッジ <span>{{ profile.badges.length }}</span></BasiqButton>
-          <BasiqButton id="profile-tab-completions" type="button" tone="neutral" :variant="activeSection === 'completions' ? 'solid' : 'outline'" role="tab" :tabindex="activeSection === 'completions' ? 0 : -1" :aria-selected="activeSection === 'completions'" aria-controls="profile-completions" @click="activeSection = 'completions'" @keydown="handleTabKey">完了した講習会 <span>{{ profile.completions.length }}</span></BasiqButton>
-          <BasiqButton id="profile-tab-roadmaps" type="button" tone="neutral" :variant="activeSection === 'roadmaps' ? 'solid' : 'outline'" role="tab" :tabindex="activeSection === 'roadmaps' ? 0 : -1" :aria-selected="activeSection === 'roadmaps'" aria-controls="profile-roadmaps" @click="activeSection = 'roadmaps'" @keydown="handleTabKey">ロードマップ <span>{{ profile.roadmaps.length }}</span></BasiqButton>
+          <button id="profile-tab-badges" type="button" role="tab" :tabindex="activeSection === 'badges' ? 0 : -1" :aria-selected="activeSection === 'badges'" aria-controls="profile-badges" @click="activeSection = 'badges'" @keydown="handleTabKey">バッジ <span>{{ profile.badges.length }}</span></button>
+          <button id="profile-tab-completions" type="button" role="tab" :tabindex="activeSection === 'completions' ? 0 : -1" :aria-selected="activeSection === 'completions'" aria-controls="profile-completions" @click="activeSection = 'completions'" @keydown="handleTabKey">完了した講習会 <span>{{ profile.completions.length }}</span></button>
+          <button id="profile-tab-roadmaps" type="button" role="tab" :tabindex="activeSection === 'roadmaps' ? 0 : -1" :aria-selected="activeSection === 'roadmaps'" aria-controls="profile-roadmaps" @click="activeSection = 'roadmaps'" @keydown="handleTabKey">ロードマップ <span>{{ profile.roadmaps.length }}</span></button>
         </nav>
 
         <section v-if="activeSection === 'badges'" id="profile-badges" class="profile-tab-panel badge-panel" role="tabpanel" aria-labelledby="profile-tab-badges">
