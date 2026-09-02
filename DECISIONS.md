@@ -495,6 +495,19 @@
 - 再検討する条件: 回番号を任意の章番号として欠番込みで保持する運用、またはbasiQ-uiにsuccess toneのCard/進捗部品が追加された場合。
 - 参照: 本人指定のtraQレビュー（2026-09-03 00:01〜00:04、`https://q.trap.jp/channels/event/1-Monthon/26/13/Zenn`、読み取り専用）、`app/ui/forms/workshopForm.ts`、`app/ui/views/WorkshopListView.ts`、`app/styles/pages.css`
 
+## D-20260903-038 — ロードマップの状態変更を保存結果で通知し、一覧行を詳細リンクにする
+
+- 状態: decided
+- 判断が必要だった理由: 追加レビューで、ロードマップの公開/非公開を保存した結果が画面上で分からず、学習者向け一覧行も選択プレビューの更新に留まって詳細へ進むには別のリンクが必要だと確認された。
+- 選択肢:
+  1. 公開トグルの表示と右プレビュー内の詳細リンクだけを維持する。
+  2. 最後に保存された公開状態と保存結果を比較して公開/非公開を色分け通知し、一覧行自体を詳細URLを持つリンクにする。
+- 決定: 選択肢2。公開保存は既存`feedback-success`、非公開保存は既存`feedback-error`を`role=status`で表示する。一覧行はsemanticな`a`へ変更し、hover/focus時の右プレビュー更新と完了色は維持する。
+- 根拠: 保存された外部状態を明確に伝え、一覧の主要対象から直接詳細へ進める。新しい通知部品や外観を作らず、既存の状態表現とレイアウトだけで実現できる。
+- 影響: `RoadmapEditorView`、`WorkshopListView`、一覧要素を`button`から`a`へ変える既存CSSセレクタを更新する。API、D1、公開条件、依存、migrationは変更しない。traQ参照は本人が明示承認した最新投稿への`:eyes:`1件だけを例外とし、投稿・編集・その他のリアクションは行っていない。
+- 再検討する条件: 保存後に一覧/詳細へ自動遷移する運用へ変える場合、またはbasiQ-uiに標準Alert/Tabs/LinkCardが追加された場合。
+- 参照: 本人指定のtraQレビュー（2026-09-03 00:35〜00:41、`https://q.trap.jp/channels/event/1-Monthon/26/13/Zenn`）、`app/ui/views/RoadmapEditorView.ts`、`app/ui/views/WorkshopListView.ts`、`app/styles/pages.css`
+
 ---
 
 ## 追記テンプレート
