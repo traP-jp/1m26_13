@@ -4,8 +4,8 @@ import type { OccurrenceInput } from '../../lib/contracts';
 
 export default defineComponent({
   name: 'OccurrenceFields', components: { BasiqButton, BasiqCard },
-  props: { modelValue: { type: Object as PropType<OccurrenceInput>, required: true }, index: { type: Number, required: true }, showCopy: { type: Boolean, default: false }, copying: { type: Boolean, default: false } },
-  emits: ['update:modelValue', 'copy'],
+  props: { modelValue: { type: Object as PropType<OccurrenceInput>, required: true }, index: { type: Number, required: true }, showCopy: { type: Boolean, default: false }, copying: { type: Boolean, default: false }, canRemove: { type: Boolean, default: false } },
+  emits: ['update:modelValue', 'copy', 'remove'],
   setup(props, { emit }) {
     const update = (key: keyof OccurrenceInput, value: unknown) => emit('update:modelValue', { ...props.modelValue, [key]: value });
     const dateValue = computed(() => props.modelValue.scheduledAt?.slice(0, 16) ?? '');
@@ -20,7 +20,7 @@ export default defineComponent({
   },
   template: `
     <BasiqCard class="occurrence-form-card">
-      <template #header><div class="form-card-heading"><div><h3>第{{ modelValue.sequenceNumber }}回の開催</h3><span v-if="modelValue.copiedFromOccurrenceId">開催 #{{ modelValue.copiedFromOccurrenceId }} から複製</span></div><div v-if="showCopy" class="copy-actions"><BasiqButton tone="neutral" variant="outline" :disabled="copying" @click="$emit('copy', 'rebroadcast')">再放送として複製</BasiqButton><BasiqButton tone="neutral" variant="outline" :disabled="copying" @click="$emit('copy', 'standard')">次回として複製</BasiqButton></div></div></template>
+      <template #header><div class="form-card-heading"><div><h3>第{{ modelValue.sequenceNumber }}回の開催</h3><span v-if="modelValue.copiedFromOccurrenceId">開催 #{{ modelValue.copiedFromOccurrenceId }} から複製</span></div><div class="copy-actions"><template v-if="showCopy"><BasiqButton tone="neutral" variant="outline" :disabled="copying" @click="$emit('copy', 'rebroadcast')">再放送として複製</BasiqButton><BasiqButton tone="neutral" variant="outline" :disabled="copying" @click="$emit('copy', 'standard')">次回として複製</BasiqButton></template><BasiqButton tone="danger" variant="outline" :disabled="!canRemove || copying" :title="canRemove ? 'この開催を削除' : '開催は1件以上必要です'" :aria-label="'第' + modelValue.sequenceNumber + '回の開催を削除'" @click="$emit('remove')">−</BasiqButton></div></div></template>
       <div class="form-grid">
         <label class="field"><span>回番号（単発講習会なら1で）</span><input :value="modelValue.sequenceNumber" type="number" min="1" max="99" @input="update('sequenceNumber', eventNumber($event))" /></label>
         <label class="field"><span>種別</span><select :value="modelValue.kind" @change="update('kind', eventValue($event))"><option value="standard">通常開催</option><option value="rebroadcast">再放送</option><option value="digest">総集編</option></select></label>

@@ -63,11 +63,17 @@ async function replaceWorkshopData(id: number, input: WorkshopInput, now: string
     d1.prepare('SELECT id FROM beta_workshops').all<{ id: number }>(), d1.prepare('SELECT prerequisite_id, successor_id FROM beta_workshop_relations').all<{ prerequisite_id: number; successor_id: number }>(), d1.prepare('SELECT id FROM beta_occurrences WHERE workshop_id = ?').bind(id).all<{ id: number }>(),
   ]);
   const edges = assertRelations(knownRows.results.map((r) => Number(r.id)), edgeRows.results.map((r) => ({ prerequisiteId: Number(r.prerequisite_id), successorId: Number(r.successor_id) })), id, input.prerequisiteIds, input.successorIds);
-  const ownIds = new Set(ownOccurrences.results.map((row) => Number(row.id))); const statements: D1PreparedStatement[] = [d1.prepare('DELETE FROM beta_workshop_relations WHERE prerequisite_id = ? OR successor_id = ?').bind(id, id)];
+  const ownIds = new Set(ownOccurrences.results.map((row) => Number(row.id))); const inputIds = new Set<number>();
+  for (const occurrence of input.occurrences) {
+    if (!occurrence.id) continue;
+    if (creating || !ownIds.has(occurrence.id) || inputIds.has(occurrence.id)) throw new DomainError(422, 'unknown_occurrence', '開催を読み込み直してください。', { occurrences: 'この講習会に属さない開催、または重複した開催が含まれています。' });
+    inputIds.add(occurrence.id);
+  }
+  const statements: D1PreparedStatement[] = [d1.prepare('DELETE FROM beta_workshop_relations WHERE prerequisite_id = ? OR successor_id = ?').bind(id, id)];
   for (const edge of edges) statements.push(d1.prepare('INSERT INTO beta_workshop_relations (prerequisite_id, successor_id, created_at) VALUES (?, ?, ?)').bind(edge.prerequisiteId, edge.successorId, now));
+  for (const occurrenceId of ownIds) if (!inputIds.has(occurrenceId)) statements.push(d1.prepare('DELETE FROM beta_occurrences WHERE id = ? AND workshop_id = ?').bind(occurrenceId, id));
   for (const occurrence of input.occurrences) {
     if (occurrence.id) {
-      if (creating || !ownIds.has(occurrence.id)) throw new DomainError(422, 'unknown_occurrence', '開催を読み込み直してください。', { occurrences: 'この講習会に属さない開催が含まれています。' });
       statements.push(updateOccurrenceStatement(occurrence, id, now));
     } else statements.push(insertOccurrenceStatement(occurrence, id, now));
   }

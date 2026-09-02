@@ -15,6 +15,7 @@ export default defineComponent({
     const isWizard = computed(() => props.editorMode === 'wizard'); const isEdit = computed(() => props.editorMode === 'edit'); const draftKey = computed(() => `one-monthon.beta.${props.editorMode}.draft.v2`);
     const applyInput = (input: WorkshopInput) => { form.title = input.title; form.summary = input.summary; form.prerequisiteIds = [...input.prerequisiteIds]; form.successorIds = [...input.successorIds]; form.occurrences = input.occurrences.map((item) => ({ ...item })); };
     const addOccurrence = () => { const next = Math.max(0, ...form.occurrences.filter((item) => item.kind === 'standard').map((item) => item.sequenceNumber)) + 1; form.occurrences.push(blankOccurrence(next)); };
+    const removeOccurrence = (index: number) => { if (form.occurrences.length > 1) { form.occurrences.splice(index, 1); notice.value = ''; } };
     const load = async () => {
       loading.value = true; error.value = '';
       try {
@@ -80,7 +81,7 @@ export default defineComponent({
       finally { deleting.value = false; }
     };
     onMounted(load); watch(form, () => { if (isWizard.value && !loading.value) sessionStorage.setItem(draftKey.value, JSON.stringify(form)); }, { deep: true });
-    return { form, options, loading, saving, deleting, copyingId, error, errorTitle, notice, fieldErrors, restored, isWizard, isEdit, toggleRelation, relationToggleStyle, addOccurrence, submit, copy, destroy };
+    return { form, options, loading, saving, deleting, copyingId, error, errorTitle, notice, fieldErrors, restored, isWizard, isEdit, toggleRelation, relationToggleStyle, addOccurrence, removeOccurrence, submit, copy, destroy };
   },
   template: `
     <main class="page editor-page" tabindex="-1">
@@ -95,7 +96,7 @@ export default defineComponent({
             <div class="form-grid"><label class="field field-wide"><span>講習会名 <em>必須</em></span><input v-model="form.title" required maxlength="100" placeholder="例: なろう講習会" :aria-invalid="Boolean(fieldErrors.title)" /></label><label class="field field-wide"><span>概要 <em>必須</em></span><textarea v-model="form.summary" required maxlength="240" rows="3" :aria-invalid="Boolean(fieldErrors.summary)"></textarea></label></div>
           </BasiqCard>
           <template v-if="isEdit">
-            <section class="form-section" aria-labelledby="occurrences-form-title"><div class="section-heading"><div><h2 id="occurrences-form-title">開催</h2><p>シリーズものの講習会であれば、回ごとに教材や対象者やこの回で学べることを書いてください。</p></div><BasiqButton type="button" tone="neutral" variant="outline" aria-label="開催を追加" @click="addOccurrence">＋</BasiqButton></div><OccurrenceFields v-for="(occurrence, index) in form.occurrences" :key="occurrence.id ?? 'new-' + index" v-model="form.occurrences[index]" :index="index" :show-copy="Boolean(occurrence.id)" :copying="copyingId === occurrence.id" @copy="copy(occurrence.id, $event)" /></section>
+            <section class="form-section" aria-labelledby="occurrences-form-title"><div class="section-heading"><div><h2 id="occurrences-form-title">開催</h2><p>シリーズものの講習会であれば、回ごとに教材や対象者やこの回で学べることを書いてください。<br />単発の講習会であれば、第1回のみの開催にしてください。</p></div><BasiqButton type="button" tone="neutral" variant="outline" aria-label="開催を追加" @click="addOccurrence">＋</BasiqButton></div><OccurrenceFields v-for="(occurrence, index) in form.occurrences" :key="occurrence.id ?? 'new-' + index" v-model="form.occurrences[index]" :index="index" :show-copy="Boolean(occurrence.id)" :copying="copyingId === occurrence.id" :can-remove="form.occurrences.length > 1" @copy="copy(occurrence.id, $event)" @remove="removeOccurrence(index)" /></section>
             <BasiqCard><template #header><div class="form-section-title"><h2>学びのつながり</h2><p>先に学んでおくべき内容と次にやるべき内容を選択してください。どちらも任意です。</p></div></template>
               <div class="relation-columns"><section><h3>先に学ぶ（{{ form.prerequisiteIds.length }}件選択）</h3><ul class="relation-options"><li v-for="item in options" :key="'before-' + item.id" :class="{ 'feedback-success': form.prerequisiteIds.includes(item.id) }"><BasiqToggleButton :model-value="form.prerequisiteIds.includes(item.id)" :style="relationToggleStyle(form.prerequisiteIds.includes(item.id))" :aria-label="item.title + 'を先に学ぶ講習会に設定'" @update:model-value="toggleRelation('prerequisiteIds', item.id, $event)">✓</BasiqToggleButton><span><strong>{{ item.title }}</strong><small>{{ item.summary }}</small></span></li></ul></section><section><h3>次に学ぶ（{{ form.successorIds.length }}件選択）</h3><ul class="relation-options"><li v-for="item in options" :key="'after-' + item.id" :class="{ 'feedback-success': form.successorIds.includes(item.id) }"><BasiqToggleButton :model-value="form.successorIds.includes(item.id)" :style="relationToggleStyle(form.successorIds.includes(item.id))" :aria-label="item.title + 'を次に学ぶ講習会に設定'" @update:model-value="toggleRelation('successorIds', item.id, $event)">✓</BasiqToggleButton><span><strong>{{ item.title }}</strong><small>{{ item.summary }}</small></span></li></ul></section></div>
             </BasiqCard>

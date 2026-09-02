@@ -22,7 +22,7 @@ export default defineComponent({
   },
   template: `
     <a class="workshop-card-link" :href="target" data-route>
-      <BasiqCard>
+      <BasiqCard class="workshop-summary-card">
         <template #header>
           <div class="workshop-card-heading">
             <span class="resource-mark team-mark" aria-hidden="true">{{ teamMark }}</span>

@@ -21,6 +21,7 @@
 .workshop-card-grid { list-style: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--basiq-space-400); }
 .workshop-card-grid li, .workshop-card-link { min-width: 0; height: 100%; }
 .workshop-card-link { display: block; border-radius: var(--basiq-radius-sm); color: inherit; text-decoration: none; }
+.workshop-summary-card { height: 100%; display: grid; grid-template-rows: auto 1fr auto; }
 .workshop-card-heading { min-width: 0; display: flex; align-items: flex-start; gap: var(--basiq-space-300); }
 .team-mark { font-size: .68rem; font-weight: 800; }
 .workshop-card-title { min-width: 0; display: flex; flex-direction: column; }
