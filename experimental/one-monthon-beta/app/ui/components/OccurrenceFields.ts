@@ -20,7 +20,7 @@ export default defineComponent({
         <label class="field"><span>回番号</span><input :value="modelValue.sequenceNumber" type="number" min="1" max="99" @input="update('sequenceNumber', eventNumber($event))" /></label>
         <label class="field"><span>種別</span><select :value="modelValue.kind" @change="update('kind', eventValue($event))"><option value="standard">通常開催</option><option value="rebroadcast">再放送</option><option value="digest">総集編</option></select></label>
         <label class="field"><span>公開状態</span><select :value="modelValue.status" @change="update('status', eventValue($event))"><option value="draft">下書き</option><option value="published">公開</option></select></label>
-        <label class="field field-wide"><span>開催名（任意）</span><input :value="modelValue.title ?? ''" placeholder="複数回なら例: HTMLとCSS" @input="update('title', eventValue($event) || null)" /></label>
+        <label class="field field-wide"><span>シリーズ名</span><input :value="modelValue.title ?? ''" placeholder="例: なろう講習会" @input="update('title', eventValue($event) || null)" /></label>
         <label class="field field-wide"><span>学べること <em>必須</em></span><textarea :value="modelValue.description" rows="4" @input="update('description', eventValue($event))"></textarea></label>
         <label class="field"><span>班 <em>必須</em></span><input :value="modelValue.team" placeholder="例: Webエンジニア班" @input="update('team', eventValue($event))" /></label>
         <label class="field"><span>年度 <em>必須</em></span><input :value="modelValue.year" type="number" min="2000" max="2100" @input="update('year', eventNumber($event))" /></label>
