@@ -4,8 +4,8 @@ export function blankOccurrence(sequenceNumber = 1): OccurrenceInput {
   return { sequenceNumber, kind: 'standard', copiedFromOccurrenceId: null, title: null, description: '', team: '', year: new Date().getFullYear(), scheduledAt: null, location: '', instructor: '', audience: '', prerequisites: '', materialUrl: null, materialLabel: '教材を開く', status: 'draft' };
 }
 
-export function blankWorkshop(): WorkshopInput {
-  return { title: '', summary: '', prerequisiteIds: [], successorIds: [], occurrences: [blankOccurrence()] };
+export function blankWorkshop(includeFirstOccurrence = true): WorkshopInput {
+  return { title: '', summary: '', prerequisiteIds: [], successorIds: [], occurrences: includeFirstOccurrence ? [blankOccurrence()] : [] };
 }
 
 export function detailToInput(detail: WorkshopDetail): WorkshopInput {

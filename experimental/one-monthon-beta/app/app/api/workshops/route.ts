@@ -14,7 +14,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const input = validateWorkshopInput(await readJson(request));
+    const input = validateWorkshopInput(await readJson(request), { allowEmptyOccurrences: true });
     const workshop = await createWorkshop(input);
     return Response.json({ workshop }, { status: 201 });
   } catch (error) {
