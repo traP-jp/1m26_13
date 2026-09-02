@@ -2,6 +2,7 @@ import { BasiqButton, BasiqCard } from 'basiq-ui';
 import { computed, defineComponent, onBeforeUnmount, onMounted, ref } from 'vue/dist/vue.esm-bundler.js';
 import type { DiscoveryResponse } from '../../lib/contracts';
 import AppIcon from '../components/AppIcon';
+import WorkshopSummaryCard from '../components/WorkshopSummaryCard';
 import { ApiClientError, fetchDiscovery } from '../api';
 
 type DiscoveryView = 'conditions' | 'roadmaps';
@@ -9,7 +10,7 @@ const empty: DiscoveryResponse = { workshops: [], roadmaps: [], teams: [], years
 
 export default defineComponent({
   name: 'WorkshopListView',
-  components: { AppIcon, BasiqButton, BasiqCard },
+  components: { AppIcon, BasiqButton, BasiqCard, WorkshopSummaryCard },
   setup() {
     const view = ref<DiscoveryView>('conditions');
     const query = ref('');
@@ -96,24 +97,18 @@ export default defineComponent({
   template: `
     <main class="page discovery-page" tabindex="-1">
       <header class="page-heading compact-heading">
-        <div><h1>講習会を探す</h1><p>過去の教材を条件で絞るか、目的に沿った学ぶ順番から選びます。</p></div>
+        <div><h1>{{ view === 'roadmaps' ? 'ロードマップ' : '講習会を探す' }}</h1><p>{{ view === 'roadmaps' ? '目的に沿った順番で講習会を確認します。' : '過去の教材を名前、班、年度から絞り込みます。' }}</p></div>
       </header>
 
-      <div class="discovery-tabs" role="tablist" aria-label="探し方">
-        <button id="conditions-tab" type="button" role="tab" :aria-selected="view === 'conditions'" aria-controls="conditions-panel" @click="setView('conditions')"><AppIcon name="search" :size="19" />条件から探す</button>
-        <button id="roadmaps-tab" type="button" role="tab" :aria-selected="view === 'roadmaps'" aria-controls="roadmaps-panel" @click="setView('roadmaps')"><AppIcon name="map" :size="19" />ロードマップから探す</button>
-      </div>
-
-      <section v-if="view === 'conditions'" id="conditions-panel" role="tabpanel" aria-labelledby="conditions-tab" class="discovery-layout">
+      <section v-if="view === 'conditions'" class="discovery-layout">
         <details class="filter-disclosure" :open="filterOpen" @toggle="syncFilterDisclosure">
           <summary><AppIcon name="search" :size="18" />絞り込み <span v-if="query || team || year">条件あり</span></summary>
           <BasiqCard class="discovery-filter">
-            <form class="filter-form" @submit.prevent="search()">
-              <div class="filter-heading"><h2>絞り込み</h2><button v-if="query || team || year" type="button" class="text-button" @click="reset">クリア</button></div>
+            <form class="filter-form" aria-label="講習会を絞り込む" @submit.prevent="search()">
               <label class="field"><span>キーワード</span><input v-model="query" type="search" placeholder="講習会名・概要" /></label>
               <label class="field"><span>班</span><select v-model="team"><option value="">すべて</option><option v-for="item in data.teams" :key="item" :value="item">{{ item }}</option></select></label>
               <label class="field"><span>年度</span><select v-model="year"><option value="">すべて</option><option v-for="item in data.years" :key="item" :value="String(item)">{{ item }}年度</option></select></label>
-              <BasiqButton type="submit" :disabled="loading">{{ loading ? '検索中…' : 'この条件で検索' }}</BasiqButton>
+              <div class="filter-actions"><button v-if="query || team || year" type="button" class="text-button" @click="reset">クリア</button><BasiqButton type="submit" :disabled="loading">{{ loading ? '検索中…' : 'この条件で検索' }}</BasiqButton></div>
             </form>
           </BasiqCard>
         </details>
@@ -122,25 +117,14 @@ export default defineComponent({
           <div class="results-heading"><div><h2>講習会</h2><p>公開済みの講習会と教材</p></div><strong aria-live="polite">{{ loading ? '—' : data.workshops.length }}件</strong></div>
           <div v-if="error" class="feedback feedback-error" role="alert"><div><strong>読み込めませんでした</strong><p>{{ error }}</p></div><BasiqButton tone="neutral" variant="outline" @click="search(false)">再試行</BasiqButton></div>
           <div v-else-if="loading" class="feedback" role="status">検索結果を読み込んでいます。</div>
-          <div v-else-if="!data.workshops.length" class="empty-state"><h3>該当する講習会はありません</h3><p>条件を減らすか、ロードマップから探してください。</p><div class="empty-actions"><BasiqButton tone="neutral" variant="outline" @click="reset">条件をクリア</BasiqButton><button type="button" class="link-button" @click="setView('roadmaps')">ロードマップを見る</button></div></div>
-          <template v-else>
-            <div class="workshop-list-head" aria-hidden="true"><span>講習会</span><span>班</span><span>年度</span><span>開催</span><span></span></div>
-            <ul class="workshop-result-list">
-              <li v-for="workshop in data.workshops" :key="workshop.id">
-                <a :href="'/workshops/' + workshop.id" data-route>
-                  <span class="workshop-result-main"><strong>{{ workshop.title }}</strong><small>{{ workshop.summary }}</small></span>
-                  <span>{{ workshop.teams.join(' / ') }}</span>
-                  <span>{{ workshop.years.map(y => y + '年度').join(' / ') }}</span>
-                  <span>{{ workshop.occurrenceCount === 1 ? '1回完結' : workshop.occurrenceCount + '開催' }}</span>
-                  <AppIcon name="chevron" :size="18" />
-                </a>
-              </li>
-            </ul>
-          </template>
+          <div v-else-if="!data.workshops.length" class="empty-state"><h3>該当する講習会はありません</h3><p>キーワードや絞り込み条件を減らして再検索してください。</p><div class="empty-actions"><BasiqButton tone="neutral" variant="outline" @click="reset">条件をクリア</BasiqButton></div></div>
+          <ul v-else class="workshop-card-grid">
+            <li v-for="workshop in data.workshops" :key="workshop.id"><WorkshopSummaryCard :workshop="workshop" /></li>
+          </ul>
         </div>
       </section>
 
-      <section v-else id="roadmaps-panel" role="tabpanel" aria-labelledby="roadmaps-tab" class="roadmap-catalog">
+      <section v-else class="roadmap-catalog">
         <form class="catalog-search" @submit.prevent="search()"><label><span class="visually-hidden">ロードマップを検索</span><AppIcon name="search" :size="19" /><input v-model="query" type="search" placeholder="ロードマップ名・対象者" /></label><BasiqButton type="submit" :disabled="loading">検索</BasiqButton></form>
         <div v-if="error" class="feedback feedback-error" role="alert"><div><strong>読み込めませんでした</strong><p>{{ error }}</p></div><BasiqButton tone="neutral" variant="outline" @click="search(false)">再試行</BasiqButton></div>
         <div v-else-if="loading" class="feedback" role="status">ロードマップを読み込んでいます。</div>

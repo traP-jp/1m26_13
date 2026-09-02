@@ -33,6 +33,11 @@ export type WorkshopSummary = {
 
 export type RelatedWorkshop = Pick<WorkshopSummary, 'id' | 'title' | 'summary'>;
 export type RoadmapSummary = { type: 'roadmap'; id: number; title: string; summary: string; audience: string; workshopCount: number; completedCount: number };
+export type RoadmapInputItem = { workshopId: number; note: string };
+export type RoadmapInputStage = { title: string; description: string; items: RoadmapInputItem[] };
+export type RoadmapInput = { title: string; summary: string; audience: string; status: PublicationStatus; stages: RoadmapInputStage[] };
+export type RoadmapManageStage = RoadmapInputStage & { id: number; position: number };
+export type RoadmapManage = Omit<RoadmapInput, 'stages'> & { id: number; createdAt: string; updatedAt: string; stages: RoadmapManageStage[] };
 export type WorkshopDetail = WorkshopSummary & { createdAt: string; updatedAt: string; occurrences: WorkshopOccurrence[]; prerequisites: RelatedWorkshop[]; successors: RelatedWorkshop[]; roadmaps: RoadmapSummary[]; completed: boolean; canManage: boolean };
 export type DiscoveryResponse = { workshops: WorkshopSummary[]; roadmaps: RoadmapSummary[]; teams: string[]; years: number[] };
 export type OccurrenceInput = Omit<WorkshopOccurrence, 'id' | 'copiedFromOccurrenceId'> & { id?: number; copiedFromOccurrenceId?: number | null };

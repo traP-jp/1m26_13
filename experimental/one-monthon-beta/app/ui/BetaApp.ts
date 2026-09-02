@@ -1,9 +1,11 @@
 import { BasiqButton, BasiqThemeProvider } from 'basiq-ui';
 import { computed, defineComponent, nextTick, onBeforeUnmount, onMounted, ref } from 'vue/dist/vue.esm-bundler.js';
 import AppIcon from './components/AppIcon';
+import AdminHomeView from './views/AdminHomeView';
 import HomeView from './views/HomeView';
 import ProfileView from './views/ProfileView';
 import RoadmapDetailView from './views/RoadmapDetailView';
+import RoadmapEditorView from './views/RoadmapEditorView';
 import WorkshopDetailView from './views/WorkshopDetailView';
 import WorkshopListView from './views/WorkshopListView';
 import WorkshopEditorView from './views/WorkshopWizardView';
@@ -13,6 +15,8 @@ type Route =
   | { name: 'workshops' }
   | { name: 'workshop'; id: string }
   | { name: 'roadmap'; id: string }
+  | { name: 'admin' }
+  | { name: 'roadmap-editor'; mode: 'new' | 'edit'; id?: string }
   | { name: 'editor'; mode: 'wizard' | 'form' | 'edit'; id?: string }
   | { name: 'profile'; id: string }
   | { name: 'not-found' };
@@ -24,6 +28,9 @@ function parseRoute(href: string): Route {
   if (segments.length === 1 && segments[0] === 'workshops') return { name: 'workshops' };
   if (segments[0] === 'workshops' && segments.length === 2) return { name: 'workshop', id: segments[1] };
   if (segments[0] === 'roadmaps' && segments.length === 2) return { name: 'roadmap', id: segments[1] };
+  if (segments.length === 1 && segments[0] === 'admin') return { name: 'admin' };
+  if (segments.join('/') === 'admin/roadmaps/new') return { name: 'roadmap-editor', mode: 'new' };
+  if (segments[0] === 'admin' && segments[1] === 'roadmaps' && segments.length === 3) return { name: 'roadmap-editor', mode: 'edit', id: segments[2] };
   if (segments.join('/') === 'admin/workshops/new') return { name: 'editor', mode: url.searchParams.get('mode') === 'form' ? 'form' : 'wizard' };
   if (segments[0] === 'admin' && segments[1] === 'workshops' && segments.length === 3) return { name: 'editor', mode: 'edit', id: segments[2] };
   if (segments[0] === 'users' && segments.length === 2) return { name: 'profile', id: segments[1] };
@@ -35,8 +42,10 @@ function routeTitle(route: Route) {
   if (route.name === 'workshops') return '講習会を探す';
   if (route.name === 'workshop') return '講習会詳細';
   if (route.name === 'roadmap') return 'ロードマップ';
+  if (route.name === 'admin') return '運営向けページ';
+  if (route.name === 'roadmap-editor') return route.mode === 'edit' ? 'ロードマップを編集' : 'ロードマップを作成';
   if (route.name === 'editor') return route.mode === 'edit' ? '講習会を編集' : '講習会を登録';
-  if (route.name === 'profile') return '学びの記録';
+  if (route.name === 'profile') return 'プロフィール';
   return 'ページが見つかりません';
 }
 
@@ -44,11 +53,13 @@ export default defineComponent({
   name: 'BetaApp',
   components: {
     AppIcon,
+    AdminHomeView,
     BasiqButton,
     BasiqThemeProvider,
     HomeView,
     ProfileView,
     RoadmapDetailView,
+    RoadmapEditorView,
     WorkshopDetailView,
     WorkshopListView,
     WorkshopEditorView,
@@ -59,11 +70,11 @@ export default defineComponent({
     const announcement = ref('');
     const currentUrl = computed(() => new URL(locationValue.value));
     const roadmapActive = computed(() => route.value.name === 'roadmap' || (route.value.name === 'workshops' && currentUrl.value.searchParams.get('view') === 'roadmaps'));
-    const workshopsActive = computed(() => route.value.name === 'workshop' || (route.value.name === 'workshops' && !roadmapActive.value));
+    const adminActive = computed(() => route.value.name === 'admin' || route.value.name === 'editor' || route.value.name === 'roadmap-editor');
 
     const updateContext = async () => {
       await nextTick();
-      const next = routeTitle(route.value);
+      const next = route.value.name === 'workshops' && roadmapActive.value ? 'ロードマップ' : routeTitle(route.value);
       document.title = `${next} | 1-Monthon β`;
       announcement.value = next;
       document.querySelector<HTMLElement>('main')?.focus({ preventScroll: true });
@@ -101,7 +112,7 @@ export default defineComponent({
       removeEventListener('popstate', sync);
       removeEventListener('one-monthon:location-change', syncFromChild);
     });
-    return { route, announcement, roadmapActive, workshopsActive, navigate, internalLink };
+    return { route, adminActive, announcement, roadmapActive, navigate, internalLink };
   },
   template: `
     <BasiqThemeProvider mode="light" class="theme-root" @click="internalLink">
@@ -116,14 +127,13 @@ export default defineComponent({
           <nav class="site-navigation" aria-label="メインナビゲーション">
             <p>学ぶ</p>
             <a href="/" data-route :aria-current="route.name === 'home' ? 'page' : undefined"><AppIcon name="home" /><span>ホーム</span></a>
-            <a href="/workshops" data-route :aria-current="workshopsActive ? 'page' : undefined"><AppIcon name="search" /><span>講習会を探す</span></a>
             <a href="/workshops?view=roadmaps" data-route :aria-current="roadmapActive ? 'page' : undefined"><AppIcon name="map" /><span>ロードマップ</span></a>
-            <a href="/users/demo-learner" data-route :aria-current="route.name === 'profile' ? 'page' : undefined"><AppIcon name="record" /><span>学びの記録</span></a>
+            <a href="/users/demo-learner" data-route :aria-current="route.name === 'profile' ? 'page' : undefined"><AppIcon name="user" /><span>プロフィール</span></a>
           </nav>
 
           <div class="sidebar-operation">
             <p>運営</p>
-            <BasiqButton class="sidebar-create" type="button" tone="neutral" variant="outline" @click="navigate('/admin/workshops/new')"><AppIcon name="edit" :size="18" />講習会を登録</BasiqButton>
+            <BasiqButton class="sidebar-create" type="button" tone="neutral" variant="outline" :aria-current="adminActive ? 'page' : undefined" @click="navigate('/admin')"><AppIcon name="edit" :size="18" />運営向けページ</BasiqButton>
           </div>
           <small class="sidebar-version">β · ローカル試用版</small>
         </aside>
@@ -136,7 +146,9 @@ export default defineComponent({
             <WorkshopListView v-else-if="route.name === 'workshops'" />
             <WorkshopDetailView v-else-if="route.name === 'workshop'" :key="'w' + route.id" :workshop-id="route.id" />
             <RoadmapDetailView v-else-if="route.name === 'roadmap'" :key="'r' + route.id" :roadmap-id="route.id" />
-            <WorkshopEditorView v-else-if="route.name === 'editor'" :key="route.mode + (route.id ?? '')" :editor-mode="route.mode" :workshop-id="route.id ?? ''" @navigate="navigate" />
+            <AdminHomeView v-else-if="route.name === 'admin'" />
+            <RoadmapEditorView v-else-if="route.name === 'roadmap-editor'" :key="'roadmap-' + route.mode + (route.id ?? '')" :editor-mode="route.mode" :roadmap-id="route.id ?? ''" @navigate="navigate" />
+            <WorkshopEditorView v-else-if="route.name === 'editor'" :key="'workshop-' + route.mode + (route.id ?? '')" :editor-mode="route.mode" :workshop-id="route.id ?? ''" @navigate="navigate" />
             <ProfileView v-else-if="route.name === 'profile'" :key="route.id" :user-id="route.id" />
             <main v-else class="page" tabindex="-1"><header class="page-heading"><div><h1>ページが見つかりません</h1><p>URLを確認してください。</p></div></header><a href="/workshops" data-route>講習会を探すへ戻る</a></main>
           </div>

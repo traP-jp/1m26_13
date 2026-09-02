@@ -28,9 +28,9 @@ export default defineComponent({
         profile.value = await fetchProfile(props.userId);
         const badgeStillExists = profile.value.badges.some((badge) => badge.workshopId === selectedBadgeId.value);
         if (!badgeStillExists) selectedBadgeId.value = profile.value.badges[0]?.workshopId ?? null;
-        document.title = `${profile.value.displayName}の学びの記録 | 1-Monthon β`;
+        document.title = `${profile.value.displayName}のプロフィール | 1-Monthon β`;
       } catch (caught) {
-        error.value = caught instanceof ApiClientError ? caught.message : '学びの記録を読み込めませんでした。';
+        error.value = caught instanceof ApiClientError ? caught.message : 'プロフィールを読み込めませんでした。';
       } finally {
         loading.value = false;
       }
@@ -52,7 +52,7 @@ export default defineComponent({
   },
   template: `
     <main class="page profile-page" tabindex="-1">
-      <div v-if="loading" class="feedback" role="status">学びの記録を読み込んでいます。</div>
+      <div v-if="loading" class="feedback" role="status">プロフィールを読み込んでいます。</div>
       <div v-else-if="error" class="feedback feedback-error" role="alert">
         <div><strong>表示できませんでした</strong><p>{{ error }}</p></div>
         <BasiqButton tone="neutral" variant="outline" @click="load">再試行</BasiqButton>
@@ -62,7 +62,7 @@ export default defineComponent({
         <header class="profile-header">
           <div class="profile-identity">
             <span class="profile-avatar" aria-hidden="true">{{ profileInitial }}</span>
-            <div><p class="eyebrow">学びの記録</p><h1>{{ profile.displayName }}</h1><p>完了した講習会とロードマップの進み具合</p></div>
+            <div><p class="eyebrow">プロフィール</p><h1>{{ profile.displayName }}</h1><p>完了した講習会とロードマップの進み具合</p></div>
           </div>
           <dl class="profile-stats" aria-label="学習状況">
             <div><dt>完了した講習会</dt><dd>{{ profile.completions.length }}</dd></div>
@@ -71,7 +71,7 @@ export default defineComponent({
           </dl>
         </header>
 
-        <nav class="profile-tabs" aria-label="学びの記録" role="tablist">
+        <nav class="profile-tabs" aria-label="プロフィール" role="tablist">
           <BasiqButton type="button" tone="neutral" :variant="activeSection === 'badges' ? 'solid' : 'outline'" role="tab" :aria-selected="activeSection === 'badges'" aria-controls="profile-badges" @click="activeSection = 'badges'">バッジ <span>{{ profile.badges.length }}</span></BasiqButton>
           <BasiqButton type="button" tone="neutral" :variant="activeSection === 'completions' ? 'solid' : 'outline'" role="tab" :aria-selected="activeSection === 'completions'" aria-controls="profile-completions" @click="activeSection = 'completions'">完了した講習会 <span>{{ profile.completions.length }}</span></BasiqButton>
           <BasiqButton type="button" tone="neutral" :variant="activeSection === 'roadmaps' ? 'solid' : 'outline'" role="tab" :aria-selected="activeSection === 'roadmaps'" aria-controls="profile-roadmaps" @click="activeSection = 'roadmaps'">ロードマップ <span>{{ profile.roadmaps.length }}</span></BasiqButton>

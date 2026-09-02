@@ -1,4 +1,4 @@
-import type { DiscoveryResponse, OccurrenceInput, RoadmapDetail, RoadmapProgress, RoadmapSummary, UserProfile, WorkshopDetail, WorkshopInput, WorkshopOccurrence, WorkshopSummary } from '../lib/contracts';
+import type { DiscoveryResponse, OccurrenceInput, RoadmapDetail, RoadmapInput, RoadmapManage, RoadmapProgress, RoadmapSummary, UserProfile, WorkshopDetail, WorkshopInput, WorkshopOccurrence, WorkshopSummary } from '../lib/contracts';
 import { assertRelations, DomainError } from '../lib/domain';
 import { getD1 } from './index';
 import { databaseConstants, ensureDatabase } from './setup';
@@ -95,6 +95,60 @@ export async function getRoadmapDetail(id: number, userId: string = databaseCons
   const rows = await d1.prepare(`SELECT s.id stage_id, s.position stage_position, s.title stage_title, s.description stage_description, i.position item_position, w.id workshop_id, w.title, w.summary, CASE WHEN c.workshop_id IS NULL THEN 0 ELSE 1 END completed FROM beta_roadmap_stages s JOIN beta_roadmap_items i ON i.stage_id = s.id JOIN beta_workshops w ON w.id = i.workshop_id LEFT JOIN beta_completions c ON c.workshop_id = w.id AND c.user_id = ? WHERE s.roadmap_id = ? ORDER BY s.position, i.position`).bind(userId, id).all<{ stage_id: number; stage_position: number; stage_title: string; stage_description: string; item_position: number; workshop_id: number; title: string; summary: string; completed: number }>();
   const stages = [...new Map(rows.results.map((row) => [row.stage_id, { id: Number(row.stage_id), position: Number(row.stage_position), title: row.stage_title, description: row.stage_description, items: rows.results.filter((item) => item.stage_id === row.stage_id).map((item) => ({ workshopId: Number(item.workshop_id), title: item.title, summary: item.summary, note: '', completed: Boolean(item.completed) })) }])).values()];
   return { ...toRoadmapSummary(roadmap), stages, nextWorkshopId: rows.results.find((row) => !row.completed)?.workshop_id ?? null };
+}
+
+export async function listRoadmapsForManage(): Promise<RoadmapManage[]> {
+  await ensureDatabase();
+  const rows = await getD1().prepare('SELECT id FROM beta_roadmaps ORDER BY updated_at DESC').all<{ id: number }>();
+  return Promise.all(rows.results.map((row) => getRoadmapForManage(Number(row.id))));
+}
+
+export async function getRoadmapForManage(id: number): Promise<RoadmapManage> {
+  await ensureDatabase(); const d1 = getD1();
+  const roadmap = await d1.prepare('SELECT id, title, summary, audience, status, created_at, updated_at FROM beta_roadmaps WHERE id = ?').bind(id).first<{ id: number; title: string; summary: string; audience: string; status: RoadmapManage['status']; created_at: string; updated_at: string }>();
+  if (!roadmap) throw new DomainError(404, 'roadmap_not_found', 'ロードマップが見つかりません。');
+  const rows = await d1.prepare(`SELECT s.id stage_id, s.position stage_position, s.title stage_title, s.description stage_description, i.position item_position, i.workshop_id, i.note FROM beta_roadmap_stages s LEFT JOIN beta_roadmap_items i ON i.stage_id = s.id WHERE s.roadmap_id = ? ORDER BY s.position, i.position`).bind(id).all<{ stage_id: number; stage_position: number; stage_title: string; stage_description: string; item_position: number | null; workshop_id: number | null; note: string | null }>();
+  const stages = [...new Map(rows.results.map((row) => [Number(row.stage_id), { id: Number(row.stage_id), position: Number(row.stage_position), title: row.stage_title, description: row.stage_description, items: rows.results.filter((item) => item.stage_id === row.stage_id && item.workshop_id !== null).map((item) => ({ workshopId: Number(item.workshop_id), note: item.note ?? '' })) }])).values()];
+  return { id: Number(roadmap.id), title: roadmap.title, summary: roadmap.summary, audience: roadmap.audience, status: roadmap.status, createdAt: roadmap.created_at, updatedAt: roadmap.updated_at, stages };
+}
+
+export async function createRoadmap(input: RoadmapInput): Promise<RoadmapManage> {
+  await ensureDatabase(); const d1 = getD1(); const now = new Date().toISOString();
+  await assertRoadmapWorkshops(input);
+  const inserted = await d1.prepare('INSERT INTO beta_roadmaps (title, summary, audience, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id').bind(input.title, input.summary, input.audience, input.status, now, now).first<{ id: number }>();
+  if (!inserted) throw new DomainError(500, 'save_failed', 'ロードマップを保存できませんでした。');
+  try { await replaceRoadmapData(Number(inserted.id), input, now, false); }
+  catch (error) { await d1.prepare('DELETE FROM beta_roadmaps WHERE id = ?').bind(inserted.id).run(); throw error; }
+  return getRoadmapForManage(Number(inserted.id));
+}
+
+export async function updateRoadmap(id: number, input: RoadmapInput): Promise<RoadmapManage> {
+  await ensureDatabase(); await getRoadmapForManage(id); await assertRoadmapWorkshops(input); const now = new Date().toISOString();
+  await replaceRoadmapData(id, input, now, true);
+  return getRoadmapForManage(id);
+}
+
+export async function deleteRoadmap(id: number): Promise<void> {
+  await ensureDatabase(); await getRoadmapForManage(id);
+  await getD1().prepare('DELETE FROM beta_roadmaps WHERE id = ?').bind(id).run();
+}
+
+async function assertRoadmapWorkshops(input: RoadmapInput) {
+  const ids = input.stages.flatMap((stage) => stage.items.map((item) => item.workshopId));
+  const rows = await getD1().prepare(`SELECT id FROM beta_workshops WHERE id IN (${ids.map(() => '?').join(',')})`).bind(...ids).all<{ id: number }>();
+  if (rows.results.length !== ids.length) throw new DomainError(422, 'unknown_workshop', '講習会を選び直してください。', { stages: '存在しない講習会が含まれています。' });
+}
+
+async function replaceRoadmapData(id: number, input: RoadmapInput, now: string, updateMetadata: boolean) {
+  const d1 = getD1(); const statements: D1PreparedStatement[] = [];
+  if (updateMetadata) statements.push(d1.prepare('UPDATE beta_roadmaps SET title = ?, summary = ?, audience = ?, status = ?, updated_at = ? WHERE id = ?').bind(input.title, input.summary, input.audience, input.status, now, id));
+  statements.push(d1.prepare('DELETE FROM beta_roadmap_stages WHERE roadmap_id = ?').bind(id));
+  input.stages.forEach((stage, stageIndex) => {
+    const position = stageIndex + 1;
+    statements.push(d1.prepare('INSERT INTO beta_roadmap_stages (roadmap_id, position, title, description) VALUES (?, ?, ?, ?)').bind(id, position, stage.title, stage.description));
+    stage.items.forEach((item, itemIndex) => statements.push(d1.prepare('INSERT INTO beta_roadmap_items (stage_id, workshop_id, position, note) SELECT id, ?, ?, ? FROM beta_roadmap_stages WHERE roadmap_id = ? AND position = ?').bind(item.workshopId, itemIndex + 1, item.note, id, position)));
+  });
+  await d1.batch(statements);
 }
 
 const summarySelect = `SELECT w.id, w.title, w.summary, w.created_at, w.updated_at, GROUP_CONCAT(DISTINCT CASE WHEN o.status = 'published' THEN o.team END) teams, GROUP_CONCAT(DISTINCT CASE WHEN o.status = 'published' THEN o.year END) years, COUNT(DISTINCT CASE WHEN o.status = 'published' THEN o.id END) occurrence_count, MAX(CASE WHEN o.status = 'published' THEN o.scheduled_at END) latest_scheduled_at FROM beta_workshops w LEFT JOIN beta_occurrences o ON o.workshop_id = w.id`;
