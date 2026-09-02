@@ -2,7 +2,7 @@ import { BasiqButton, BasiqCard, BasiqToggleButton } from 'basiq-ui';
 import { computed, defineComponent, nextTick, onMounted, reactive, ref, watch, type PropType } from 'vue/dist/vue.esm-bundler.js';
 import type { WorkshopInput, WorkshopSummary } from '../../lib/contracts';
 import OccurrenceFields from '../components/OccurrenceFields';
-import { ApiClientError, copyOccurrence, fetchDiscovery, fetchWorkshop, saveWorkshop } from '../api';
+import { ApiClientError, copyOccurrence, fetchDiscovery, fetchWorkshop, removeWorkshop, saveWorkshop } from '../api';
 import { blankOccurrence, blankWorkshop, detailToInput } from '../forms/workshopForm';
 
 type EditorMode = 'wizard' | 'edit';
@@ -11,7 +11,7 @@ export default defineComponent({
   name: 'WorkshopEditorView', components: { BasiqButton, BasiqCard, BasiqToggleButton, OccurrenceFields },
   props: { editorMode: { type: String as PropType<EditorMode>, required: true }, workshopId: { type: String, default: '' } }, emits: ['navigate'],
   setup(props, { emit }) {
-    const form = reactive<WorkshopInput>(blankWorkshop(props.editorMode === 'edit')); const options = ref<WorkshopSummary[]>([]); const loading = ref(props.editorMode === 'edit'); const saving = ref(false); const copyingId = ref<number | null>(null); const error = ref(''); const notice = ref(''); const fieldErrors = ref<Record<string, string>>({}); const restored = ref(false);
+    const form = reactive<WorkshopInput>(blankWorkshop(props.editorMode === 'edit')); const options = ref<WorkshopSummary[]>([]); const loading = ref(props.editorMode === 'edit'); const saving = ref(false); const deleting = ref(false); const copyingId = ref<number | null>(null); const error = ref(''); const errorTitle = ref('保存できませんでした'); const notice = ref(''); const fieldErrors = ref<Record<string, string>>({}); const restored = ref(false);
     const isWizard = computed(() => props.editorMode === 'wizard'); const isEdit = computed(() => props.editorMode === 'edit'); const draftKey = computed(() => `one-monthon.beta.${props.editorMode}.draft.v2`);
     const applyInput = (input: WorkshopInput) => { form.title = input.title; form.summary = input.summary; form.prerequisiteIds = [...input.prerequisiteIds]; form.successorIds = [...input.successorIds]; form.occurrences = input.occurrences.map((item) => ({ ...item })); };
     const addOccurrence = () => { const next = Math.max(0, ...form.occurrences.filter((item) => item.kind === 'standard').map((item) => item.sequenceNumber)) + 1; form.occurrences.push(blankOccurrence(next)); };
@@ -53,12 +53,12 @@ export default defineComponent({
     } : undefined;
     const submit = async () => {
       if (saving.value || !validate()) return;
-      saving.value = true; error.value = ''; notice.value = '';
+      saving.value = true; error.value = ''; errorTitle.value = '保存できませんでした'; notice.value = '';
       try {
         const payload: WorkshopInput = isWizard.value ? { title: form.title, summary: form.summary, prerequisiteIds: [], successorIds: [], occurrences: [] } : JSON.parse(JSON.stringify(form));
         const workshop = await saveWorkshop(payload, isEdit.value ? props.workshopId : undefined);
         if (isWizard.value) sessionStorage.removeItem(draftKey.value);
-        if (isEdit.value) { notice.value = '保存しました。'; emit('navigate', `/admin/workshops/${workshop.id}`); }
+        if (isEdit.value) { notice.value = '開催データを保存しました。'; emit('navigate', `/admin/workshops/${workshop.id}`); }
         else emit('navigate', `/admin/workshops/${workshop.id}?created=1`);
       } catch (caught) {
         if (caught instanceof ApiClientError) { error.value = caught.message; fieldErrors.value = caught.fields; }
@@ -67,13 +67,20 @@ export default defineComponent({
     };
     const copy = async (occurrenceId: number | undefined, kind: 'standard' | 'rebroadcast') => {
       if (!isEdit.value || !occurrenceId || copyingId.value) return;
-      copyingId.value = occurrenceId; error.value = '';
+      copyingId.value = occurrenceId; error.value = ''; errorTitle.value = '複製できませんでした';
       try { const detail = await copyOccurrence(Number(props.workshopId), occurrenceId, kind); applyInput(detailToInput(detail)); notice.value = kind === 'rebroadcast' ? '再放送を複製しました。内容は元開催と独立して編集できます。' : '次回を複製しました。内容は元開催と独立して編集できます。'; }
       catch (caught) { error.value = caught instanceof ApiClientError ? caught.message : '開催を複製できませんでした。'; }
       finally { copyingId.value = null; }
     };
+    const destroy = async () => {
+      if (!isEdit.value || deleting.value || saving.value || !confirm('この講習会とすべての開催データ、完了記録、ロードマップ上の配置を削除しますか？この操作は元に戻せません。')) return;
+      deleting.value = true; error.value = ''; errorTitle.value = '削除できませんでした'; notice.value = '';
+      try { await removeWorkshop(props.workshopId); emit('navigate', '/'); }
+      catch (caught) { error.value = caught instanceof ApiClientError ? caught.message : '講習会を削除できませんでした。'; }
+      finally { deleting.value = false; }
+    };
     onMounted(load); watch(form, () => { if (isWizard.value && !loading.value) sessionStorage.setItem(draftKey.value, JSON.stringify(form)); }, { deep: true });
-    return { form, options, loading, saving, copyingId, error, notice, fieldErrors, restored, isWizard, isEdit, toggleRelation, relationToggleStyle, addOccurrence, submit, copy };
+    return { form, options, loading, saving, deleting, copyingId, error, errorTitle, notice, fieldErrors, restored, isWizard, isEdit, toggleRelation, relationToggleStyle, addOccurrence, submit, copy, destroy };
   },
   template: `
     <main class="page editor-page" tabindex="-1">
@@ -82,18 +89,18 @@ export default defineComponent({
       <template v-else>
         <div v-if="restored" class="feedback feedback-success" role="status">このブラウザに残っていた下書きを復元しました。</div>
         <div v-if="notice" class="feedback feedback-success" role="status">{{ notice }}</div>
-        <div v-if="error" class="feedback feedback-error" role="alert"><div><strong>保存できませんでした</strong><p>{{ error }}</p><ul v-if="Object.keys(fieldErrors).length"><li v-for="message in fieldErrors" :key="message">{{ message }}</li></ul></div></div>
+        <div v-if="error" class="feedback feedback-error" role="alert"><div><strong>{{ errorTitle }}</strong><p>{{ error }}</p><ul v-if="Object.keys(fieldErrors).length"><li v-for="message in fieldErrors" :key="message">{{ message }}</li></ul></div></div>
         <form class="editor-form" @submit.prevent="submit">
           <BasiqCard><template #header><div class="form-section-title"><h2>講習会</h2><p>講習会の名前と概要を書いてください。シリーズの講習会である場合は、シリーズ名を書いてください。</p></div></template>
             <div class="form-grid"><label class="field field-wide"><span>講習会名 <em>必須</em></span><input v-model="form.title" required maxlength="100" placeholder="例: なろう講習会" :aria-invalid="Boolean(fieldErrors.title)" /></label><label class="field field-wide"><span>概要 <em>必須</em></span><textarea v-model="form.summary" required maxlength="240" rows="3" :aria-invalid="Boolean(fieldErrors.summary)"></textarea></label></div>
           </BasiqCard>
           <template v-if="isEdit">
             <section class="form-section" aria-labelledby="occurrences-form-title"><div class="section-heading"><div><h2 id="occurrences-form-title">開催</h2><p>シリーズものの講習会であれば、回ごとに教材や対象者やこの回で学べることを書いてください。</p></div><BasiqButton type="button" tone="neutral" variant="outline" aria-label="開催を追加" @click="addOccurrence">＋</BasiqButton></div><OccurrenceFields v-for="(occurrence, index) in form.occurrences" :key="occurrence.id ?? 'new-' + index" v-model="form.occurrences[index]" :index="index" :show-copy="Boolean(occurrence.id)" :copying="copyingId === occurrence.id" @copy="copy(occurrence.id, $event)" /></section>
-            <BasiqCard><template #header><div class="form-section-title"><h2>学びのつながり</h2><p>検索とは別に、先に学ぶ内容と次に進む内容を示します。どちらも任意です。</p></div></template>
+            <BasiqCard><template #header><div class="form-section-title"><h2>学びのつながり</h2><p>先に学んでおくべき内容と次にやるべき内容を選択してください。どちらも任意です。</p></div></template>
               <div class="relation-columns"><section><h3>先に学ぶ（{{ form.prerequisiteIds.length }}件選択）</h3><ul class="relation-options"><li v-for="item in options" :key="'before-' + item.id" :class="{ 'feedback-success': form.prerequisiteIds.includes(item.id) }"><BasiqToggleButton :model-value="form.prerequisiteIds.includes(item.id)" :style="relationToggleStyle(form.prerequisiteIds.includes(item.id))" :aria-label="item.title + 'を先に学ぶ講習会に設定'" @update:model-value="toggleRelation('prerequisiteIds', item.id, $event)">✓</BasiqToggleButton><span><strong>{{ item.title }}</strong><small>{{ item.summary }}</small></span></li></ul></section><section><h3>次に学ぶ（{{ form.successorIds.length }}件選択）</h3><ul class="relation-options"><li v-for="item in options" :key="'after-' + item.id" :class="{ 'feedback-success': form.successorIds.includes(item.id) }"><BasiqToggleButton :model-value="form.successorIds.includes(item.id)" :style="relationToggleStyle(form.successorIds.includes(item.id))" :aria-label="item.title + 'を次に学ぶ講習会に設定'" @update:model-value="toggleRelation('successorIds', item.id, $event)">✓</BasiqToggleButton><span><strong>{{ item.title }}</strong><small>{{ item.summary }}</small></span></li></ul></section></div>
             </BasiqCard>
           </template>
-          <div class="form-actions"><BasiqButton type="submit" :disabled="saving">{{ saving ? (isEdit ? '保存中…' : '作成中…') : (isEdit ? '変更を保存' : '講習会を作成') }}</BasiqButton></div>
+          <div class="form-actions"><BasiqButton v-if="isEdit" type="button" tone="danger" :disabled="saving || deleting" @click="destroy">{{ deleting ? '削除中…' : '講習会を削除' }}</BasiqButton><BasiqButton type="submit" :disabled="saving || deleting">{{ saving ? (isEdit ? '保存中…' : '作成中…') : (isEdit ? '変更を保存' : '講習会を作成') }}</BasiqButton></div>
         </form>
       </template>
     </main>`,

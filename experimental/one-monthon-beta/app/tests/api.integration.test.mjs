@@ -59,6 +59,9 @@ test('β中心導線を隔離D1で登録・公開・発見・複製・完了・�
     const deletedRoadmapLookup = await json(server.baseUrl, `/api/roadmaps/${createdRoadmapId}?manage=1`); assert.equal(deletedRoadmapLookup.response.status, 404);
     const roadmapBefore = await json(server.baseUrl, '/api/roadmaps/1'); assert.equal(roadmapBefore.response.status, 200); const roadmapWorkshopId = roadmapBefore.body.roadmap.nextWorkshopId; await json(server.baseUrl, `/api/users/demo-learner/completions/${roadmapWorkshopId}`, { method: 'PUT' }); const roadmapAfter = await json(server.baseUrl, '/api/roadmaps/1'); assert.equal(roadmapAfter.body.roadmap.completedCount, roadmapBefore.body.roadmap.completedCount + 1);
     const removed = await json(server.baseUrl, `/api/users/demo-learner/completions/${id}`, { method: 'DELETE' }); assert.equal(removed.body.profile.completions.some((item) => item.workshopId === id), false); assert.equal(removed.body.profile.badges.some((item) => item.workshopId === id), false);
+    const deletedWorkshop = await fetch(`${server.baseUrl}/api/workshops/${id}`, { method: 'DELETE' }); assert.equal(deletedWorkshop.status, 204);
+    const deletedWorkshopLookup = await json(server.baseUrl, `/api/workshops/${id}?manage=1`); assert.equal(deletedWorkshopLookup.response.status, 404);
+    const homeAfterDelete = await json(server.baseUrl, '/api/workshops?includeDrafts=1'); assert.equal(homeAfterDelete.body.workshops.some((item) => item.id === id), false);
     const badId = await json(server.baseUrl, '/api/workshops/not-a-number'); assert.equal(badId.response.status, 404);
   } catch (error) { if (server) process.stderr.write(`\n--- server output ---\n${server.output()}\n`); throw error; }
   finally { await stop(server); await rm(tempRoot, { recursive: true, force: true }); }

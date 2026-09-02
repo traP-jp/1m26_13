@@ -52,6 +52,11 @@ export async function updateWorkshop(id: number, input: WorkshopInput): Promise<
   return getWorkshopDetail(id, databaseConstants.demoUserId, true);
 }
 
+export async function deleteWorkshop(id: number): Promise<void> {
+  await ensureDatabase(); await requireWorkshop(id);
+  await getD1().prepare('DELETE FROM beta_workshops WHERE id = ?').bind(id).run();
+}
+
 async function replaceWorkshopData(id: number, input: WorkshopInput, now: string, creating: boolean) {
   const d1 = getD1();
   const [knownRows, edgeRows, ownOccurrences] = await Promise.all([

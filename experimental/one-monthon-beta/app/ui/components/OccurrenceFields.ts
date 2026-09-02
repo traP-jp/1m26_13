@@ -33,7 +33,7 @@ export default defineComponent({
         <label class="field field-wide"><span>対象者 <em>必須</em></span><textarea :value="modelValue.audience" rows="2" @input="update('audience', eventValue($event))"></textarea></label>
         <label class="field field-wide"><span>前提知識</span><textarea :value="modelValue.prerequisites" rows="2" @input="update('prerequisites', eventValue($event))"></textarea></label>
         <label class="field field-wide"><span>教材URL</span><input :value="modelValue.materialUrl ?? ''" type="url" placeholder="https://" @input="update('materialUrl', eventValue($event) || null)" /></label>
-        <label class="field"><span>教材リンクの文言</span><input :value="modelValue.materialLabel" @input="update('materialLabel', eventValue($event))" /></label>
+        <label class="field"><span>教材の説明文</span><input :value="modelValue.materialLabel" @input="update('materialLabel', eventValue($event))" /></label>
       </div>
     </BasiqCard>`,
 });

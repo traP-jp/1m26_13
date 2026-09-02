@@ -20,6 +20,7 @@ export function fetchDiscovery(query = '', team = '', year = '', includeDrafts =
 }
 export async function fetchWorkshop(id: string | number, manage = false) { const result = await requestJson<{ workshop: WorkshopDetail }>(`/api/workshops/${encodeURIComponent(id)}?userId=demo-learner${manage ? '&manage=1' : ''}`); return result.workshop; }
 export async function saveWorkshop(input: WorkshopInput, id?: string | number) { const result = await requestJson<{ workshop: WorkshopDetail }>(id ? `/api/workshops/${encodeURIComponent(id)}` : '/api/workshops', { method: id ? 'PUT' : 'POST', body: JSON.stringify(input) }); return result.workshop; }
+export async function removeWorkshop(id: string | number) { await requestJson<never>(`/api/workshops/${encodeURIComponent(id)}`, { method: 'DELETE' }); }
 export async function copyOccurrence(workshopId: number, occurrenceId: number, kind: 'standard' | 'rebroadcast') { const result = await requestJson<{ workshop: WorkshopDetail }>(`/api/workshops/${workshopId}/occurrences/${occurrenceId}/copy`, { method: 'POST', body: JSON.stringify({ kind }) }); return result.workshop; }
 export function completeWorkshop(workshopId: number) { return requestJson<{ profile: UserProfile }>(`/api/users/demo-learner/completions/${workshopId}`, { method: 'PUT' }); }
 export function uncompleteWorkshop(workshopId: number) { return requestJson<{ profile: UserProfile }>(`/api/users/demo-learner/completions/${workshopId}`, { method: 'DELETE' }); }
