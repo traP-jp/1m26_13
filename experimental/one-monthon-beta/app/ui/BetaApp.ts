@@ -17,7 +17,7 @@ type Route =
   | { name: 'roadmap'; id: string }
   | { name: 'admin' }
   | { name: 'roadmap-editor'; mode: 'new' | 'edit'; id?: string }
-  | { name: 'editor'; mode: 'wizard' | 'form' | 'edit'; id?: string }
+  | { name: 'editor'; mode: 'wizard' | 'edit'; id?: string }
   | { name: 'profile'; id: string }
   | { name: 'not-found' };
 
@@ -31,7 +31,7 @@ function parseRoute(href: string): Route {
   if (segments.length === 1 && segments[0] === 'admin') return { name: 'admin' };
   if (segments.join('/') === 'admin/roadmaps/new') return { name: 'roadmap-editor', mode: 'new' };
   if (segments[0] === 'admin' && segments[1] === 'roadmaps' && segments.length === 3) return { name: 'roadmap-editor', mode: 'edit', id: segments[2] };
-  if (segments.join('/') === 'admin/workshops/new') return { name: 'editor', mode: url.searchParams.get('mode') === 'form' ? 'form' : 'wizard' };
+  if (segments.join('/') === 'admin/workshops/new') return { name: 'editor', mode: 'wizard' };
   if (segments[0] === 'admin' && segments[1] === 'workshops' && segments.length === 3) return { name: 'editor', mode: 'edit', id: segments[2] };
   if (segments[0] === 'users' && segments.length === 2) return { name: 'profile', id: segments[1] };
   return { name: 'not-found' };
@@ -146,7 +146,7 @@ export default defineComponent({
             <WorkshopListView v-else-if="route.name === 'workshops'" />
             <WorkshopDetailView v-else-if="route.name === 'workshop'" :key="'w' + route.id" :workshop-id="route.id" />
             <RoadmapDetailView v-else-if="route.name === 'roadmap'" :key="'r' + route.id" :roadmap-id="route.id" />
-            <AdminHomeView v-else-if="route.name === 'admin'" />
+            <AdminHomeView v-else-if="route.name === 'admin'" @navigate="navigate" />
             <RoadmapEditorView v-else-if="route.name === 'roadmap-editor'" :key="'roadmap-' + route.mode + (route.id ?? '')" :editor-mode="route.mode" :roadmap-id="route.id ?? ''" @navigate="navigate" />
             <WorkshopEditorView v-else-if="route.name === 'editor'" :key="'workshop-' + route.mode + (route.id ?? '')" :editor-mode="route.mode" :workshop-id="route.id ?? ''" @navigate="navigate" />
             <ProfileView v-else-if="route.name === 'profile'" :key="route.id" :user-id="route.id" />

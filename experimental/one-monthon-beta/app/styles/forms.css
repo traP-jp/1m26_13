@@ -47,9 +47,6 @@
 .relation-options li { min-height: 48px; display: grid; grid-template-columns: 40px 1fr; gap: var(--basiq-space-300); align-items: start; }
 .relation-options li > span { display: flex; flex-direction: column; }
 .relation-options small { color: var(--basiq-color-content-subtle); }
-.editor-mode { display: flex; border-bottom: 1px solid var(--basiq-color-border-separator); }
-.editor-mode a { min-height: 42px; display: inline-flex; align-items: center; padding: var(--basiq-space-200) var(--basiq-space-300); color: var(--basiq-color-content-subtle); text-decoration: none; font-weight: 700; }
-.editor-mode a[aria-current='page'] { border-bottom: 3px solid var(--basiq-color-accent-default); color: var(--basiq-color-content-accent); }
 .step-list { display: grid; grid-template-columns: repeat(3, 1fr); list-style: none; margin-bottom: var(--basiq-space-600); border-bottom: 1px solid var(--basiq-color-border-separator); }
 .step-list li { position: relative; padding: var(--basiq-space-300); color: var(--basiq-color-content-subtle); text-align: center; }
 .step-list li[aria-current='step'] { color: var(--basiq-color-content-accent); border-bottom: 3px solid var(--basiq-color-accent-default); font-weight: 750; }
