@@ -44,7 +44,13 @@ export default defineComponent({
       if (Object.keys(errors).length) { void nextTick(() => document.querySelector<HTMLElement>('.editor-form input:invalid, .editor-form textarea:invalid')?.focus()); return false; }
       return true;
     };
-    const toggleRelation = (field: 'prerequisiteIds' | 'successorIds', id: number, selected: boolean) => { const other = field === 'prerequisiteIds' ? 'successorIds' : 'prerequisiteIds'; form[field] = selected ? [...form[field], id] : form[field].filter((item) => item !== id); if (selected) form[other] = form[other].filter((item) => item !== id); };
+    const toggleRelation = (field: 'prerequisiteIds' | 'successorIds', id: number, selected: boolean) => { const other = field === 'prerequisiteIds' ? 'successorIds' : 'prerequisiteIds'; form[field] = selected ? [...new Set([...form[field], id])] : form[field].filter((item) => item !== id); if (selected) form[other] = form[other].filter((item) => item !== id); };
+    const relationToggleStyle = (selected: boolean) => selected ? {
+      '--basiq-color-toggle-button-content-on': 'var(--app-success)',
+      '--basiq-color-toggle-button-background-on-rest': 'var(--app-success-soft)',
+      '--basiq-color-toggle-button-background-on-hover': 'var(--app-success-soft)',
+      '--basiq-color-toggle-button-background-on-pressed': 'var(--app-success-soft)',
+    } : undefined;
     const submit = async () => {
       if (saving.value || !validate()) return;
       saving.value = true; error.value = ''; notice.value = '';
@@ -67,7 +73,7 @@ export default defineComponent({
       finally { copyingId.value = null; }
     };
     onMounted(load); watch(form, () => { if (isWizard.value && !loading.value) sessionStorage.setItem(draftKey.value, JSON.stringify(form)); }, { deep: true });
-    return { form, options, loading, saving, copyingId, error, notice, fieldErrors, restored, isWizard, isEdit, toggleRelation, addOccurrence, submit, copy };
+    return { form, options, loading, saving, copyingId, error, notice, fieldErrors, restored, isWizard, isEdit, toggleRelation, relationToggleStyle, addOccurrence, submit, copy };
   },
   template: `
     <main class="page editor-page" tabindex="-1">
@@ -84,7 +90,7 @@ export default defineComponent({
           <template v-if="isEdit">
             <section class="form-section" aria-labelledby="occurrences-form-title"><div class="section-heading"><div><h2 id="occurrences-form-title">開催</h2><p>シリーズものの講習会であれば、回ごとに教材や対象者やこの回で学べることを書いてください。</p></div><BasiqButton type="button" tone="neutral" variant="outline" aria-label="開催を追加" @click="addOccurrence">＋</BasiqButton></div><OccurrenceFields v-for="(occurrence, index) in form.occurrences" :key="occurrence.id ?? 'new-' + index" v-model="form.occurrences[index]" :index="index" :show-copy="Boolean(occurrence.id)" :copying="copyingId === occurrence.id" @copy="copy(occurrence.id, $event)" /></section>
             <BasiqCard><template #header><div class="form-section-title"><h2>学びのつながり</h2><p>検索とは別に、先に学ぶ内容と次に進む内容を示します。どちらも任意です。</p></div></template>
-              <div class="relation-columns"><section><h3>先に学ぶ</h3><ul class="relation-options"><li v-for="item in options" :key="'before-' + item.id"><BasiqToggleButton :model-value="form.prerequisiteIds.includes(item.id)" :aria-label="item.title + 'を先に学ぶ講習会に設定'" @update:model-value="toggleRelation('prerequisiteIds', item.id, $event)">✓</BasiqToggleButton><span><strong>{{ item.title }}</strong><small>{{ item.summary }}</small></span></li></ul></section><section><h3>次に学ぶ</h3><ul class="relation-options"><li v-for="item in options" :key="'after-' + item.id"><BasiqToggleButton :model-value="form.successorIds.includes(item.id)" :aria-label="item.title + 'を次に学ぶ講習会に設定'" @update:model-value="toggleRelation('successorIds', item.id, $event)">✓</BasiqToggleButton><span><strong>{{ item.title }}</strong><small>{{ item.summary }}</small></span></li></ul></section></div>
+              <div class="relation-columns"><section><h3>先に学ぶ（{{ form.prerequisiteIds.length }}件選択）</h3><ul class="relation-options"><li v-for="item in options" :key="'before-' + item.id" :class="{ 'feedback-success': form.prerequisiteIds.includes(item.id) }"><BasiqToggleButton :model-value="form.prerequisiteIds.includes(item.id)" :style="relationToggleStyle(form.prerequisiteIds.includes(item.id))" :aria-label="item.title + 'を先に学ぶ講習会に設定'" @update:model-value="toggleRelation('prerequisiteIds', item.id, $event)">✓</BasiqToggleButton><span><strong>{{ item.title }}</strong><small>{{ item.summary }}</small></span></li></ul></section><section><h3>次に学ぶ（{{ form.successorIds.length }}件選択）</h3><ul class="relation-options"><li v-for="item in options" :key="'after-' + item.id" :class="{ 'feedback-success': form.successorIds.includes(item.id) }"><BasiqToggleButton :model-value="form.successorIds.includes(item.id)" :style="relationToggleStyle(form.successorIds.includes(item.id))" :aria-label="item.title + 'を次に学ぶ講習会に設定'" @update:model-value="toggleRelation('successorIds', item.id, $event)">✓</BasiqToggleButton><span><strong>{{ item.title }}</strong><small>{{ item.summary }}</small></span></li></ul></section></div>
             </BasiqCard>
           </template>
           <div class="form-actions"><BasiqButton type="submit" :disabled="saving">{{ saving ? (isEdit ? '保存中…' : '作成中…') : (isEdit ? '変更を保存' : '講習会を作成') }}</BasiqButton></div>
