@@ -68,6 +68,31 @@ async function initializeDatabase(): Promise<void> {
   const appliedIds = new Set(applied.results.map((row) => row.id));
   for (const migration of localMigrations) {
     if (appliedIds.has(migration.id)) continue;
+    if (migration.id === '0004_extended_beta_catalog') {
+      // The original seed owns occurrence IDs 1-17. Install it first on a fresh
+      // D1 so catalog occurrences can use normal auto-increment IDs safely.
+      await seedDatabase();
+      // D1 limits the compound result used for a large batch. This catalog is
+      // deliberately replay-safe, so apply it in bounded batches and write the
+      // ledger only after every batch succeeds.
+      const chunkSize = 1;
+      for (let index = 0; index < migration.statements.length; index += chunkSize) {
+        try {
+          await d1.batch(
+            migration.statements
+              .slice(index, index + chunkSize)
+              .map((statement) => d1.prepare(statement)),
+          );
+        } catch (error) {
+          throw new Error(`Failed to apply ${migration.id} statements ${index + 1}-${Math.min(index + chunkSize, migration.statements.length)}`, { cause: error });
+        }
+      }
+      await d1
+        .prepare('INSERT INTO alpha_schema_migrations (id, applied_at) VALUES (?, ?)')
+        .bind(migration.id, new Date().toISOString())
+        .run();
+      continue;
+    }
     await d1.batch([
       ...migration.statements.map((statement) => d1.prepare(statement)),
       d1
