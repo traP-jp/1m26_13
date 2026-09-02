@@ -1,4 +1,4 @@
-import { getWorkshopDetail, updateWorkshop } from '../../../../db/repository';
+import { deleteWorkshop, getWorkshopDetail, updateWorkshop } from '../../../../db/repository';
 import { parsePositiveId, validateWorkshopInput } from '../../../../lib/domain';
 import { apiFailure, readJson } from '../../../../lib/http';
 
@@ -21,4 +21,9 @@ export async function PUT(request: Request, context: Context) {
     const workshop = await updateWorkshop(parsePositiveId(id, '講習会'), validateWorkshopInput(await readJson(request)));
     return Response.json({ workshop });
   } catch (error) { return apiFailure(error); }
+}
+
+export async function DELETE(_request: Request, context: Context) {
+  try { const { id } = await context.params; await deleteWorkshop(parsePositiveId(id, '講習会')); return new Response(null, { status: 204 }); }
+  catch (error) { return apiFailure(error); }
 }
