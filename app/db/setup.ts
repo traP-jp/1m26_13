@@ -82,6 +82,10 @@ async function initializeDatabase(): Promise<void> {
 export async function seedDatabase(): Promise<void> {
   const d1 = getD1();
   const now = new Date().toISOString();
+  const betaSeeded = await d1
+    .prepare('SELECT id FROM beta_seed_state WHERE id = ?')
+    .bind('beta-v1')
+    .first<{ id: string }>();
   const statements: D1PreparedStatement[] = [
     d1
       .prepare('INSERT OR IGNORE INTO users (id, display_name, created_at) VALUES (?, ?, ?)')
@@ -128,7 +132,8 @@ export async function seedDatabase(): Promise<void> {
       .bind('typescript-basics', 'vue-ui', now),
   );
 
-  const betaWorkshops = [
+  if (!betaSeeded) {
+    const betaWorkshops = [
     [1, 'はじめてのGit', 'Gitの基本操作を、手元で試しながら身につける1回完結の講習会です。'],
     [2, 'Webエンジニアになろう', 'Web開発の入口からUI実装までを順に学ぶ複数回講習会です。'],
     [3, 'プログラミング基礎講習会', 'プログラムの読み書きを基礎から練習します。再放送の教材も残しています。'],
@@ -210,6 +215,11 @@ export async function seedDatabase(): Promise<void> {
        (stage_id, workshop_id, position, note) VALUES (2, 2, 1, '各回を順番に進めます。')`,
     ),
   );
+
+    statements.push(
+      d1.prepare('INSERT INTO beta_seed_state (id, seeded_at) VALUES (?, ?)').bind('beta-v1', now),
+    );
+  }
 
   await d1.batch(statements);
 }

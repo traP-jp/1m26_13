@@ -11,6 +11,8 @@ export default defineComponent({
     const roadmap = ref<RoadmapDetail | null>(null);
     const loading = ref(true);
     const error = ref('');
+    const shareOpen = ref(false);
+    const shareNotice = ref('');
 
     const progressPercent = computed(() => {
       if (!roadmap.value?.workshopCount) return 0;
@@ -22,6 +24,26 @@ export default defineComponent({
       return current.stages.flatMap((stage) => stage.items).find((item) => item.workshopId === current.nextWorkshopId) ?? null;
     });
     const pathItems = computed(() => roadmap.value?.stages.flatMap((stage) => stage.items) ?? []);
+    const shareMarkdown = computed(() => {
+      if (!roadmap.value) return '';
+      const lines = [`## ${roadmap.value.title}`, '', '学ぶ順序：'];
+      roadmap.value.stages.forEach((stage, index) => {
+        if (!stage.items.length) return;
+        lines.push('', `### 段階${index + 1}`);
+        for (const item of stage.items) lines.push(`- [${item.title}](${location.origin}/workshops/${item.workshopId})`);
+      });
+      return lines.join('\n');
+    });
+
+    const copyShareMarkdown = async () => {
+      shareNotice.value = '';
+      try {
+        await navigator.clipboard.writeText(shareMarkdown.value);
+        shareNotice.value = '共有用Markdownをコピーしました。';
+      } catch {
+        shareNotice.value = 'コピーできませんでした。テキストを選択してコピーしてください。';
+      }
+    };
 
     const load = async () => {
       loading.value = true;
@@ -37,7 +59,7 @@ export default defineComponent({
     };
 
     watch(() => props.roadmapId, load, { immediate: true });
-    return { roadmap, loading, error, load, nextWorkshop, pathItems, progressPercent };
+    return { roadmap, loading, error, load, nextWorkshop, pathItems, progressPercent, shareMarkdown, shareNotice, shareOpen, copyShareMarkdown };
   },
   template: `
     <main class="page roadmap-page" tabindex="-1">
@@ -60,7 +82,16 @@ export default defineComponent({
               <div><dt>講習会</dt><dd>{{ roadmap.workshopCount }}件</dd></div>
             </dl>
           </div>
+          <BasiqButton type="button" tone="neutral" variant="outline" aria-controls="roadmap-share-panel" :aria-expanded="shareOpen" @click="shareOpen = !shareOpen; shareNotice = ''">ロードマップを共有</BasiqButton>
         </header>
+
+        <section v-if="shareOpen" id="roadmap-share-panel" aria-label="共有用Markdown">
+          <BasiqCard title="共有用Markdown">
+            <label class="field"><span>部員向けの投稿へそのまま貼り付けられます</span><textarea :value="shareMarkdown" readonly rows="8" @focus="$event.currentTarget.select()"></textarea></label>
+            <div class="form-actions"><BasiqButton type="button" @click="copyShareMarkdown">Markdownをコピー</BasiqButton></div>
+            <div v-if="shareNotice" class="feedback" :class="shareNotice.includes('できませんでした') ? 'feedback-error' : 'feedback-success'" role="status">{{ shareNotice }}</div>
+          </BasiqCard>
+        </section>
 
         <div class="roadmap-detail-layout">
           <section class="roadmap-path" aria-labelledby="roadmap-path-title">

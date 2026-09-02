@@ -163,3 +163,8 @@ export const betaRoadmapItems = sqliteTable(
   },
   (table) => [primaryKey({ columns: [table.stageId, table.workshopId] })],
 );
+
+export const betaSeedState = sqliteTable('beta_seed_state', {
+  id: text('id').primaryKey(),
+  seededAt: text('seeded_at').notNull(),
+});

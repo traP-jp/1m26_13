@@ -61,3 +61,50 @@ npm run build
 ## 内部試用
 
 [INTERNAL_TRIAL.md](./INTERNAL_TRIAL.md)で中心導線を一巡できます。外部公開、traQ/wikiへの投稿、第三者サービスへの送信は行いません。設計判断は[DECISIONS.md](./DECISIONS.md)、検証結果と未実装範囲は[STATUS.md](./STATUS.md)を参照してください。
+
+## traQフィードバック確認CLI
+
+Zennチャンネルで最後に`:eyes:`が付いた投稿より後の内容を取得し、未確認投稿があれば最新の1件へBot名義で`:eyes:`を付けるCLIを用意しています。トークンは引数やファイルに書かず、環境変数またはmacOS Keychainから読みます。CronではKeychainを使います。
+
+```bash
+read -r -s "traq_token?traQ Bot token: "
+echo
+security add-generic-password -U \
+  -a 1-monthon \
+  -s codex.1-monthon.traq-bot-token \
+  -w "$traq_token"
+unset traq_token
+```
+
+登録後はトークンをコマンドへ渡す必要がありません。
+
+```bash
+cd app
+npm run feedback:check -- --dry-run
+```
+
+環境変数を一時的に使うこともできます。
+
+```bash
+cd app
+TRAQ_BOT_TOKEN='Botトークン' npm run feedback:check
+```
+
+初回は外部状態を変更しないdry-runで、取得内容と権限を確認できます。
+
+```bash
+TRAQ_BOT_TOKEN='Botトークン' npm run feedback:check -- --dry-run
+```
+
+投稿内容を表示せず接続と権限だけ確認する場合は`--dry-run --quiet`を使います。
+
+Codex Cronなどから結果を扱う場合は`--json`を指定します。`TRAQ_CHANNEL_ID`と`TRAQ_EYES_STAMP_ID`を設定すると、毎回のチャンネル一覧・スタンプ一覧取得を省略できます。既定の対象パスは`event/1-Monthon/26/13/Zenn`です。
+
+```bash
+TRAQ_BOT_TOKEN='Botトークン' \
+TRAQ_CHANNEL_ID='チャンネルUUID' \
+TRAQ_EYES_STAMP_ID='eyesのスタンプUUID' \
+npm run feedback:check -- --json
+```
+
+CLIは投稿・編集・削除を行いません。未確認投稿がない場合はスタンプAPIも呼びません。
