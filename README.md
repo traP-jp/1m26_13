@@ -46,7 +46,7 @@ cd app
 npm run check
 ```
 
-`check`は型検査、ESLint、ドメインテスト、隔離した一時D1でのAPI統合テスト、production buildを順に実行します。統合テストは普段の`app/.wrangler/`を変更しません。
+`check`は型検査、ESLint、ドメインテスト、traQ確認CLIのモックテスト、隔離した一時D1でのAPI統合テスト、production buildを順に実行します。CLIテストは実際のtraQへ接続せず、統合テストは普段の`app/.wrangler/`を変更しません。
 
 個別に実行する場合:
 

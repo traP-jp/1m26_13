@@ -518,7 +518,7 @@
   3. Botトークンで`GET /channels/{channelId}/messages`を定期実行し、`:eyes:`を処理済み境界に使う。
 - 決定: 選択肢3。降順でメッセージをページングし、最初の`:eyes:`より新しい全投稿を古い順に出力する。新規があれば最新投稿だけにBot名義で`:eyes:`を1個付ける。どの利用者が付けた`:eyes:`でも確認済み境界とし、0件時は書込APIを呼ばない。
 - 根拠: チャンネルメッセージAPIの`Message`に`stamps`が含まれるため追加のスタンプ照会や検索サービスが不要で、最新への`:eyes:`がリモート側の冪等cursorになる。次回はその投稿で走査を止められ、常駐プロセスもローカル状態同期も要らない。
-- 影響: トークンは`TRAQ_BOT_TOKEN`または`TRAQ_ACCESS_TOKEN`を優先し、なければD-20260903-042のKeychainから読み、ログへ出さない。既定パスはZennチャンネルだが、チャンネル/eyes UUIDを環境変数で固定すれば定期実行時のAPI呼出を2回減らせる。`--dry-run`では一切書き込まず、`--json`をCodex Cronの前段に利用できる。新規依存はない。
+- 影響: トークンは`TRAQ_BOT_TOKEN`または`TRAQ_ACCESS_TOKEN`を優先し、なければD-20260903-042のKeychainから読み、ログへ出さない。既定パスはZennチャンネルだが、チャンネル/eyes UUIDを環境変数で固定すれば定期実行時のAPI呼出を2回減らせる。`--dry-run`では一切書き込まず、`--quiet`では投稿内容を標準出力へ出さない。本人から最新投稿への`:eyes:`は都度承認不要という継続承認を得ており、CLI以外の投稿・編集・リアクションは行わない。新規依存はない。
 - 再検討する条件: 即時処理が必要になる、`:eyes:`を人間の通常リアクションと区別する必要が生じる、Botに過去メッセージ取得権限がない、または複数ワーカーが同時実行される場合。専用スタンプ、永続message ID、WebSocketイベントの順で再検討する。
 - 参照: 本人依頼、traQ公式OpenAPI `GET /channels/{channelId}/messages`・`GET /stamps`・`POST /messages/{messageId}/stamps/{stampId}`、`app/scripts/traq-zenn-feedback.mjs`
 
