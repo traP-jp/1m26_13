@@ -21,7 +21,7 @@ export default defineComponent({
   },
   template: `
     <main class="page admin-page" tabindex="-1">
-      <header class="page-heading"><div><p class="eyebrow">運営</p><h1>運営向けページ</h1><p>講習会とロードマップの作成・編集をここから行います。</p></div></header>
+      <header class="page-heading"><div><h1>運営向けページ</h1><p>講習会とロードマップの作成・編集をここから行います。</p></div></header>
 
       <section class="admin-section" aria-labelledby="admin-workshop-title">
         <div class="section-heading"><div><h2 id="admin-workshop-title">講習会</h2><p>案内に沿って、講習会と最初の開催を登録します。</p></div><BasiqButton type="button" @click="$emit('navigate', '/admin/workshops/new')">講習会を作成</BasiqButton></div>
@@ -35,8 +35,8 @@ export default defineComponent({
         <ul v-else class="admin-roadmap-list">
           <li v-for="roadmap in roadmaps" :key="roadmap.id">
             <span><strong>{{ roadmap.title }}</strong><small>{{ roadmap.summary }}</small></span>
-            <span class="status-label" :class="roadmap.published ? 'published' : 'draft'">{{ roadmap.published ? '公開中' : '下書き' }}</span>
-            <span class="admin-row-actions"><a v-if="roadmap.published" :href="'/roadmaps/' + roadmap.id" data-route>閲覧</a><a :href="'/admin/roadmaps/' + roadmap.id" data-route>編集</a></span>
+            <strong :style="{ color: roadmap.published ? 'var(--app-success)' : 'var(--basiq-color-content-danger)' }">{{ roadmap.published ? '公開中' : '非公開中' }}</strong>
+            <span class="admin-row-actions"><BasiqButton v-if="roadmap.published" type="button" tone="neutral" variant="outline" @click="$emit('navigate', '/roadmaps/' + roadmap.id)">閲覧</BasiqButton><BasiqButton type="button" @click="$emit('navigate', '/admin/roadmaps/' + roadmap.id)">編集</BasiqButton></span>
           </li>
         </ul>
       </section>

@@ -1,7 +1,7 @@
 # Status
 
 更新日: 2026-09-02
-フェーズ: β版中心体験・内部レビュー反映完成 — `PLAN.md` B1〜B13を達成
+フェーズ: β版中心体験・内部レビュー反映完成 — `PLAN.md` B1〜B14を達成
 
 ## 現在地
 
@@ -26,9 +26,14 @@
 - 運営向けページ: `/admin`へ講習会の案内付き作成とロードマップ管理を集約。作成方法の二択をなくし、単一のbasiQ-uiボタンからウィザードを開く。PC左ナビ/モバイル下部ナビの運営導線は同ページを開く。
 - プロフィール: バッジ、完了した講習会、ロードマップをbasiQ-uiボタンによる3タブで表示。重複する見出し説明を削除し、ARIAの選択/対応関係と左右矢印・Home・Endのキーボード移動を追加。
 - ロードマップ管理: 閲覧用`/roadmaps/:id`と管理用`/admin/roadmaps/:id`を分離。タイトル、概要、対象、booleanの公開状態、各段階の講習会順を共通`RoadmapInput`で作成・編集し、削除できる。公開操作はbasiQ-uiの`ToggleButton`を使い、下書きは学習者向け一覧/詳細に出さない。既存の文字列`status`は追加migrationで`published INTEGER`へ変換し、互換列としてのみ残す。
+- 運営一覧: ロードマップの閲覧・編集をbasiQ-uiの`Button`に統一し、公開中は完了色、非公開中はbasiQ-uiのdanger tokenで表示。ページ名と重複する小見出し「運営」を削除した。
 - seed/fixture: 1回開催、全3回開催、通常開催と再放送を同じ回に持つ講習会、公開開催のない下書き、2段階ロードマップ。
 
 ## 最終検証
+
+- 2026-09-02 ロードマップ管理一覧の操作整理後:
+  - `npm run check`: 成功。TypeScript、ESLint、ドメインテスト9/9、隔離D1 API統合テスト1/1、Vinext build全5段階、fail/skip/todo 0。
+  - Chrome PC/390×844: `/admin`で「閲覧」「編集」が実際のbasiQ-uiボタンになり、「公開中」が緑、非公開fixtureがない通常画面ではAPI型とDOM条件を確認。小見出し「運営」は0件、横あふれなし、console warning/error 0件。
 
 - 2026-09-02 ロードマップ段階表示・公開状態整理後:
   - `npm run check:static`: 成功。TypeScript、ESLint、ドメインテスト9/9、fail/skip/todo 0。
