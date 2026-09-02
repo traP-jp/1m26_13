@@ -469,6 +469,19 @@
 - 再検討する条件: オフライン編集やローカルキャッシュからの復元を、データ版管理付きで実装する場合。
 - 参照: 本人指定のtraQレビュー（19:13、`https://q.trap.jp/channels/event/1-Monthon/26/13/Zenn`、読み取り専用）、`app/ui/views/WorkshopWizardView.ts`
 
+## D-20260902-036 — 保存後は公開状態にかかわらず管理用詳細previewで確認する
+
+- 状態: decided
+- 判断が必要だった理由: 追加レビューで、「変更を保存」後に詳細を直接確認し、ホームの「編集を続ける」も「詳細を見る」へ変えることが求められた。一方、下書きを通常の学習者向け公開APIへ混ぜずに詳細表示する必要があった。
+- 選択肢:
+  1. 保存時に開催を自動公開し、通常詳細へ遷移する。
+  2. 公開状態は利用者入力のまま維持し、`manage=1`の管理用詳細previewへ遷移する。
+- 決定: 選択肢2。保存成功後は`/workshops/{id}?manage=1&saved=1`へ遷移し、成功statusと保存済み内容を表示する。公開前ホームカードも`/workshops/{id}?manage=1`へ「詳細を見る」でつなぐ。
+- 根拠: 下書きを意図せず公開せず、保存結果を詳細レイアウトで即確認できる。詳細には既存の編集リンクがあるため、確認と再編集を一巡できる。
+- 影響: `WorkshopWizardView`、`WorkshopSummaryCard`、`WorkshopDetailView`を更新する。公開前previewでは不整合な完了記録を作らないよう学習状況カードを隠す。通常検索・公開詳細API・公開済み完了動作は変更しない。新規CSS・依存・migrationはない。
+- 再検討する条件: 認証・権限を実装し、管理preview URLを権限で保護する時点、または保存と公開を同一操作にする運用が確定した場合。
+- 参照: 本人指定のtraQレビュー（19:25、`https://q.trap.jp/channels/event/1-Monthon/26/13/Zenn`、読み取り専用）、`app/ui/views/WorkshopWizardView.ts`、`app/ui/views/WorkshopDetailView.ts`、`app/ui/components/WorkshopSummaryCard.ts`
+
 ---
 
 ## 追記テンプレート

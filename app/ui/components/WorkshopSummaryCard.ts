@@ -17,7 +17,7 @@ export default defineComponent({
   setup(props) {
     const primaryTeam = computed(() => props.workshop.teams[0] ?? '未定');
     const teamMark = computed(() => compactTeamName(primaryTeam.value));
-    const target = computed(() => props.workshop.published ? `/workshops/${props.workshop.id}` : `/admin/workshops/${props.workshop.id}`);
+    const target = computed(() => props.workshop.published ? `/workshops/${props.workshop.id}` : `/workshops/${props.workshop.id}?manage=1`);
     return { primaryTeam, target, teamMark };
   },
   template: `
@@ -36,7 +36,7 @@ export default defineComponent({
         <template #footer>
           <div class="workshop-card-footer">
             <span>{{ workshop.occurrenceCount === 0 ? '開催未定' : workshop.occurrenceCount === 1 ? '1回完結' : workshop.occurrenceCount + '開催' }}</span>
-            <span class="workshop-card-open">{{ workshop.published ? '詳細を見る' : '編集を続ける' }}<AppIcon name="chevron" :size="18" /></span>
+            <span class="workshop-card-open">詳細を見る<AppIcon name="chevron" :size="18" /></span>
           </div>
         </template>
       </BasiqCard>

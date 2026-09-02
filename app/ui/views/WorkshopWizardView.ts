@@ -59,7 +59,7 @@ export default defineComponent({
         const payload: WorkshopInput = isWizard.value ? { title: form.title, summary: form.summary, prerequisiteIds: [], successorIds: [], occurrences: [] } : JSON.parse(JSON.stringify(form));
         const workshop = await saveWorkshop(payload, isEdit.value ? props.workshopId : undefined);
         if (isWizard.value) sessionStorage.removeItem(draftKey.value);
-        if (isEdit.value) { notice.value = '開催データを保存しました。'; emit('navigate', `/admin/workshops/${workshop.id}`); }
+        if (isEdit.value) emit('navigate', `/workshops/${workshop.id}?manage=1&saved=1`);
         else emit('navigate', `/admin/workshops/${workshop.id}?created=1`);
       } catch (caught) {
         if (caught instanceof ApiClientError) { error.value = caught.message; fieldErrors.value = caught.fields; }
