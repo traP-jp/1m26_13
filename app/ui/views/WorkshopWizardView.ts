@@ -3,7 +3,7 @@ import { computed, defineComponent, nextTick, onMounted, reactive, ref, watch, t
 import type { WorkshopInput, WorkshopSummary } from '../../lib/contracts';
 import OccurrenceFields from '../components/OccurrenceFields';
 import { ApiClientError, copyOccurrence, fetchDiscovery, fetchWorkshop, removeWorkshop, saveWorkshop } from '../api';
-import { blankOccurrence, blankWorkshop, detailToInput } from '../forms/workshopForm';
+import { blankOccurrence, blankWorkshop, detailToInput, renumberOccurrenceGroups } from '../forms/workshopForm';
 
 type EditorMode = 'wizard' | 'edit';
 
@@ -15,7 +15,12 @@ export default defineComponent({
     const isWizard = computed(() => props.editorMode === 'wizard'); const isEdit = computed(() => props.editorMode === 'edit'); const draftKey = computed(() => `one-monthon.beta.${props.editorMode}.draft.v2`);
     const applyInput = (input: WorkshopInput) => { form.title = input.title; form.summary = input.summary; form.prerequisiteIds = [...input.prerequisiteIds]; form.successorIds = [...input.successorIds]; form.occurrences = input.occurrences.map((item) => ({ ...item })); };
     const addOccurrence = () => { const next = Math.max(0, ...form.occurrences.filter((item) => item.kind === 'standard').map((item) => item.sequenceNumber)) + 1; form.occurrences.push(blankOccurrence(next)); };
-    const removeOccurrence = (index: number) => { if (form.occurrences.length > 1) { form.occurrences.splice(index, 1); notice.value = ''; } };
+    const removeOccurrence = (index: number) => {
+      if (form.occurrences.length <= 1) return;
+      form.occurrences.splice(index, 1);
+      form.occurrences = renumberOccurrenceGroups(form.occurrences);
+      notice.value = '';
+    };
     const load = async () => {
       loading.value = true; loadFailed.value = false; error.value = '';
       try {
