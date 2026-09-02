@@ -39,7 +39,8 @@ export function validateRoadmapInput(value: unknown): RoadmapInput {
   const title = requiredText(input.title, 'title', 'ロードマップ名', 100, fields);
   const summary = requiredText(input.summary, 'summary', '概要', 240, fields);
   const audience = requiredText(input.audience, 'audience', '対象者', 500, fields);
-  const status = statuses.has(input.status as PublicationStatus) ? input.status as PublicationStatus : 'draft';
+  const published = typeof input.published === 'boolean' ? input.published : false;
+  if (typeof input.published !== 'boolean') fields.published = '公開状態を選択してください。';
   const stages = Array.isArray(input.stages) ? input.stages.map((stage, index) => validateRoadmapStage(stage, index, fields)) : [];
   if (!stages.length) fields.stages = '段階を1件以上入力してください。';
   if (stages.length > 20) fields.stages = '段階は20件以内で入力してください。';
@@ -47,15 +48,13 @@ export function validateRoadmapInput(value: unknown): RoadmapInput {
   if (!workshopIds.length) fields.stages = '講習会を1件以上選択してください。';
   if (new Set(workshopIds).size !== workshopIds.length) fields.stages = '同じ講習会を複数の段階へ重複して追加できません。';
   if (Object.keys(fields).length) throw new DomainError(422, 'validation_error', '入力内容を確認してください。', fields);
-  return { title, summary, audience, status, stages };
+  return { title, summary, audience, published, stages };
 }
 
 function validateRoadmapStage(value: unknown, index: number, fields: Record<string, string>): RoadmapInputStage {
   const key = `stages.${index}`;
-  if (!value || typeof value !== 'object' || Array.isArray(value)) { fields[key] = '段階の入力形式が正しくありません。'; return { title: '', description: '', items: [] }; }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) { fields[key] = '段階の入力形式が正しくありません。'; return { items: [] }; }
   const stage = value as Record<string, unknown>;
-  const title = requiredText(stage.title, `${key}.title`, '段階名', 100, fields);
-  const description = optionalText(stage.description, 500) ?? '';
   const items = Array.isArray(stage.items) ? stage.items.map((value, itemIndex) => {
     const itemKey = `${key}.items.${itemIndex}`;
     if (!value || typeof value !== 'object' || Array.isArray(value)) { fields[itemKey] = '講習会の選択内容が正しくありません。'; return { workshopId: 0, note: '' }; }
@@ -63,7 +62,7 @@ function validateRoadmapStage(value: unknown, index: number, fields: Record<stri
     if (!Number.isSafeInteger(workshopId) || workshopId <= 0) fields[`${itemKey}.workshopId`] = '講習会を選び直してください。';
     return { workshopId, note: optionalText(item.note, 500) ?? '' };
   }) : [];
-  return { title, description, items };
+  return { items };
 }
 
 function validateOccurrence(value: unknown, index: number, fields: Record<string, string>): OccurrenceInput {

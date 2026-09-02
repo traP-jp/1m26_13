@@ -174,16 +174,16 @@ export async function seedDatabase(): Promise<void> {
     ).bind(now),
     d1.prepare(
       `INSERT OR IGNORE INTO beta_roadmaps
-       (id, title, summary, audience, status, created_at, updated_at)
-       VALUES (1, 'Web開発の入口', '基礎操作からWeb UIまで、過去教材を使って順に学びます。', 'Web開発を始めたい人', 'published', ?, ?)`,
+       (id, title, summary, audience, published, status, created_at, updated_at)
+       VALUES (1, 'Web開発の入口', '基礎操作からWeb UIまで、過去教材を使って順に学びます。', 'Web開発を始めたい人', 1, 'published', ?, ?)`,
     ).bind(now, now),
     d1.prepare(
       `INSERT OR IGNORE INTO beta_roadmap_stages
-       (id, roadmap_id, position, title, description) VALUES (1, 1, 1, '道具に慣れる', '開発で使う基本操作を身につけます。')`,
+       (id, roadmap_id, position, title, description) VALUES (1, 1, 1, '', '')`,
     ),
     d1.prepare(
       `INSERT OR IGNORE INTO beta_roadmap_stages
-       (id, roadmap_id, position, title, description) VALUES (2, 1, 2, 'Webを作る', 'Webの仕組みからUI実装まで進みます。')`,
+       (id, roadmap_id, position, title, description) VALUES (2, 1, 2, '', '')`,
     ),
     d1.prepare(
       `INSERT OR IGNORE INTO beta_roadmap_items

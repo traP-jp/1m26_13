@@ -1,21 +1,20 @@
-import { BasiqButton, BasiqCard } from 'basiq-ui';
+import { BasiqButton, BasiqCard, BasiqToggleButton } from 'basiq-ui';
 import { computed, defineComponent, ref, watch, type PropType } from 'vue/dist/vue.esm-bundler.js';
 import type { RoadmapInput, RoadmapInputStage, WorkshopSummary } from '../../lib/contracts';
 import { ApiClientError, fetchDiscovery, fetchManagedRoadmap, removeRoadmap, saveRoadmap } from '../api';
-import AppIcon from '../components/AppIcon';
 
-const blankStage = (): RoadmapInputStage => ({ title: '', description: '', items: [] });
+const blankStage = (): RoadmapInputStage => ({ items: [] });
 
 export default defineComponent({
   name: 'RoadmapEditorView',
-  components: { AppIcon, BasiqButton, BasiqCard },
+  components: { BasiqButton, BasiqCard, BasiqToggleButton },
   props: {
     editorMode: { type: String as PropType<'new' | 'edit'>, required: true },
     roadmapId: { type: String, default: '' },
   },
   emits: ['navigate'],
   setup(props, { emit }) {
-    const form = ref<RoadmapInput>({ title: '', summary: '', audience: '', status: 'draft', stages: [blankStage()] });
+    const form = ref<RoadmapInput>({ title: '', summary: '', audience: '', published: false, stages: [blankStage()] });
     const workshops = ref<WorkshopSummary[]>([]); const loading = ref(true); const saving = ref(false); const deleting = ref(false); const error = ref(''); const fields = ref<Record<string, string>>({});
     const isEdit = computed(() => props.editorMode === 'edit');
     const load = async () => {
@@ -24,8 +23,8 @@ export default defineComponent({
         const discovery = await fetchDiscovery(); workshops.value = discovery.workshops;
         if (isEdit.value) {
           const roadmap = await fetchManagedRoadmap(props.roadmapId);
-          form.value = { title: roadmap.title, summary: roadmap.summary, audience: roadmap.audience, status: roadmap.status, stages: roadmap.stages.map((stage) => ({ title: stage.title, description: stage.description, items: stage.items.map((item) => ({ ...item })) })) };
-        } else form.value = { title: '', summary: '', audience: '', status: 'draft', stages: [blankStage()] };
+          form.value = { title: roadmap.title, summary: roadmap.summary, audience: roadmap.audience, published: roadmap.published, stages: roadmap.stages.map((stage) => ({ items: stage.items.map((item) => ({ ...item })) })) };
+        } else form.value = { title: '', summary: '', audience: '', published: false, stages: [blankStage()] };
       } catch (caught) { error.value = caught instanceof ApiClientError ? caught.message : 'ロードマップを読み込めませんでした。'; }
       finally { loading.value = false; }
     };
@@ -58,7 +57,7 @@ export default defineComponent({
   template: `
     <main class="page roadmap-editor-page" tabindex="-1">
       <a class="back-link" href="/admin" data-route>運営向けページへ戻る</a>
-      <header class="page-heading"><div><p class="eyebrow">ロードマップ管理</p><h1>{{ isEdit ? 'ロードマップを編集' : 'ロードマップを作成' }}</h1><p>閲覧ページに表示する段階と講習会の順番を設定します。</p></div></header>
+      <header class="page-heading"><div><p class="eyebrow">ロードマップ管理</p><h1>{{ isEdit ? 'ロードマップを編集' : 'ロードマップを作成' }}</h1><p>閲覧ページに表示する講習会と順番を設定します。</p></div></header>
       <div v-if="loading" class="feedback" role="status">ロードマップを読み込んでいます。</div>
       <div v-else-if="error && !form.title && isEdit" class="feedback feedback-error" role="alert"><div><strong>表示できませんでした</strong><p>{{ error }}</p></div></div>
       <form v-else class="roadmap-editor-form" @submit.prevent="submit">
@@ -68,22 +67,18 @@ export default defineComponent({
             <label class="field span-2"><span>ロードマップ名 <em>必須</em></span><input v-model="form.title" required maxlength="100" :aria-invalid="Boolean(fields.title)" /><small v-if="fields.title" class="field-error">{{ fields.title }}</small></label>
             <label class="field span-2"><span>概要 <em>必須</em></span><textarea v-model="form.summary" required maxlength="240" rows="3"></textarea></label>
             <label class="field"><span>対象者 <em>必須</em></span><input v-model="form.audience" required maxlength="500" /></label>
-            <label class="field"><span>公開状態</span><select v-model="form.status"><option value="draft">下書き</option><option value="published">公開</option></select></label>
+            <div class="field"><span>公開状態</span><BasiqToggleButton :model-value="form.published" :aria-label="form.published ? '公開中。押すと下書きに戻します' : '下書き。押すと公開します'" @update:model-value="form.published = $event">✓</BasiqToggleButton><small>{{ form.published ? '公開中' : '下書き' }}</small><small v-if="fields.published" class="field-error">{{ fields.published }}</small></div>
           </div>
         </BasiqCard>
 
         <section class="roadmap-stage-editor" aria-labelledby="stage-editor-title">
-          <div class="section-heading"><div><h2 id="stage-editor-title">段階と講習会</h2><p>上から順に閲覧ページへ表示されます。</p></div><BasiqButton type="button" tone="neutral" variant="outline" @click="addStage">段階を追加</BasiqButton></div>
+          <div class="section-heading"><div><h2 id="stage-editor-title">講習会の順番</h2><p>各段階の講習会が、上から順に閲覧ページへ表示されます。</p></div><BasiqButton type="button" tone="neutral" variant="outline" @click="addStage">段階を追加</BasiqButton></div>
           <p v-if="fields.stages" class="field-error" role="alert">{{ fields.stages }}</p>
           <ol class="roadmap-stage-editor-list">
             <li v-for="(stage, stageIndex) in form.stages" :key="stageIndex">
               <BasiqCard>
                 <template #header><div class="editor-stage-heading"><span>{{ stageIndex + 1 }}</span><h3>段階 {{ stageIndex + 1 }}</h3><BasiqButton v-if="form.stages.length > 1" type="button" tone="danger" variant="outline" @click="removeStage(stageIndex)">削除</BasiqButton></div></template>
-                <div class="form-grid">
-                  <label class="field"><span>段階名 <em>必須</em></span><input v-model="stage.title" required maxlength="100" /></label>
-                  <label class="field"><span>説明</span><textarea v-model="stage.description" maxlength="500" rows="2"></textarea></label>
-                  <fieldset class="workshop-checklist"><legend>この段階の講習会</legend><label v-for="workshop in workshops" :key="workshop.id"><input type="checkbox" :checked="selected(stage, workshop.id)" @change="onWorkshopChange(stage, workshop.id, $event)" /><span><strong>{{ workshop.title }}</strong><small>{{ workshop.teams.join(' / ') }}</small></span></label></fieldset>
-                </div>
+                <fieldset class="workshop-checklist"><legend>この段階の講習会</legend><label v-for="workshop in workshops" :key="workshop.id"><input type="checkbox" :checked="selected(stage, workshop.id)" @change="onWorkshopChange(stage, workshop.id, $event)" /><span><strong>{{ workshop.title }}</strong><small>{{ workshop.teams.join(' / ') }}</small></span></label></fieldset>
               </BasiqCard>
             </li>
           </ol>

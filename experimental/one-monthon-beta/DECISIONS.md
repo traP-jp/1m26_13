@@ -300,6 +300,19 @@
 - 再検討する条件: 教材への主要導線が見つからないという実利用の観察、または通常以外の開催種別が増えて凡例が必要になった場合。
 - 参照: 本人指定のtraQレビュー（`https://q.trap.jp/channels/event/1-Monthon/26/13/Zenn`、読み取り専用）、`app/ui/views/WorkshopDetailView.ts`
 
+## D-20260902-023 — ロードマップの段階文言を廃止し、公開状態をbooleanへ移行する
+
+- 状態: decided
+- 判断が必要だった理由: 追加の内部レビューで、段階名・説明は学習者が講習会を選ぶうえで冗長であり、公開状態も文字列二値ではなくbooleanとして保持する方針が示された。既存試用D1を破壊せず移行する方法も必要だった。
+- 選択肢:
+  1. 段階名・説明と`draft/published`文字列を維持し、表示だけ減らす。
+  2. 段階名・説明を入力型・API・表示から外し、講習会を直接並べる。公開状態の正本を`published INTEGER`へ移し、旧列は互換用途だけに残す。
+- 決定: 選択肢2。段階は講習会の順序を保持する内部のまとまりとして残すが、名称・説明を意味データとして扱わない。新規保存では旧`title/description`へ空値を書き、公開判定は常にboolean列を読む。旧`status`列は既存テーブルの`NOT NULL`制約を壊さないため同値を影書きするが、アプリケーションの読取元にはしない。
+- 根拠: 講習会名へ視線を直接誘導でき、APIとUIの不要フィールドを同時に除去できる。追加カラムとbackfillだけのmigrationなら、既存のロードマップ、講習会、完了記録を削除せず移行できる。
+- 影響: `RoadmapInput.published`は厳密なbooleanとして検証する。学習者画面は全段階の項目を順番どおり平坦化し、basiQ-uiの`ToggleButton`が管理画面の公開操作になる。新規依存・独自UI部品・新規CSSセレクタは追加しない。
+- 再検討する条件: 段階ごとの到達目標や公開範囲が、実運用上の必須情報として具体例とともに確認された場合、または本番移行時に互換列を削除できるDB保守時間が確保された場合。
+- 参照: 本人指定のtraQレビュー（`https://q.trap.jp/channels/event/1-Monthon/26/13/Zenn`、読み取り専用）、`app/drizzle/0002_roadmap_published_boolean.sql`、`app/ui/views/RoadmapDetailView.ts`、`app/ui/views/RoadmapEditorView.ts`
+
 ---
 
 ## 追記テンプレート
