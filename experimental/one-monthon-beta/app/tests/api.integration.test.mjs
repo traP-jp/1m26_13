@@ -63,6 +63,10 @@ test('β中心導線を隔離D1で登録・公開・発見・複製・完了・�
     const deletedWorkshop = await fetch(`${server.baseUrl}/api/workshops/${id}`, { method: 'DELETE' }); assert.equal(deletedWorkshop.status, 204);
     const deletedWorkshopLookup = await json(server.baseUrl, `/api/workshops/${id}?manage=1`); assert.equal(deletedWorkshopLookup.response.status, 404);
     const homeAfterDelete = await json(server.baseUrl, '/api/workshops?includeDrafts=1'); assert.equal(homeAfterDelete.body.workshops.some((item) => item.id === id), false);
+    const deletedSeedWorkshop = await fetch(`${server.baseUrl}/api/workshops/11`, { method: 'DELETE' }); assert.equal(deletedSeedWorkshop.status, 204);
+    await stop(server); server = await start(port, persist);
+    const deletedSeedWorkshopAfterRestart = await json(server.baseUrl, '/api/workshops/11?manage=1'); assert.equal(deletedSeedWorkshopAfterRestart.response.status, 404);
+    const homeAfterSeedDeleteRestart = await json(server.baseUrl, '/api/workshops?includeDrafts=1'); assert.equal(homeAfterSeedDeleteRestart.body.workshops.some((item) => item.id === 11), false);
     const badId = await json(server.baseUrl, '/api/workshops/not-a-number'); assert.equal(badId.response.status, 404);
   } catch (error) { if (server) process.stderr.write(`\n--- server output ---\n${server.output()}\n`); throw error; }
   finally { await stop(server); await rm(tempRoot, { recursive: true, force: true }); }

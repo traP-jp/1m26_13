@@ -289,7 +289,7 @@
 
 ## D-20260902-022 — 教材導線を本文へ一本化し、通常開催を無標示の既定状態にする
 
-- 状態: decided
+- 状態: superseded（複数開催の教材配置のみD-20260903-040で置換。1回開催の統合表示と通常開催を無標示にする判断は維持）
 - 判断が必要だった理由: 追加の内部レビューで、本文と学習状況カードに同じ教材リンクが重複し、通常開催にも毎回種別ラベルが付くことで詳細画面の情報量が増えていると確認された。
 - 選択肢:
   1. 重要操作として教材リンクを2か所に置き、全開催へ種別ラベルを表示する。
@@ -507,6 +507,60 @@
 - 影響: `RoadmapEditorView`、`WorkshopListView`、一覧要素を`button`から`a`へ変える既存CSSセレクタを更新する。API、D1、公開条件、依存、migrationは変更しない。traQ参照は本人が明示承認した最新投稿への`:eyes:`1件だけを例外とし、投稿・編集・その他のリアクションは行っていない。
 - 再検討する条件: 保存後に一覧/詳細へ自動遷移する運用へ変える場合、またはbasiQ-uiに標準Alert/Tabs/LinkCardが追加された場合。
 - 参照: 本人指定のtraQレビュー（2026-09-03 00:35〜00:41、`https://q.trap.jp/channels/event/1-Monthon/26/13/Zenn`）、`app/ui/views/RoadmapEditorView.ts`、`app/ui/views/WorkshopListView.ts`、`app/styles/pages.css`
+
+## D-20260903-039 — traQの確認境界はeyesスタンプとし、チャンネルAPIを直接ポーリングする
+
+- 状態: decided（トークン取得方法はD-20260903-042でKeychainへ拡張）
+- 判断が必要だった理由: 認証済みChromeを定期操作する方式はDOM・画像処理と毎回の文脈読込が重く、WebSocket Botは10分程度の遅延を許容する用途に常時接続管理を持ち込む。状態ファイルを別途持たず、複数の新規投稿も一度に取得できる境界が必要だった。
+- 選択肢:
+  1. Chromeで閲覧し、画面上の最新投稿を毎回判定する。
+  2. WebSocket Botを常駐させ、投稿イベントを受信する。
+  3. Botトークンで`GET /channels/{channelId}/messages`を定期実行し、`:eyes:`を処理済み境界に使う。
+- 決定: 選択肢3。降順でメッセージをページングし、最初の`:eyes:`より新しい全投稿を古い順に出力する。新規があれば最新投稿だけにBot名義で`:eyes:`を1個付ける。どの利用者が付けた`:eyes:`でも確認済み境界とし、0件時は書込APIを呼ばない。
+- 根拠: チャンネルメッセージAPIの`Message`に`stamps`が含まれるため追加のスタンプ照会や検索サービスが不要で、最新への`:eyes:`がリモート側の冪等cursorになる。次回はその投稿で走査を止められ、常駐プロセスもローカル状態同期も要らない。
+- 影響: トークンは`TRAQ_BOT_TOKEN`または`TRAQ_ACCESS_TOKEN`を優先し、なければD-20260903-042のKeychainから読み、ログへ出さない。既定パスはZennチャンネルだが、チャンネル/eyes UUIDを環境変数で固定すれば定期実行時のAPI呼出を2回減らせる。`--dry-run`では一切書き込まず、`--json`をCodex Cronの前段に利用できる。新規依存はない。
+- 再検討する条件: 即時処理が必要になる、`:eyes:`を人間の通常リアクションと区別する必要が生じる、Botに過去メッセージ取得権限がない、または複数ワーカーが同時実行される場合。専用スタンプ、永続message ID、WebSocketイベントの順で再検討する。
+- 参照: 本人依頼、traQ公式OpenAPI `GET /channels/{channelId}/messages`・`GET /stamps`・`POST /messages/{messageId}/stamps/{stampId}`、`app/scripts/traq-zenn-feedback.mjs`
+
+## D-20260903-040 — ロードマップをMarkdownで共有し、複数開催の教材を各開催へ戻す
+
+- 状態: decided
+- 判断が必要だった理由: 追加レビューで、ロードマップを部員へ渡すための再利用可能な形式と、複数開催でどの教材がどの回に属するかをカード内から直接判別できる導線が求められた。D-20260902-022の教材一本化は重複削減には有効だったが、複数回では開催と教材の対応を離していた。
+- 選択肢:
+  1. 既存の画面URLだけを共有し、教材は全開催分を独立した節へ集約したままにする。
+  2. ロードマップの段階・講習会名・絶対URLをMarkdown化してコピーできるようにし、複数開催だけは教材を該当開催カード内へ配置する。
+- 決定: 選択肢2。ロードマップ見出し横のbasiQ-ui `Button`で共有欄を開き、readonly Markdownとコピーボタンを表示する。複数開催は各カード内に「教材はこちら」を置き、再放送ラベルは見出し右端に置く。1回開催は階層を隠す原則を優先して従来の統合教材節を維持する。
+- 根拠: 共有文はtraQ等へそのまま貼れ、URLは名称変更の影響を受けない連番IDを使う。教材の所在を開催データ境界と一致させつつ、単発画面へ不要なカード階層や重複を戻さない。
+- 影響: D-20260902-022の教材配置判断を複数開催に限り置換する。`RoadmapDetailView`、`WorkshopDetailView`と既存レイアウト規則を更新する。API、D1、入力データ、依存、新規外観CSSは変更しない。
+- 再検討する条件: traQ向け以外の共有形式、公開URLの正式origin、またはbasiQ-uiに標準Clipboard/Share部品が追加された場合。
+- 参照: 本人指定のtraQレビュー（2026-09-03 00:47〜00:49、`https://q.trap.jp/channels/event/1-Monthon/26/13/Zenn`、閲覧のみ）、`app/ui/views/RoadmapDetailView.ts`、`app/ui/views/WorkshopDetailView.ts`
+
+## D-20260903-041 — β fixtureはseed markerがない初回だけ投入する
+
+- 状態: decided
+- 判断が必要だった理由: 起動のたびに固定IDのfixtureを`INSERT OR IGNORE`していたため、利用者がロードマップ段階を編集したD1では固定段階IDの挿入が無視され、そのIDを参照するitem挿入だけが外部キー制約で失敗した。また、利用者が削除したfixtureを再起動時に復活させる可能性もあった。
+- 選択肢:
+  1. 各fixture SQLをさらに冪等化し、毎起動で期待形へ戻す。
+  2. migrationで一度限りのseed markerを持ち、markerがない新規環境だけfixtureを同一batchで投入する。既存βデータがある環境はmigrationでmarkerをbackfillする。
+- 決定: 選択肢2。`beta_seed_state`へ`beta-v1`を記録し、存在しない場合だけβ fixtureとmarker挿入を同じD1 batchへ含める。既存β講習会がある環境はmigration時点でmarkerを作る。
+- 根拠: 初期fixtureはアプリの正本ではなく新規ローカル環境用であり、起動時の期待形復元より利用者の編集・削除を守る方が「過去の講習会を資産として残す」目的に合う。同一batchなら初回投入が途中状態にならない。
+- 影響: `0003_beta_seed_state.sql`、migration registry、schema、setup、API統合テストを更新する。既存テーブルやデータは削除せず、新規環境の代表fixtureは維持する。新規依存はない。
+- 再検討する条件: fixtureを明示コマンドでリセットする開発運用、バージョン別の追加fixture配布、または本番データ移行と開発seedを完全分離する時点。
+- 参照: 本人指定のtraQレビュー（2026-09-03 01:06、`https://q.trap.jp/channels/event/1-Monthon/26/13/Zenn`、閲覧のみ）、`app/drizzle/0003_beta_seed_state.sql`、`app/db/setup.ts`、`app/tests/api.integration.test.mjs`
+
+## D-20260903-042 — Cron用BotトークンはmacOS Keychainから実行時に取得する
+
+- 状態: decided
+- 判断が必要だった理由: 10分heartbeatからCLIを無人実行するには資格情報が必要だが、トークンをCronプロンプト、Git管理ファイル、シェル履歴、通常ログへ保存してはならない。
+- 選択肢:
+  1. Cronプロンプトまたは`.env`へ平文保存する。
+  2. macOS Keychainへ保存し、CLIが環境変数未指定時だけ`security`経由で読む。
+  3. 毎回利用者へ入力を求める。
+- 決定: 選択肢2。serviceを`codex.1-monthon.traq-bot-token`、accountを`1-monthon`へ固定し、既存heartbeat `zenn`の先頭処理を`npm run feedback:check -- --json`へ置換する。新規0件なら他の処理を行わない。
+- 根拠: Keychainはリポジトリとタスク本文から秘密を分離しながら、同じローカルMac上のスケジュール実行から取得できる。読み取り専用quiet dry-runで実API接続まで確認できた。
+- 影響: CLIは環境変数、Keychainの順で資格情報を探す。heartbeatはtraQ確認にChromeを使わず、CLI失敗時もChromeへフォールバックしない。ローカルUIの変更後QAには従来どおりChromeを使う。秘密値は成果物と自動化設定に含めない。
+- 再検討する条件: 実行ホストをmacOS以外へ移す、Keychainアクセスが無人実行で拒否される、またはCodexのローカルスケジュール済みタスクに暗号化Secret注入機能が提供される場合。
+- 参照: 本人依頼、OpenAI Docs「スケジュール済みタスク」、`app/scripts/traq-zenn-feedback.mjs`、automation `zenn`
 
 ---
 

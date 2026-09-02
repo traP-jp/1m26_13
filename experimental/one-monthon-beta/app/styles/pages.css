@@ -254,7 +254,6 @@
   .workshop-detail-rail, .roadmap-progress-rail { width: 100%; position: static; order: 1; }
   .audience-section { grid-template-columns: 1fr; gap: var(--basiq-space-600); }
   .audience-section > div + div { padding: var(--basiq-space-600) 0 0; border-top: 1px solid var(--basiq-color-border-separator); border-left: 0; }
-  .occurrence-detail header { flex-direction: column; }
   .roadmap-path-item > a { align-items: flex-start; flex-direction: column; gap: var(--basiq-space-100); }
   .roadmap-item-link-copy { align-self: flex-end; }
   .profile-header { align-items: flex-start; flex-direction: column; gap: var(--basiq-space-600); }
