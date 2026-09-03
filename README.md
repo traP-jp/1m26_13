@@ -9,6 +9,8 @@
 
 外部アカウント、認証情報、有料サービスは不要です。
 
+画面の欧文はInter、日本語はM PLUS 1pをbasiQ-ui標準のフォントトークンで表示します。フォントはFontsource 5.3.0から自己配信し、外部CDNへ接続しません。ライセンスと著作権表示は`app/public/font-licenses.txt`（起動後は`/font-licenses.txt`）に同梱しています。
+
 ## 新規環境で起動する
 
 ```bash
