@@ -635,7 +635,7 @@
 
 ## D-20260903-048 — 標準フォントを自己配信し、next更新の安全制限は維持する
 
-- 状態: decided（フォント導入済み、basiQ-ui本体のnext更新は環境制限により未完了）
+- 状態: フォント判断はdecided。next更新を待つ判断のみD-20260903-049によりsuperseded。
 - 判断が必要だった理由: 内部レビューでbasiQ-uiのnext更新と標準フォントの適用が求められた。現行版の`--basiq-font-family-sans`はInter/M PLUS 1pを指定するが、アプリはフォントファイルを読み込んでいなかった。
 - 選択肢:
   1. 外部フォントCDNと独自のfont-family上書きを追加する。
@@ -646,6 +646,20 @@
 - 影響: フォント読込だけを追加し、Vue/basiQ-ui実部品、入力、API、D1、既存試用データを維持する。初回のフォント配信容量は増えるが、`font-display: swap`とunicode-rangeを配布元のまま用いる。本番依存監査は0件。開発専用の既存fast-uri high 1件とdrizzle-kit系moderate 4件は別の依存保守対象とし、今回の2パッケージとは無関係である。
 - 再検討する条件: 環境がbeta.3の通常取得を許可した時点でnextを再解決し、API/トークン差分と全リリースゲートを確認する。本体更新は完了扱いにしない。
 - 参照: 本人指定のtraQレビュー（2026-09-03、`https://q.trap.jp/channels/event/1-Monthon/26/13/Zenn`、CLI参照）、npm公開メタデータ、`app/node_modules/basiq-ui/dist/styles.css`、Fontsource両パッケージのREADME/metadata/LICENSE
+
+---
+
+## D-20260903-049 — 本人指定のbasiq-uiだけを公開経過時間の例外にしてbeta.3へ更新する
+
+- 状態: decided。D-20260903-048のnext更新待ちをsupersedeし、フォントの自己配信と版固定は継続する。
+- 判断が必要だった理由: 本人から`minReleaseAgeExclude`へbasiQ-uiを追加する明示依頼があった。既定npm 11.16はこの設定に未対応だったため、制限を一律解除せず正式なパッケージ単位例外を扱う実行環境が必要だった。
+- 選択肢: 全依存の公開後待機を無効化する／basiq-uiだけを除外して対応版npmを一時実行する。
+- 決定: 後者。`app/.npmrc`に`min-release-age=3`と`min-release-age-exclude[]=basiq-ui`を置く。グローバルnpmと利用者の`.npmrc`は変更しない。pack時の除外適用にも対応するnpm 11.19.1（Artistic-2.0）を`npm exec`で一時利用し、プロジェクトはnpm 11.19以上を要求する。他パッケージと推移依存の3日制限を保つ。
+- 根拠: npm公式設定とリリース記録、実行時の設定値を確認。正規registryから`npm pack --ignore-scripts`でbeta.3を取得し、配布物のMIT LICENSE、install hookなし、integrity一致を確認した。SHA-512は`sha512-Igl+D7X2YXzeV1vNCOgDGLTvASicbmF5o9liqJXU3k4FS8YtHsQHS8yIi9OG3V//Jw5HvYIgdYUv+KqQQNXKTw==`。
+- 互換性: 公開ソース差分と配布宣言を比較。利用中の6部品は実装変更なし、型宣言5件同一、ToggleButtonのみ同じ型のプロパティ順が変わる。既存トークンの削除は0件、exportsは17件へ追加された。アプリが現在使うAPIに破壊的変更は認めず、UIソースとCSSの補修は不要と判断した。新しいInput/FormField/Tabs等の採用は別のUI変更単位で扱い、今回の依存更新へ混在させない。
+- 影響: `app/vendor/basiq-ui-0.1.0-beta.3.tgz`を追加し、manifest/lockfileを固定。旧vendorは保持。Vue/reka-uiや他の依存は変更せず、API/D1/入力・完了記録も維持する。全ゲートとPC/390px操作確認が成功、本番依存監査は0件。旧npmを起動元にした場合だけ未対応設定の警告が出るためREADMEに一時実行方法を記載した。
+- 再検討する条件: 安定版更新、basiQ-ui新部品への画面移行、または本人がこの限定例外を取り消す場合。安全制限を変更できないとした以前の説明は広すぎたため、本決定で訂正する。
+- 参照: 本人の本タスクでの明示依頼、[npm設定](https://docs.npmjs.com/using-npm/config/#min-release-age-exclude)、[npm 11.19.0](https://github.com/npm/cli/releases/tag/v11.19.0)、[basiQ-ui差分](https://github.com/traP-jp/basiq-ui/compare/v0.1.0-beta.0...v0.1.0-beta.3)。非公開投稿本文は転載しない。
 
 ---
 
