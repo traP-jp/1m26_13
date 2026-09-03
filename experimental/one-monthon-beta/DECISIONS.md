@@ -633,6 +633,22 @@
 
 ---
 
+## D-20260903-048 — 標準フォントを自己配信し、next更新の安全制限は維持する
+
+- 状態: decided（フォント導入済み、basiQ-ui本体のnext更新は環境制限により未完了）
+- 判断が必要だった理由: 内部レビューでbasiQ-uiのnext更新と標準フォントの適用が求められた。現行版の`--basiq-font-family-sans`はInter/M PLUS 1pを指定するが、アプリはフォントファイルを読み込んでいなかった。
+- 選択肢:
+  1. 外部フォントCDNと独自のfont-family上書きを追加する。
+  2. 指定Fontsourceパッケージを固定し、basiQ-uiの既存トークンをそのまま機能させる。
+- 決定: 選択肢2。`@fontsource/inter@5.3.0`と`@fontsource/m-plus-1p@5.3.0`を正確な版・integrityでlockfileへ固定し、normalの400/500/700/800/900を共通CSS入口で読み込む。Interはlatinのみ、M PLUS 1pは日本語を含む配布元のunicode-range分割を利用し、必要な文字のファイルをブラウザが取得する。既存の650/680/750/850指定はCSS標準の近傍ウェイト選択を使い、外観ルールやトークンは追加・上書きしない。
+- 根拠: 配布元README、metadata、LICENSEとbasiQ-uiの既存tokenを確認。両フォントはOFL-1.1、追加の推移依存・install scriptなし。著作権表示とOFL全文を`app/public/font-licenses.txt`へ同梱し、ビルド後も配信する。外部CDNや認証情報は不要。
+- nextの扱い: npm registryの`next`は`0.1.0-beta.3`、`latest`は`0.1.0-beta.0`。beta.3の通常取得は環境の最小公開経過時間制限によりETARGETとなった。別URL取得、設定上書き、旧nextへの勝手な変更は行わず、本体と既存vendorはbeta.0のまま維持する。D-20260826-004の版固定とD-20260826-009の安全制約を継続し、supersededにはしない。
+- 影響: フォント読込だけを追加し、Vue/basiQ-ui実部品、入力、API、D1、既存試用データを維持する。初回のフォント配信容量は増えるが、`font-display: swap`とunicode-rangeを配布元のまま用いる。本番依存監査は0件。開発専用の既存fast-uri high 1件とdrizzle-kit系moderate 4件は別の依存保守対象とし、今回の2パッケージとは無関係である。
+- 再検討する条件: 環境がbeta.3の通常取得を許可した時点でnextを再解決し、API/トークン差分と全リリースゲートを確認する。本体更新は完了扱いにしない。
+- 参照: 本人指定のtraQレビュー（2026-09-03、`https://q.trap.jp/channels/event/1-Monthon/26/13/Zenn`、CLI参照）、npm公開メタデータ、`app/node_modules/basiq-ui/dist/styles.css`、Fontsource両パッケージのREADME/metadata/LICENSE
+
+---
+
 ## 追記テンプレート
 
 ## D-YYYYMMDD-NNN — 判断の題名
