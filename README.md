@@ -5,7 +5,7 @@
 ## 必要な環境
 
 - Node.js 22.13以上
-- npm
+- npm 11.19以上（パッケージ単位の公開経過時間例外を利用）
 
 外部アカウント、認証情報、有料サービスは不要です。
 
@@ -13,11 +13,15 @@
 
 ## 新規環境で起動する
 
+`app/.npmrc`は依存の公開後3日制限を維持し、本人が指定した`basiq-ui`だけを`min-release-age-exclude`の対象としています。本体はintegrity確認済みのbeta.3を`app/vendor`に固定しています。
+
 ```bash
 cd app
 npm install
 npm run dev
 ```
+
+npmが古い場合は、グローバル環境を変更せず`npm exec --yes --package=npm@11.19.1 -- npm install`と`npm exec --yes --package=npm@11.19.1 -- npm run dev`で対応版を一時実行できます。起動元の旧npmが除外設定を未対応として警告する場合がありますが、処理を行う11.19.1では認識されます。
 
 [http://localhost:3000/](http://localhost:3000/)を開きます。初回アクセス時にchecked-in migrationと、単発・3回・7回・再放送、複数分野の学習順を含むサンプルデータが`app/.wrangler/`のローカルD1へ作成されます。初期状態は公開27講習会、下書き込み28講習会、5ロードマップです。再起動しても入力内容と完了記録は保持されます。
 

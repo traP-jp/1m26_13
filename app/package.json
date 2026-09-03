@@ -3,7 +3,8 @@
   "version": "0.2.0",
   "private": true,
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=22.13.0",
+    "npm": ">=11.19.0"
   },
   "scripts": {
     "dev": "vinext dev",
@@ -22,7 +23,7 @@
   "dependencies": {
     "@fontsource/inter": "5.3.0",
     "@fontsource/m-plus-1p": "5.3.0",
-    "basiq-ui": "file:vendor/basiq-ui-0.1.0-beta.0.tgz",
+    "basiq-ui": "file:vendor/basiq-ui-0.1.0-beta.3.tgz",
     "drizzle-orm": "0.45.2",
     "next": "16.2.12",
     "react": "19.2.8",
