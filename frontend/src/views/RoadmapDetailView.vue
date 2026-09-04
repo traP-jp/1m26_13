@@ -212,7 +212,7 @@ onMounted(load);
 <style scoped>
 .roadmap-detail-page {
   width: min(1160px, 100%);
-  padding-top: 34px;
+  padding: 34px 42px 72px;
 }
 
 .roadmap-hero {
@@ -295,11 +295,17 @@ onMounted(load);
   font-size: 0.92rem;
 }
 
-.progress-number span,
-.progress-foot {
+.progress-number span {
   color: var(--basiq-color-content-subtle);
   font-size: 0.74rem;
   font-weight: 700;
+}
+
+.progress-foot {
+  color: var(--basiq-color-content-subtle);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-align: right;
 }
 
 .progress-track {
@@ -314,10 +320,6 @@ onMounted(load);
   display: block;
   border-radius: inherit;
   background: var(--basiq-color-accent-default);
-}
-
-.progress-foot {
-  text-align: right;
 }
 
 .current-content {
@@ -424,6 +426,10 @@ onMounted(load);
   content: "";
 }
 
+.path-row.is-completed::after {
+  background: color-mix(in srgb, var(--app-success) 38%, var(--basiq-color-border-separator));
+}
+
 .path-marker {
   z-index: 1;
   width: 34px;
@@ -521,6 +527,11 @@ onMounted(load);
   content: "•";
 }
 
+.current-meta span + span::before {
+  margin-right: 8px;
+  content: "•";
+}
+
 .side-rail {
   display: grid;
   gap: 18px;
@@ -537,16 +548,24 @@ onMounted(load);
   line-height: 1.55;
 }
 
-@media (width <= 980px) {
+@media (width <= 1020px) {
+  .roadmap-detail-page {
+    padding-inline: 28px;
+  }
+
   .roadmap-content-grid {
     grid-template-columns: minmax(0, 1fr) 284px;
     gap: 24px;
+  }
+
+  .status-overview {
+    grid-template-columns: minmax(230px, 0.75fr) minmax(360px, 1.25fr);
   }
 }
 
 @media (width <= 760px) {
   .roadmap-detail-page {
-    padding-top: 20px;
+    padding: 20px 16px 46px;
   }
 
   .roadmap-hero {
@@ -566,6 +585,7 @@ onMounted(load);
   .status-overview {
     grid-template-columns: 1fr;
     gap: 14px;
+    margin-bottom: 26px;
   }
 
   .current-content {
