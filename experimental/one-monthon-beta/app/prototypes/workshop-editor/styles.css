@@ -74,6 +74,22 @@ h1 { font-size: 30px; line-height: 1.3; letter-spacing: -.025em; }
 .wizard-complete { padding-top: 42px; }
 .completion-mark { width: 34px; height: 34px; display: grid; place-items: center; margin-bottom: 10px; border-radius: 50%; color: var(--success); background: var(--success-soft); font-weight: 700; }
 .completion-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.settings-overview { width: min(100%, 900px); display: grid; gap: 16px; margin: 0 auto; }
+.settings-intro { display: grid; gap: 3px; }
+.settings-intro h2 { font-size: 18px; }
+.settings-intro p { color: var(--basiq-color-content-subtle); font-size: 12px; }
+.settings-accordion { display: grid; gap: 10px; }
+.settings-accordion details { overflow: hidden; border: 1px solid var(--basiq-color-border-separator); border-radius: var(--basiq-radius-sm); background: var(--basiq-color-surface-base); }
+.settings-accordion summary { min-height: 62px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 16px; cursor: pointer; list-style: none; }
+.settings-accordion summary::-webkit-details-marker { display: none; }
+.settings-accordion summary::after { width: 26px; height: 26px; display: grid; place-items: center; flex: none; border: 1px solid var(--basiq-color-border-control); border-radius: 50%; color: var(--basiq-color-content-subtle); content: '+'; font-size: 16px; line-height: 1; }
+.settings-accordion details[open] summary::after { content: '−'; }
+.settings-accordion summary:focus-visible { outline: var(--basiq-focus-ring-width) solid var(--basiq-color-focus-ring); outline-offset: calc(var(--basiq-focus-ring-gap) * -1); }
+.settings-accordion summary > span { min-width: 0; display: grid; gap: 2px; }
+.settings-accordion summary strong { font-size: 14px; }
+.settings-accordion summary small { overflow: hidden; color: var(--basiq-color-content-subtle); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.accordion-content { display: grid; gap: 18px; padding: 18px 16px; border-top: 1px solid var(--basiq-color-border-separator); background: var(--basiq-color-surface-container); }
+.settings-actions { position: sticky; z-index: 20; bottom: 0; display: flex; justify-content: flex-end; padding: 12px 0; border-top: 1px solid var(--basiq-color-border-separator); background: color-mix(in srgb, var(--basiq-color-surface-base) 96%, transparent); backdrop-filter: blur(8px); }
 .tab-panel { display: grid; align-content: start; gap: 16px; }
 .section-card, .occurrence-card { border: 1px solid var(--basiq-color-border-separator); }
 .card-heading { width: 100%; display: flex; align-items: center; gap: 11px; }
@@ -150,6 +166,11 @@ h1 { font-size: 30px; line-height: 1.3; letter-spacing: -.025em; }
   .wizard-navigation { position: fixed; z-index: 20; left: 0; right: 0; bottom: 63px; min-height: 58px; align-items: center; margin: 0; padding: 8px 16px; border-top: 1px solid var(--basiq-color-border-separator); background: color-mix(in srgb, var(--basiq-color-surface-base) 96%, transparent); backdrop-filter: blur(8px); }
   .wizard-navigation button:last-child { flex: 1; }
   .wizard-complete { padding-top: 24px; }
+  .settings-intro h2 { font-size: 16px; }
+  .settings-accordion summary { min-height: 58px; padding-inline: 13px; }
+  .accordion-content { padding: 16px 13px; }
+  .settings-actions { position: fixed; left: 0; right: 0; bottom: 63px; min-height: 58px; align-items: center; padding: 8px 16px; }
+  .settings-actions button { width: 100%; }
   .field-grid, .connection-columns, .round-subgrid { grid-template-columns: 1fr; }
   .field-wide { grid-column: auto; }
   .round-heading { align-items: flex-start; }
