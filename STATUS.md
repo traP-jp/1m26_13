@@ -29,6 +29,7 @@
 - Lecture、Session、FlowClass、Flow、Roadmapの削除API・画面は実装していない。
 - BasiQ UI beta.3のCard、Tabs、FormField、Input、Textarea、Switch、Checkboxを使い、確定した画面設計を全導線へ反映した。
 - デスクトップは固定サイドバー、モバイルは上部ヘッダーと下部ナビゲーションを共通化した。画面設計の削除操作だけは、確定済み製品仕様に従って除外した。
+- 講習会編集を仕様基準で再構成した。Lecture属性、構造化Resource・Relation、順序付きSession、複数元Sessionによる再放送、内容複製、`lecture_pre → session_main → lecture_post`の対象対応、Sessionから導出する公開状態、保存後確認、競合案内、初期読込失敗時の編集保護を一画面で扱う。
 
 ## 最終検証
 
@@ -39,6 +40,7 @@
 - 390×844: ホームとRoadmap編集で`documentElement.scrollWidth === innerWidth === 390`。console warning/error 0件。
 - プロフィールtabは右矢印で選択、focus、tabpanelが同時に切り替わることを確認。
 - 画面設計反映後のfrontendで、API型生成check、oxfmt、oxlint、ESLint、stylelint、Vue型検査、Vitest 6/6、Vite buildを再実行して成功。
+- 講習会編集の再実装後もfrontend全ゲートを再実行して成功。実ブラウザで2タブ、Flowの対象対応、Session追加、再放送として複製、`?session=`からの対象編集、404時の入力欄非表示と再試行、console warning/error 0件を確認した。
 
 ## 再現手順
 
