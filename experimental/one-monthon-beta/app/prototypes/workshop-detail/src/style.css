@@ -102,8 +102,6 @@ dl, ol { margin: 0; padding: 0; }
 .meta-tags span, .kind-label { display: inline-flex; align-items: center; min-height: 24px; padding: 2px var(--basiq-space-200); border-radius: var(--basiq-radius-sm); color: var(--basiq-color-content-subtle); background: var(--basiq-color-surface-container); font-size: .73rem; font-weight: 700; }
 .kind-label { margin-bottom: var(--basiq-space-100); color: var(--basiq-color-content-accent); background: var(--prototype-accent-soft); }
 
-.eyebrow { display: block; margin-bottom: 3px; color: var(--basiq-color-content-accent); font-size: .68rem; font-weight: 800; letter-spacing: .08em; }
-
 .round-tabs { margin-top: var(--basiq-space-600); --basiq-color-tabs-content-background: var(--basiq-color-surface-base); }
 
 .detail-grid { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 40px; align-items: start; margin-top: var(--basiq-space-600); }

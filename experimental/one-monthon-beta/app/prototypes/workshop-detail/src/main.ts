@@ -257,12 +257,12 @@ const RoundDetails = defineComponent({
         </section>
 
         <section class="content-section audience-grid" aria-label="対象者と前提知識">
-          <div><span class="eyebrow">FOR</span><h2>対象者</h2><p>{{ scenario.audience }}</p></div>
-          <div><span class="eyebrow">BEFORE</span><h2>前提知識</h2><p>{{ scenario.prerequisites }}</p></div>
+          <div><h2>対象者</h2><p>{{ scenario.audience }}</p></div>
+          <div><h2>前提知識</h2><p>{{ scenario.prerequisites }}</p></div>
         </section>
 
         <section class="content-section connections-section">
-          <div class="section-heading"><div><span class="eyebrow">LEARNING PATH</span><h2>前後の講習会</h2></div></div>
+          <div class="section-heading"><div><h2>前後の講習会</h2></div></div>
           <div class="connection-grid">
             <div><span>先に学ぶ</span><strong>{{ scenario.before }}</strong><AppIcon name="chevron" :size="17" /></div>
             <div><span>次に学ぶ</span><strong>{{ scenario.after }}</strong><AppIcon name="chevron" :size="17" /></div>
