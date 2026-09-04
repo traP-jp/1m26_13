@@ -1,7 +1,7 @@
 # Status
 
 更新日: 2026-09-04
-フェーズ: 本番初期実装と確定画面設計の反映 完了。内部試用待ち。
+フェーズ: 固定commitの確定画面設計を本番表示層へ再統合中。
 
 ## 現在地
 
@@ -12,6 +12,8 @@
 `PRODUCTION_CONTEXT.md`、`LECTURE_SESSION_FLOW_SPEC.md`、`FLOW_FORMAT_ANALYSIS.md`、
 `BADGE_ALPHA_SPEC.md`の決定済み仕様を実装した。βは`BETA_CHANGE_AUDIT.md`の採否と
 `BETA_SCREEN_DESIGN_REFERENCE.md`の画面検討材料だけを参照し、実行時依存はない。
+
+`references/ui-canonical/screens.json`の固定commitを視覚的正本として、本番のAPI、router、認証、永続化、入力、エラー処理を保ったまま表示層を再統合している。共通シェルは正本の248pxサイドバー、82pxブランド領域、50pxナビ行、運営カード、58pxモバイルヘッダーへ合わせた。
 
 ## 実装済み
 
@@ -63,5 +65,4 @@
 
 ## 次のチェックポイント
 
-`INTERNAL_TRIAL.md`を使って少人数の運営・学習者が試し、blocker/major/minorで
-フィードバックを記録する。外部公開や第三者への連絡は、その明示依頼があるまで行わない。
+正本インデックスの順にホーム／探索、Lecture・Session詳細、Roadmap詳細、プロフィール、運営、Lecture編集、Roadmap編集を再統合する。各単位でデスクトップとモバイルの比較、console、overflow、frontend回帰を確認してcommit・pushする。

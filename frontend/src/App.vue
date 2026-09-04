@@ -47,11 +47,16 @@ onMounted(() => auth.load());
           </RouterLink>
         </nav>
 
-        <nav class="admin-nav" aria-label="運営ナビゲーション">
+        <nav class="desktop-operation" aria-label="運営ナビゲーション">
           <p>運営</p>
-          <RouterLink to="/admin"><AppIcon name="edit" /><span>運営向けページ</span></RouterLink>
-          <RouterLink to="/stock"><AppIcon name="archive" /><span>Flow Stock</span></RouterLink>
+          <RouterLink class="operation-link" to="/admin"
+            ><AppIcon name="edit" :size="18" /><span>運営向けページ</span></RouterLink
+          >
+          <RouterLink class="stock-link" to="/stock"
+            ><AppIcon name="archive" :size="17" /><span>Flow Stock</span></RouterLink
+          >
         </nav>
+        <small class="site-version">α · production</small>
       </aside>
 
       <section class="site-workspace">
