@@ -83,7 +83,6 @@ const WorkshopEditorPrototype = defineComponent({
       if (value === 'add') { modalOpen.value = true; return; }
       activeTab.value = value as SectionKey;
     };
-    const stepTitle = (tab: SectionKey) => wizardSteps[tab][wizardPosition[tab]];
     const stepCount = (tab: SectionKey) => wizardSteps[tab].length;
     const goWizard = (tab: SectionKey, delta: number) => {
       wizardCompleted[tab] = false;
@@ -102,7 +101,7 @@ const WorkshopEditorPrototype = defineComponent({
       catch { copiedRound.value = ''; }
     };
     watch(activeTab, () => window.scrollTo({ top: 0, behavior: 'smooth' }));
-    return { activeTab, announcement, copiedRound, copyAnnouncement, course, finishWizard, goWizard, modalOpen, newKind, nextSection, occurrenceTypes, preparation, prerequisiteGit, prerequisiteWeb, published, reopenWizard, rounds, sectionTabs, selectTab, stepCount, stepTitle, successorDeploy, successorTs, tabItems, wizardCompleted, wizardPosition, wizardSteps };
+    return { activeTab, announcement, copiedRound, copyAnnouncement, course, finishWizard, goWizard, modalOpen, newKind, nextSection, occurrenceTypes, preparation, prerequisiteGit, prerequisiteWeb, published, reopenWizard, rounds, sectionTabs, selectTab, stepCount, successorDeploy, successorTs, tabItems, wizardCompleted, wizardPosition, wizardSteps };
   },
   template: `
     <BasiqThemeProvider mode="light" class="theme-root">
@@ -121,9 +120,8 @@ const WorkshopEditorPrototype = defineComponent({
               <template #trigger="{ item: triggerItem }"><span v-if="triggerItem.value === 'add'" class="add-tab-control"><AppIcon name="plus" :size="16" /><span class="add-tab-text">開催を追加</span></span><template v-else>{{ triggerItem.label }}</template></template>
               <template #content="{ item }">
                 <div v-if="item.value !== 'add'" class="tab-content">
-                  <section v-if="!wizardCompleted[item.value]" class="wizard-panel" :aria-labelledby="item.value + '-wizard-title'">
+                  <section v-if="!wizardCompleted[item.value]" class="wizard-panel" :aria-label="item.label + 'のウィザード'">
                     <div class="wizard-progress">
-                      <div class="progress-copy"><span>ステップ {{ wizardPosition[item.value] + 1 }} / {{ stepCount(item.value) }}</span><strong :id="item.value + '-wizard-title'">{{ stepTitle(item.value) }}</strong></div>
                       <ol :aria-label="item.label + 'の進捗'" :style="{ gridTemplateColumns: 'repeat(' + stepCount(item.value) + ', minmax(0, 1fr))' }"><li v-for="(label, index) in wizardSteps[item.value]" :key="label" :class="{ current: index === wizardPosition[item.value], complete: index < wizardPosition[item.value] }"><span>{{ index < wizardPosition[item.value] ? '✓' : index + 1 }}</span><small>{{ label }}</small></li></ol>
                     </div>
 
