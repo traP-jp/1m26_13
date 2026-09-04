@@ -3,6 +3,16 @@ export type OccurrenceStatus = "planned" | "held" | "cancelled" | "postponed";
 export type OccurrenceRelation = "single" | "alternative" | "sequence" | "rebroadcast";
 export type ResourceType = "material" | "video" | "practice" | "source" | "repository";
 
+export type WorkshopOperator = {
+  kind: "user" | "group";
+  id: string;
+  name: string;
+};
+
+export type WorkshopRelationRef =
+  | { kind: "workshop"; workshopId: string }
+  | { kind: "text"; text: string };
+
 export type WorkshopResource = {
   id: string;
   type: ResourceType;
@@ -45,6 +55,12 @@ export type Workshop = {
   preparation: string;
   howToLearn: string;
   team: string;
+  operators: WorkshopOperator[];
+  targetTeams: string[];
+  isZeroToOne: boolean | null;
+  previousTextRefs: WorkshopRelationRef[];
+  prerequisiteRefs: WorkshopRelationRef[];
+  recommendedRefs: WorkshopRelationRef[];
   contact: string;
   tags: string[];
   creators: string[];
@@ -58,7 +74,67 @@ export type Workshop = {
 
 const wiki2026 = "https://wiki.trap.jp/Event/welcome/26/lecture";
 
-export const seedWorkshops: Workshop[] = [
+type WorkshopWithOptionalStepOneFields = Omit<
+  Workshop,
+  | "operators"
+  | "targetTeams"
+  | "isZeroToOne"
+  | "previousTextRefs"
+  | "prerequisiteRefs"
+  | "recommendedRefs"
+> & Partial<Pick<
+  Workshop,
+  | "operators"
+  | "targetTeams"
+  | "isZeroToOne"
+  | "previousTextRefs"
+  | "prerequisiteRefs"
+  | "recommendedRefs"
+>>;
+
+const isOperator = (value: unknown): value is WorkshopOperator => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<WorkshopOperator>;
+  return (candidate.kind === "user" || candidate.kind === "group")
+    && typeof candidate.id === "string"
+    && typeof candidate.name === "string";
+};
+
+const isRelationRef = (value: unknown): value is WorkshopRelationRef => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<WorkshopRelationRef> & { workshopId?: unknown; text?: unknown };
+  return (candidate.kind === "workshop" && typeof candidate.workshopId === "string")
+    || (candidate.kind === "text" && typeof candidate.text === "string");
+};
+
+/** Adds Step 1 defaults to seed data and drafts saved before these fields existed. */
+export const normalizeWorkshop = (workshop: WorkshopWithOptionalStepOneFields): Workshop => ({
+  ...workshop,
+  operators: Array.isArray(workshop.operators) ? workshop.operators.filter(isOperator) : [],
+  targetTeams: Array.isArray(workshop.targetTeams)
+    ? workshop.targetTeams.filter((team): team is string => typeof team === "string")
+    : [],
+  isZeroToOne: typeof workshop.isZeroToOne === "boolean" ? workshop.isZeroToOne : null,
+  previousTextRefs: Array.isArray(workshop.previousTextRefs)
+    ? workshop.previousTextRefs.filter(
+      (reference): reference is Extract<WorkshopRelationRef, { kind: "text" }> => (
+        isRelationRef(reference) && reference.kind === "text"
+      ),
+    )
+    : [],
+  prerequisiteRefs: Array.isArray(workshop.prerequisiteRefs)
+    ? workshop.prerequisiteRefs.filter(isRelationRef)
+    : [],
+  recommendedRefs: Array.isArray(workshop.recommendedRefs)
+    ? workshop.recommendedRefs.filter(isRelationRef)
+    : [],
+});
+
+export const getAcademicYear = (date = new Date()): number => (
+  date.getMonth() >= 3 ? date.getFullYear() : date.getFullYear() - 1
+);
+
+const seedWorkshopRecords: WorkshopWithOptionalStepOneFields[] = [
   {
     id: "git-2024",
     lineageId: "git-intro",
@@ -414,13 +490,15 @@ export const seedWorkshops: Workshop[] = [
   },
 ];
 
+export const seedWorkshops: Workshop[] = seedWorkshopRecords.map(normalizeWorkshop);
+
 export const cloneSeedWorkshops = (): Workshop[] => JSON.parse(JSON.stringify(seedWorkshops));
 
 export const makeBlankWorkshop = (): Workshop => ({
   id: `draft-${Date.now()}`,
   lineageId: `new-${Date.now()}`,
   title: "",
-  year: 2027,
+  year: getAcademicYear(),
   status: "draft",
   summary: "",
   outcome: "",
@@ -429,6 +507,12 @@ export const makeBlankWorkshop = (): Workshop => ({
   preparation: "",
   howToLearn: "",
   team: "",
+  operators: [],
+  targetTeams: [],
+  isZeroToOne: null,
+  previousTextRefs: [],
+  prerequisiteRefs: [],
+  recommendedRefs: [],
   contact: "",
   tags: [],
   creators: ["rurun"],
@@ -456,12 +540,8 @@ export const makeBlankWorkshop = (): Workshop => ({
 
 export const inheritWorkshop = (source: Workshop): Workshop => {
   const next = makeBlankWorkshop();
-  const sourceYear = String(source.year);
   next.lineageId = source.lineageId;
-  next.title = source.title.includes(sourceYear)
-    ? source.title.replace(sourceYear, String(source.year + 1))
-    : `${source.year + 1} ${source.title}`;
-  next.year = source.year + 1;
+  next.title = source.title.replace(/(?:19|20)\d{2}(?:年度)?\s*/u, "").trim();
   next.summary = source.summary;
   next.outcome = source.outcome;
   next.audience = source.audience;
@@ -469,6 +549,11 @@ export const inheritWorkshop = (source: Workshop): Workshop => {
   next.preparation = source.preparation;
   next.howToLearn = "";
   next.team = source.team;
+  next.operators = [];
+  next.targetTeams = [...source.targetTeams];
+  next.isZeroToOne = source.isZeroToOne;
+  next.prerequisiteRefs = source.prerequisiteRefs.map((reference) => ({ ...reference }));
+  next.recommendedRefs = source.recommendedRefs.map((reference) => ({ ...reference }));
   next.contact = "";
   next.tags = [...source.tags];
   next.previousIds = [source.id];
