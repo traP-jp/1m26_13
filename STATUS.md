@@ -37,7 +37,7 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 - BasiQ UI beta.3のCard、Tabs、FormField、Input、Textarea、Switch、Checkboxを使い、確定した画面設計を全導線へ反映した。
 - デスクトップは固定サイドバー、モバイルは上部ヘッダーと下部ナビゲーションを共通化した。画面設計の削除操作だけは、確定済み製品仕様に従って除外した。
 - 講習会編集を仕様基準で再構成した。Lecture属性、構造化Resource・Relation、順序付きSession、複数元Sessionによる再放送、内容複製、`lecture_pre → session_main → lecture_post`の対象対応、Sessionから導出する公開状態、保存後確認、競合案内、初期読込失敗時の編集保護を一画面で扱う。
-- 講習会編集の横タブをFlow単位へ修正した。事前Flow、各SessionのメインFlow、事後Flowを1 Flow 1タブで並べ、未適用時は同じ位置でFlowClassを選べる。開催追加とLecture設定は補助タブとして分離した。
+- 講習会編集の横タブをFlow単位へ修正した。事前Flow、各SessionのメインFlow、事後Flowを1 Flow 1タブで並べ、各タブの内容をFlow本体に限定した。Flow追加は対象と属性が一致するFlowClassを選ぶモーダル、開催追加は設定タブ内の独立操作に分離した。
 - 各FlowタブへFlow Rendererを直接埋め込み、本文、入力、task、copy/code、ページ進捗、途中保存、完了をタブ内で操作できるようにした。Flow適用後も別画面へ遷移せず、そのタブで開始する。Session編集と複製は設定タブへ集約した。
 
 ## 最終検証
@@ -52,7 +52,7 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 - 講習会編集の再実装後もfrontend全ゲートを再実行して成功。実ブラウザで2タブ、Flowの対象対応、Session追加、再放送として複製、`?session=`からの対象編集、404時の入力欄非表示と再試行、console warning/error 0件を確認した。
 - Flow単位タブへの修正後、frontendのVue型検査、ESLint、stylelint、Vitest 6/6、Vite buildとbackend全Go testを再実行して成功。実ブラウザで「全般・各開催・事後」の横タブ、Flow IDとの1対1表示、未適用Flowの選択欄、開催タブ内のSession編集を確認した。
 - Flowのタブ内実行化後、実ブラウザで完了済み事前Flowの本文・入力・task・完了状態と、未適用の事後Flow選択面を確認した。
-- Lecture編集を正本の30px上余白、横幅1160px、横タブ、中央800pxの実行領域へ合わせた。各タブは引き続き1 Flowに対応し、適用済みFlowはタブ内runner、未適用枠は同じ位置のFlowClass選択を表示する。1440×900と390×844の両方で横overflow 0、開催タブへ切替後も別画面へ遷移しないことを確認した。
+- Lecture編集を正本の30px上余白、横幅1160px、横タブ、中央800pxの実行領域へ合わせた。各タブは1 Flowに対応し、タブ内runnerだけを表示する。Flow追加はモーダルで対象とFlowClassを選択し、適用後は同じ画面の新しいFlowタブで開始する。開催追加は設定タブへ分離した。1440×900と390×844の両方で横overflow 0、Flowタブ切替後も別画面へ遷移しないことを確認した。
 - Roadmap編集は確定仕様の段階付き一本道を保ったまま、正本の最大1060pxと28/36/72pxのページ余白へ合わせた。タブレットは左右24px、390px幅では左右14pxと固定保存バーを適用し、1440×900と390×844で横overflow 0を確認した。
 - 正本8画面の再統合完了後、frontendのAPI型生成check、formatter、全lint、Vue型検査、Vitest 6/6、Vite buildとbackend全Go testを再実行して成功した。運営ホーム、Lecture編集、Roadmap編集は1440×900と390×844で横overflow 0、console warning/error 0件を確認した。
 - 追加目視レビューに従い、ホームの講習会カードから初心者ラベルを除去した。通常Sessionだけを数え、`1回完結`／`全N回`／`開催準備中`、運営班、年度の順で正本どおり表示する。
@@ -60,6 +60,7 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 - Lecture／Session詳細の完了操作は画面全体を再読込せず、対象SessionとLecture集計だけを局所更新する。390×844の実ブラウザで完了・取消を往復し、URL、選択回、scrollYが前後で同一、DB状態も初期値へ戻ることを確認した。
 - badge alphaは固定commit `574c7ec5`の生成器へ置き換え、PRNG呼び出し順、8配色、5ベゼル、5中間層、6コアを正本と一致させた。seedは`badge-alpha-v1:${lectureId}`のまま維持し、SVG文字列へユーザー入力を含めない。
 - Profileは最新正本の72pxアバター、2列バッジ一覧＋288px詳細欄、選択表示、モバイル1列へ合わせた。完了した講習会・開催・Roadmap内完了の3指標は明示指定どおり実データの横並びでヘッダーに残し、完了Session／Roadmapタブも維持した。4件の代表バッジで1440×900と390×844を確認し、全バッジが異なる正本SVG、横overflow 0、console warning/error 0件だった。
+- Flow追加は横タブ末尾の`＋ Flowを追加`からモーダルを開き、対象の3属性に一致する未適用FlowClassだけを選べる形へ変更した。非破壊のAPIモックを使い、1440×900と390×844の実ブラウザで、モーダル表示、適用後の同一URL、新しいFlowタブの選択、Flow本文の開始、横overflow 0、console warning/error 0件を確認した。Session追加は設定タブの開催一覧から独立して開く。
 
 ## 再現手順
 

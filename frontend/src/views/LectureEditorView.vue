@@ -59,15 +59,24 @@ const activeTab = ref("settings");
 const current = ref<Lecture>();
 const sessionEditorOpen = ref(false);
 const sessionEditingId = ref("");
+const flowModalOpen = ref(false);
+const selectedFlowTargetKey = ref("");
+const applyingFlow = ref(false);
 
 type EditorTab = {
   label: string;
   value: string;
-  kind: "flow" | "flow-slot" | "add-session" | "settings";
+  kind: "flow" | "add-flow" | "settings";
   flowId?: string;
   flowType?: FlowClass["type"];
   targetId?: string;
   sessionId?: string;
+};
+type FlowTarget = {
+  key: string;
+  label: string;
+  type: FlowClass["type"];
+  targetId: string;
 };
 const relationTypes: Array<{ value: RelationType; label: string }> = [
   { value: "prerequisite", label: "先に学ぶ（前提）" },
@@ -118,6 +127,42 @@ const sessionPublished = computed({
     sessionForm.status = value ? "published" : "draft";
   },
 });
+const flowTargets = computed<FlowTarget[]>(() => {
+  if (!current.value) return [];
+  return [
+    {
+      key: `lecture_pre:${current.value.id}`,
+      label: "全般 · 講習会の事前",
+      type: "lecture_pre",
+      targetId: current.value.id,
+    },
+    ...sortedSessions.value.map((session) => ({
+      key: `session_main:${session.id}`,
+      label: `${session.name} · 開催のメイン`,
+      type: "session_main" as const,
+      targetId: session.id,
+    })),
+    {
+      key: `lecture_post:${current.value.id}`,
+      label: "事後 · 講習会の事後",
+      type: "lecture_post",
+      targetId: current.value.id,
+    },
+  ];
+});
+const selectedFlowTarget = computed(() =>
+  flowTargets.value.find((target) => target.key === selectedFlowTargetKey.value),
+);
+const applicableFlowClasses = computed(() => {
+  const target = selectedFlowTarget.value;
+  if (!target) return [];
+  return flowClasses.value.filter(
+    (flowClass) =>
+      flowClass.listed &&
+      flowClass.type === target.type &&
+      !existingFlow(flowClass.id, target.targetId),
+  );
+});
 
 const editorTabs = computed<EditorTab[]>(() => {
   if (!current.value) return [{ label: "設定", value: "settings", kind: "settings" }];
@@ -132,17 +177,6 @@ const editorTabs = computed<EditorTab[]>(() => {
     const flows = appliedFlows.value.filter(
       (flow) => flow.type === type && flow.targetId === targetId,
     );
-    if (flows.length === 0) {
-      tabs.push({
-        label,
-        value: `flow-slot:${type}:${targetId}`,
-        kind: "flow-slot",
-        flowType: type,
-        targetId,
-        sessionId,
-      });
-      return;
-    }
     flows.forEach((flow, index) => {
       tabs.push({
         label: flows.length === 1 ? label : `${label} ${index + 1}`,
@@ -161,7 +195,7 @@ const editorTabs = computed<EditorTab[]>(() => {
     appendFlowTabs("session_main", session.id, session.name, session.id),
   );
   appendFlowTabs("lecture_post", current.value.id, "事後");
-  tabs.push({ label: "＋ 開催を追加", value: "add-session", kind: "add-session" });
+  tabs.push({ label: "＋ Flowを追加", value: "add-flow", kind: "add-flow" });
   tabs.push({ label: "設定", value: "settings", kind: "settings" });
   return tabs;
 });
@@ -175,8 +209,11 @@ function flowTypeLabel(type?: FlowClass["type"]) {
   return "開催のメインFlow";
 }
 function selectEditorTab(value: string) {
+  if (value === "add-flow") {
+    openFlowModal();
+    return;
+  }
   activeTab.value = value;
-  if (value === "add-session") resetSession();
 }
 function selectSessionTab(sessionId: string) {
   const tab = editorTabs.value.find((item) => item.sessionId === sessionId);
@@ -208,16 +245,6 @@ function addRelation() {
 }
 function removeRelation(index: number) {
   lectureRelations.value.splice(index, 1);
-}
-function flowOptions(type: FlowClass["type"], targetId: string) {
-  return flowClasses.value.filter(
-    (flowClass) =>
-      flowClass.type === type &&
-      (flowClass.listed ||
-        appliedFlows.value.some(
-          (flow) => flow.targetId === targetId && flow.flowClassId === flowClass.id,
-        )),
-  );
 }
 function existingFlow(flowClassId: string, targetId: string) {
   return appliedFlows.value.find(
@@ -276,7 +303,7 @@ function editSession(session: Session) {
   );
 }
 function resetSession() {
-  activeTab.value = "add-session";
+  activeTab.value = "settings";
   sessionEditingId.value = "";
   sessionEditorOpen.value = true;
   Object.assign(sessionForm, {
@@ -298,7 +325,7 @@ function resetSession() {
   );
 }
 function duplicateSession(session: Session, asReplay: boolean) {
-  activeTab.value = "add-session";
+  activeTab.value = "settings";
   sessionEditingId.value = "";
   sessionEditorOpen.value = true;
   Object.assign(sessionForm, {
@@ -322,9 +349,6 @@ function duplicateSession(session: Session, asReplay: boolean) {
 function closeSessionEditor() {
   sessionEditorOpen.value = false;
   sessionEditingId.value = "";
-  if (activeTab.value === "add-session") {
-    activeTab.value = editorTabs.value[0]?.value ?? "settings";
-  }
 }
 function setReplaySource(sessionId: string, selected: boolean) {
   const currentIds = sessionForm.replayOfSessionIds.filter((id) => id !== sessionId);
@@ -368,7 +392,7 @@ async function load() {
         activeTab.value = "settings";
         fillSession(requestedSession);
       } else {
-        activeTab.value = editorTabs.value[0]?.value ?? "settings";
+        activeTab.value = editorTabs.value.find((tab) => tab.kind === "flow")?.value ?? "settings";
       }
     }
     ready.value = true;
@@ -459,14 +483,35 @@ async function saveSession() {
 }
 async function startFlow(flowClassId: string, targetId: string) {
   error.value = "";
+  applyingFlow.value = true;
   try {
     const existing = existingFlow(flowClassId, targetId);
     const flow = existing || (await applyFlow(flowClassId, targetId));
     if (current.value) await refreshFlows(current.value);
     activeTab.value = `flow:${flow.id}`;
+    flowModalOpen.value = false;
   } catch (reason) {
     error.value = formatFailure(reason, "Flowを適用できませんでした");
+  } finally {
+    applyingFlow.value = false;
   }
+}
+function openFlowModal() {
+  const currentTab = editorTabs.value.find((tab) => tab.value === activeTab.value);
+  const currentTarget = flowTargets.value.find(
+    (target) => target.type === currentTab?.flowType && target.targetId === currentTab?.targetId,
+  );
+  const firstAvailableTarget = flowTargets.value.find((target) =>
+    flowClasses.value.some(
+      (flowClass) =>
+        flowClass.listed &&
+        flowClass.type === target.type &&
+        !existingFlow(flowClass.id, target.targetId),
+    ),
+  );
+  selectedFlowTargetKey.value =
+    currentTarget?.key ?? firstAvailableTarget?.key ?? flowTargets.value[0]?.key ?? "";
+  flowModalOpen.value = true;
 }
 async function handleInlineFlowUpdated(updated: Flow) {
   const index = appliedFlows.value.findIndex((flow) => flow.id === updated.id);
@@ -578,67 +623,25 @@ onMounted(load);
           @update:model-value="selectEditorTab"
         >
           <template #trigger="{ item: triggerItem }">
-            <span v-if="triggerItem.value === 'add-session'" class="add-tab-control">
+            <span v-if="triggerItem.value === 'add-flow'" class="add-tab-control">
               <AppIcon name="plus" :size="16" />
-              <span class="add-tab-text">開催を追加</span>
+              <span class="add-tab-text">Flowを追加</span>
             </span>
             <template v-else>{{ triggerItem.label }}</template>
           </template>
           <template #content="{ item }">
             <div v-for="tab in [editorTab(item.value)]" :key="tab.value">
               <div class="tab-content">
-                <section
-                  v-if="tab.kind === 'flow' || tab.kind === 'flow-slot'"
-                  class="flow-tab-panel"
-                >
+                <section v-if="tab.kind === 'flow'" class="flow-tab-panel">
                   <FlowInlineRunner
-                    v-if="tab.kind === 'flow' && tab.flowId"
+                    v-if="tab.flowId"
                     :flow-id="tab.flowId"
                     @updated="handleInlineFlowUpdated"
                   />
-                  <BasiqCard v-else class="flow-focus-card unapplied">
-                    <template #header>
-                      <div>
-                        <p class="card-kicker">FLOW STOCK</p>
-                        <h2>{{ flowTypeLabel(tab.flowType) }}を選ぶ</h2>
-                      </div>
-                    </template>
-                    <p class="flow-description">
-                      まだFlowが適用されていません。StockのFlowClassを選ぶと、本文をコピーしたFlowが作成され、このタブでそのまま実行できます。
-                    </p>
-                    <div
-                      v-if="flowOptions(tab.flowType!, tab.targetId!).length"
-                      class="flow-option-list"
-                    >
-                      <div
-                        v-for="flowClass in flowOptions(tab.flowType!, tab.targetId!)"
-                        :key="flowClass.id"
-                        class="flow-option"
-                      >
-                        <span
-                          ><strong>{{ flowClass.name }}</strong
-                          ><small>{{ flowTypeLabel(flowClass.type) }}</small></span
-                        >
-                        <BasiqButton
-                          tone="neutral"
-                          variant="outline"
-                          type="button"
-                          @click="startFlow(flowClass.id, tab.targetId!)"
-                          >適用して開始</BasiqButton
-                        >
-                      </div>
-                    </div>
-                    <div v-else class="empty-flow">
-                      <p>利用できるFlowClassがありません。</p>
-                      <RouterLink to="/stock">Flow Stockを開く</RouterLink>
-                    </div>
-                  </BasiqCard>
                 </section>
 
                 <form
-                  v-if="
-                    tab.kind === 'add-session' || (tab.kind === 'settings' && sessionEditorOpen)
-                  "
+                  v-if="tab.kind === 'settings' && sessionEditorOpen"
                   id="session-editor"
                   class="session-form"
                   @submit.prevent="saveSession"
@@ -1016,9 +1019,18 @@ onMounted(load);
                   </BasiqCard>
                   <BasiqCard v-if="current" class="section-card">
                     <template #header
-                      ><div>
-                        <p class="card-kicker">SESSIONS</p>
-                        <h2>開催の一覧</h2>
+                      ><div class="card-heading">
+                        <div>
+                          <p class="card-kicker">SESSIONS</p>
+                          <h2>開催の一覧</h2>
+                        </div>
+                        <BasiqButton
+                          tone="neutral"
+                          variant="outline"
+                          type="button"
+                          @click="resetSession"
+                          ><AppIcon name="plus" :size="16" />開催を追加</BasiqButton
+                        >
                       </div></template
                     >
                     <div v-if="sortedSessions.length" class="settings-session-list">
@@ -1069,6 +1081,70 @@ onMounted(load);
             </div>
           </template>
         </BasiqTabs>
+
+        <div
+          v-if="flowModalOpen"
+          class="flow-modal-backdrop"
+          role="presentation"
+          @click.self="flowModalOpen = false"
+        >
+          <BasiqCard
+            class="flow-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="flow-modal-title"
+          >
+            <template #header>
+              <div class="flow-modal-heading">
+                <div>
+                  <p class="card-kicker">FLOW STOCK</p>
+                  <h2 id="flow-modal-title">Flowを追加</h2>
+                </div>
+                <BasiqButton
+                  tone="neutral"
+                  variant="outline"
+                  type="button"
+                  @click="flowModalOpen = false"
+                  >閉じる</BasiqButton
+                >
+              </div>
+            </template>
+            <div class="flow-modal-body">
+              <label class="native-field">
+                <span>適用対象</span>
+                <select v-model="selectedFlowTargetKey">
+                  <option v-for="target in flowTargets" :key="target.key" :value="target.key">
+                    {{ target.label }}
+                  </option>
+                </select>
+              </label>
+              <div v-if="applicableFlowClasses.length" class="flow-option-list">
+                <div
+                  v-for="flowClass in applicableFlowClasses"
+                  :key="flowClass.id"
+                  class="flow-option"
+                >
+                  <span
+                    ><strong>{{ flowClass.name }}</strong
+                    ><small>{{ flowTypeLabel(flowClass.type) }}</small></span
+                  >
+                  <BasiqButton
+                    tone="neutral"
+                    variant="outline"
+                    type="button"
+                    :disabled="applyingFlow"
+                    @click="startFlow(flowClass.id, selectedFlowTarget!.targetId)"
+                    >{{ applyingFlow ? "適用中…" : "適用して開始" }}</BasiqButton
+                  >
+                </div>
+              </div>
+              <div v-else class="empty-flow">
+                <p>この対象に適用できるFlowClassがありません。</p>
+                <RouterLink to="/stock">Flow Stockを開く</RouterLink>
+              </div>
+            </div>
+          </BasiqCard>
+        </div>
       </template>
     </template>
   </div>
@@ -1304,6 +1380,41 @@ onMounted(load);
   padding: 11px 12px;
   border: 1px solid var(--basiq-color-border-separator);
   border-radius: var(--basiq-radius-sm);
+}
+
+.flow-modal-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(19 27 38 / 48%);
+}
+
+.flow-modal {
+  width: min(560px, 100%);
+  max-height: calc(100dvh - 48px);
+  overflow: auto;
+  border: 1px solid var(--basiq-color-border-control);
+  box-shadow: 0 18px 60px rgb(19 27 38 / 24%);
+}
+
+.flow-modal-heading {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.flow-modal-heading h2 {
+  font-size: 19px;
+}
+
+.flow-modal-body {
+  display: grid;
+  gap: 18px;
 }
 
 .flow-option > span {
@@ -1553,6 +1664,20 @@ onMounted(load);
 
   .editor-header h1 {
     font-size: 23px;
+  }
+
+  .flow-modal-backdrop {
+    align-items: end;
+    padding: 16px;
+  }
+
+  .flow-modal {
+    max-height: calc(100dvh - 32px);
+  }
+
+  .flow-option {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 
