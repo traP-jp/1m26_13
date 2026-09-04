@@ -218,13 +218,15 @@ paths:
 
 components:
   parameters:
-    LectureId: { name: lectureId, in: path, required: true, schema: { type: string } }
-    SessionId: { name: sessionId, in: path, required: true, schema: { type: string } }
+    LectureId: { name: lectureId, in: path, required: true, schema: { $ref: "#/components/schemas/LectureId" } }
+    SessionId: { name: sessionId, in: path, required: true, schema: { $ref: "#/components/schemas/SessionId" } }
   responses:
     Error:
       description: Error
       content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
   schemas:
+    LectureId: { type: string, pattern: '^[1-9][0-9]*$', example: "1" }
+    SessionId: { type: string, pattern: '^[1-9][0-9]*$', example: "1" }
     HealthResponse:
       type: object
       required: [status]
@@ -268,7 +270,7 @@ components:
       type: object
       required: [toLectureId, type]
       properties:
-        toLectureId: { type: string }
+        toLectureId: { $ref: "#/components/schemas/LectureId" }
         type: { $ref: "#/components/schemas/RelationType" }
     LectureWrite:
       type: object
@@ -295,7 +297,7 @@ components:
         - type: object
           required: [id, sessions, isPublished, completedSessionCount, requiredSessionCount, isCompleted, revision, createdAt, updatedAt]
           properties:
-            id: { type: string }
+            id: { $ref: "#/components/schemas/LectureId" }
             sessions: { type: array, items: { $ref: "#/components/schemas/Session" } }
             isPublished: { type: boolean }
             completedSessionCount: { type: integer }
@@ -318,7 +320,7 @@ components:
         knoqUrl: { type: string, format: uri, maxLength: 2048 }
         instructorIds: { type: array, items: { type: string }, maxItems: 100 }
         resources: { type: array, items: { $ref: "#/components/schemas/Resource" }, maxItems: 100 }
-        replayOfSessionIds: { type: array, items: { type: string }, maxItems: 100 }
+        replayOfSessionIds: { type: array, items: { $ref: "#/components/schemas/SessionId" }, maxItems: 100 }
         status: { $ref: "#/components/schemas/SessionStatus" }
         expectedRevision: { type: integer, minimum: 0 }
     Session:
@@ -327,8 +329,8 @@ components:
         - type: object
           required: [id, lectureId, isReplay, isCompleted, revision, createdAt, updatedAt]
           properties:
-            id: { type: string }
-            lectureId: { type: string }
+            id: { $ref: "#/components/schemas/SessionId" }
+            lectureId: { $ref: "#/components/schemas/LectureId" }
             isReplay: { type: boolean }
             isCompleted: { type: boolean }
             revision: { type: integer }
@@ -339,7 +341,7 @@ components:
       required: [userId, sessionId, completedAt]
       properties:
         userId: { type: string }
-        sessionId: { type: string }
+        sessionId: { $ref: "#/components/schemas/SessionId" }
         completedAt: { type: string, format: date-time }
     FlowType: { type: string, enum: [lecture_pre, session_main, lecture_post] }
     FlowClassWrite:
@@ -394,7 +396,7 @@ components:
     RoadmapItem:
       type: object
       required: [lectureId, note]
-      properties: { lectureId: { type: string }, note: { type: string, maxLength: 2000 } }
+      properties: { lectureId: { $ref: "#/components/schemas/LectureId" }, note: { type: string, maxLength: 2000 } }
     RoadmapStage:
       type: object
       required: [id, title, description, items]
@@ -420,8 +422,8 @@ components:
           required: [id, completedLectureIds, completedItemCount, totalItemCount, progressPercent, revision, createdAt, updatedAt]
           properties:
             id: { type: string }
-            completedLectureIds: { type: array, items: { type: string } }
-            nextLectureId: { type: string }
+            completedLectureIds: { type: array, items: { $ref: "#/components/schemas/LectureId" } }
+            nextLectureId: { $ref: "#/components/schemas/LectureId" }
             completedItemCount: { type: integer }
             totalItemCount: { type: integer }
             progressPercent: { type: integer, minimum: 0, maximum: 100 }
@@ -432,7 +434,7 @@ components:
       type: object
       required: [lectureId, lectureName, academicYearStart, academicYearEnd, earnedAt]
       properties:
-        lectureId: { type: string }
+        lectureId: { $ref: "#/components/schemas/LectureId" }
         lectureName: { type: string }
         academicYearStart: { type: integer }
         academicYearEnd: { type: integer }

@@ -299,6 +299,10 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @example 1 */
+        LectureId: string;
+        /** @example 1 */
+        SessionId: string;
         HealthResponse: {
             /** @constant */
             status: "ok";
@@ -337,7 +341,7 @@ export interface components {
         /** @enum {string} */
         RelationType: "prerequisite" | "previous_year" | "recommended_next";
         LectureRelation: {
-            toLectureId: string;
+            toLectureId: components["schemas"]["LectureId"];
             type: components["schemas"]["RelationType"];
         };
         LectureWrite: {
@@ -358,7 +362,7 @@ export interface components {
             expectedRevision: number;
         };
         Lecture: components["schemas"]["LectureWrite"] & {
-            id: string;
+            id: components["schemas"]["LectureId"];
             sessions: components["schemas"]["Session"][];
             isPublished: boolean;
             completedSessionCount: number;
@@ -384,13 +388,13 @@ export interface components {
             knoqUrl?: string;
             instructorIds: string[];
             resources: components["schemas"]["Resource"][];
-            replayOfSessionIds: string[];
+            replayOfSessionIds: components["schemas"]["SessionId"][];
             status: components["schemas"]["SessionStatus"];
             expectedRevision: number;
         };
         Session: components["schemas"]["SessionWrite"] & {
-            id: string;
-            lectureId: string;
+            id: components["schemas"]["SessionId"];
+            lectureId: components["schemas"]["LectureId"];
             isReplay: boolean;
             isCompleted: boolean;
             revision: number;
@@ -401,7 +405,7 @@ export interface components {
         };
         SessionCompletion: {
             userId: string;
-            sessionId: string;
+            sessionId: components["schemas"]["SessionId"];
             /** Format: date-time */
             completedAt: string;
         };
@@ -456,7 +460,7 @@ export interface components {
             updatedAt: string;
         };
         RoadmapItem: {
-            lectureId: string;
+            lectureId: components["schemas"]["LectureId"];
             note: string;
         };
         RoadmapStage: {
@@ -475,8 +479,8 @@ export interface components {
         };
         Roadmap: components["schemas"]["RoadmapWrite"] & {
             id: string;
-            completedLectureIds: string[];
-            nextLectureId?: string;
+            completedLectureIds: components["schemas"]["LectureId"][];
+            nextLectureId?: components["schemas"]["LectureId"];
             completedItemCount: number;
             totalItemCount: number;
             progressPercent: number;
@@ -487,7 +491,7 @@ export interface components {
             updatedAt: string;
         };
         Badge: {
-            lectureId: string;
+            lectureId: components["schemas"]["LectureId"];
             lectureName: string;
             academicYearStart: number;
             academicYearEnd: number;
@@ -526,8 +530,8 @@ export interface components {
         };
     };
     parameters: {
-        LectureId: string;
-        SessionId: string;
+        LectureId: components["schemas"]["LectureId"];
+        SessionId: components["schemas"]["SessionId"];
     };
     requestBodies: never;
     headers: never;

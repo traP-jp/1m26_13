@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -143,9 +144,9 @@ func (store *MySQL) GetLecture(ctx context.Context, id, userID string, includeDr
 		location, COALESCE(knoq_url, ''), instructor_ids, resources, replay_of_session_ids, status,
 		revision, created_at, updated_at FROM sessions WHERE lecture_id = ?`
 	if !includeDraft {
-		query += " AND status = 'published' AND JSON_LENGTH(replay_of_session_ids) = 0"
+		query += " AND status = 'published'"
 	}
-	query += " ORDER BY display_order, id"
+	query += " ORDER BY display_order, JSON_LENGTH(replay_of_session_ids), id"
 	rows, err := store.db.QueryContext(ctx, query, id)
 	if err != nil {
 		return domain.Lecture{}, err
@@ -207,7 +208,7 @@ func insertRelations(ctx context.Context, tx *sql.Tx, lectureID string, relation
 }
 
 func (store *MySQL) CreateLecture(ctx context.Context, lecture domain.Lecture, actorID string) (domain.Lecture, error) {
-	lecture.ID, lecture.Revision, lecture.CreatedAt, lecture.UpdatedAt = newID(), 1, store.now(), store.now()
+	lecture.Revision, lecture.CreatedAt, lecture.UpdatedAt = 1, store.now(), store.now()
 	values, err := encodeLecture(lecture)
 	if err != nil {
 		return domain.Lecture{}, err
@@ -217,15 +218,19 @@ func (store *MySQL) CreateLecture(ctx context.Context, lecture domain.Lecture, a
 		return domain.Lecture{}, err
 	}
 	defer tx.Rollback()
-	args := append([]any{lecture.ID}, values...)
-	args = append(args, lecture.Revision, actorID, actorID, lecture.CreatedAt, lecture.UpdatedAt)
-	_, err = tx.ExecContext(ctx, `INSERT INTO lectures (id, name, description, academic_year_start, academic_year_end,
+	args := append(values, lecture.Revision, actorID, actorID, lecture.CreatedAt, lecture.UpdatedAt)
+	result, err := tx.ExecContext(ctx, `INSERT INTO lectures (name, description, academic_year_start, academic_year_end,
 		field_id, organizer_group_ids, organizer_user_ids, contact_group_ids, contact_user_ids, target_audience,
 		is_introductory, traq_channel_id, resources, revision, created_by, updated_by, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args...)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args...)
 	if err != nil {
 		return domain.Lecture{}, fmt.Errorf("create lecture: %w", err)
 	}
+	insertedID, err := result.LastInsertId()
+	if err != nil {
+		return domain.Lecture{}, fmt.Errorf("read lecture id: %w", err)
+	}
+	lecture.ID = strconv.FormatInt(insertedID, 10)
 	if err := insertRelations(ctx, tx, lecture.ID, lecture.Relations, lecture.CreatedAt); err != nil {
 		return domain.Lecture{}, err
 	}
@@ -347,6 +352,23 @@ func encodeSession(session domain.Session) ([]any, error) {
 }
 
 func (store *MySQL) validateReplay(ctx context.Context, session domain.Session) error {
+	if len(session.ReplayOfSessionIDs) == 0 {
+		var count int
+		query := `SELECT COUNT(*) FROM sessions WHERE lecture_id = ? AND display_order = ?
+			AND JSON_LENGTH(replay_of_session_ids) = 0`
+		args := []any{session.LectureID, session.Order}
+		if session.ID != "" {
+			query += " AND id <> ?"
+			args = append(args, session.ID)
+		}
+		if err := store.db.QueryRowContext(ctx, query, args...).Scan(&count); err != nil {
+			return err
+		}
+		if count > 0 {
+			return fmt.Errorf("%w: each lecture order may contain only one normal session", ErrInvalid)
+		}
+		return nil
+	}
 	seen := make(map[string]bool)
 	for _, sourceID := range session.ReplayOfSessionIDs {
 		if sourceID == session.ID || seen[sourceID] {
@@ -354,16 +376,16 @@ func (store *MySQL) validateReplay(ctx context.Context, session domain.Session) 
 		}
 		seen[sourceID] = true
 		var lectureID string
-		var replayCount int
-		err := store.db.QueryRowContext(ctx, "SELECT lecture_id, JSON_LENGTH(replay_of_session_ids) FROM sessions WHERE id = ?", sourceID).Scan(&lectureID, &replayCount)
+		var replayCount, sourceOrder int
+		err := store.db.QueryRowContext(ctx, "SELECT lecture_id, display_order, JSON_LENGTH(replay_of_session_ids) FROM sessions WHERE id = ?", sourceID).Scan(&lectureID, &sourceOrder, &replayCount)
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("%w: replay source not found", ErrInvalid)
 		}
 		if err != nil {
 			return err
 		}
-		if lectureID != session.LectureID || replayCount > 0 {
-			return fmt.Errorf("%w: replay source must be a normal session in the same lecture", ErrInvalid)
+		if lectureID != session.LectureID || replayCount > 0 || sourceOrder != session.Order {
+			return fmt.Errorf("%w: replay source must be a normal session in the same lecture and order", ErrInvalid)
 		}
 	}
 	return nil
@@ -373,7 +395,7 @@ func (store *MySQL) CreateSession(ctx context.Context, session domain.Session, a
 	if _, err := store.GetLecture(ctx, session.LectureID, actorID, true); err != nil {
 		return domain.Session{}, err
 	}
-	session.ID, session.Revision, session.CreatedAt, session.UpdatedAt = newID(), 1, store.now(), store.now()
+	session.Revision, session.CreatedAt, session.UpdatedAt = 1, store.now(), store.now()
 	if err := store.validateReplay(ctx, session); err != nil {
 		return domain.Session{}, err
 	}
@@ -386,14 +408,19 @@ func (store *MySQL) CreateSession(ctx context.Context, session domain.Session, a
 		return domain.Session{}, err
 	}
 	defer tx.Rollback()
-	args := append([]any{session.ID, session.LectureID}, values...)
+	args := append([]any{session.LectureID}, values...)
 	args = append(args, session.Revision, actorID, actorID, session.CreatedAt, session.UpdatedAt)
-	_, err = tx.ExecContext(ctx, `INSERT INTO sessions (id, lecture_id, name, description, display_order, session_date,
+	result, err := tx.ExecContext(ctx, `INSERT INTO sessions (lecture_id, name, description, display_order, session_date,
 		start_time, location, knoq_url, instructor_ids, resources, replay_of_session_ids, status, revision,
-		created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args...)
+		created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, args...)
 	if err != nil {
 		return domain.Session{}, fmt.Errorf("create session: %w", err)
 	}
+	insertedID, err := result.LastInsertId()
+	if err != nil {
+		return domain.Session{}, fmt.Errorf("read session id: %w", err)
+	}
+	session.ID = strconv.FormatInt(insertedID, 10)
 	if err := recordEvents(ctx, tx, "session", session.ID, actorID, map[string]any{}, sessionSnapshot(session), session.CreatedAt); err != nil {
 		return domain.Session{}, err
 	}

@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS fields (
 );
 
 CREATE TABLE IF NOT EXISTS lectures (
-  id CHAR(36) PRIMARY KEY,
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(200) NOT NULL,
   description TEXT NOT NULL,
   academic_year_start SMALLINT UNSIGNED NOT NULL,
@@ -40,8 +40,8 @@ CREATE TABLE IF NOT EXISTS lectures (
 );
 
 CREATE TABLE IF NOT EXISTS lecture_relations (
-  from_lecture_id CHAR(36) NOT NULL,
-  to_lecture_id CHAR(36) NOT NULL,
+  from_lecture_id BIGINT UNSIGNED NOT NULL,
+  to_lecture_id BIGINT UNSIGNED NOT NULL,
   relation_type ENUM('prerequisite', 'previous_year', 'recommended_next') NOT NULL,
   created_at DATETIME(6) NOT NULL,
   PRIMARY KEY (from_lecture_id, to_lecture_id, relation_type),
@@ -52,8 +52,8 @@ CREATE TABLE IF NOT EXISTS lecture_relations (
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
-  id CHAR(36) PRIMARY KEY,
-  lecture_id CHAR(36) NOT NULL,
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  lecture_id BIGINT UNSIGNED NOT NULL,
   name VARCHAR(200) NOT NULL,
   description TEXT NOT NULL,
   display_order INT UNSIGNED NOT NULL,
@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   instructor_ids JSON NOT NULL,
   resources JSON NOT NULL,
   replay_of_session_ids JSON NOT NULL,
+  normal_order INT UNSIGNED AS (IF(JSON_LENGTH(replay_of_session_ids) = 0, display_order, NULL)) STORED,
   status ENUM('draft', 'published') NOT NULL,
   revision INT UNSIGNED NOT NULL DEFAULT 1,
   created_by VARCHAR(64) NOT NULL,
@@ -72,12 +73,13 @@ CREATE TABLE IF NOT EXISTS sessions (
   updated_at DATETIME(6) NOT NULL,
   CONSTRAINT fk_sessions_lecture FOREIGN KEY (lecture_id) REFERENCES lectures(id),
   KEY idx_sessions_lecture_order (lecture_id, display_order, id),
-  KEY idx_sessions_status (status)
+  KEY idx_sessions_status (status),
+  UNIQUE KEY uq_sessions_normal_order (lecture_id, normal_order)
 );
 
 CREATE TABLE IF NOT EXISTS session_completions (
   user_id VARCHAR(64) NOT NULL,
-  session_id CHAR(36) NOT NULL,
+  session_id BIGINT UNSIGNED NOT NULL,
   completed_at DATETIME(6) NOT NULL,
   PRIMARY KEY (user_id, session_id),
   CONSTRAINT fk_completions_session FOREIGN KEY (session_id) REFERENCES sessions(id),
@@ -102,8 +104,8 @@ CREATE TABLE IF NOT EXISTS flow_classes (
 CREATE TABLE IF NOT EXISTS flows (
   id CHAR(36) PRIMARY KEY,
   flow_class_id CHAR(36) NOT NULL,
-  lecture_id CHAR(36) NULL,
-  session_id CHAR(36) NULL,
+  lecture_id BIGINT UNSIGNED NULL,
+  session_id BIGINT UNSIGNED NULL,
   text MEDIUMTEXT NOT NULL,
   format_version SMALLINT UNSIGNED NOT NULL,
   answers JSON NOT NULL,
@@ -143,7 +145,7 @@ CREATE TABLE IF NOT EXISTS roadmaps (
 CREATE TABLE IF NOT EXISTS attribute_update_events (
   id CHAR(36) PRIMARY KEY,
   entity_type ENUM('lecture', 'session', 'flow_class', 'flow', 'roadmap') NOT NULL,
-  entity_id CHAR(36) NOT NULL,
+  entity_id VARCHAR(64) NOT NULL,
   attribute_path VARCHAR(255) NOT NULL,
   previous_value JSON NOT NULL,
   next_value JSON NOT NULL,

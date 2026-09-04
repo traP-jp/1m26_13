@@ -26,21 +26,30 @@ traq_id="$(jq -r .traqId "$work_dir/me.json")"
 lecture_body='{"name":"API smoke 講習会","description":"結合確認","academicYearStart":2026,"academicYearEnd":2026,"organizerGroupIds":[],"organizerUserIds":[],"contactGroupIds":[],"contactUserIds":[],"isIntroductory":true,"resources":[],"relations":[],"expectedRevision":0}'
 request POST /lectures "$lecture_body" "$work_dir/lecture.json"
 lecture_id="$(jq -r .id "$work_dir/lecture.json")"
+[[ "$lecture_id" =~ ^[1-9][0-9]*$ ]]
+
+request POST /lectures "$lecture_body" "$work_dir/lecture-2.json"
+lecture_id_2="$(jq -r .id "$work_dir/lecture-2.json")"
+[[ "$lecture_id_2" =~ ^[1-9][0-9]*$ ]]
+test "$lecture_id_2" -eq "$((lecture_id + 1))"
 
 session_body='{"name":"第1回","description":"通常開催","order":0,"date":"2026-09-04","startTime":"19:00","instructorIds":[],"resources":[],"replayOfSessionIds":[],"status":"published","expectedRevision":0}'
 request POST "/lectures/$lecture_id/sessions" "$session_body" "$work_dir/session.json"
 session_id="$(jq -r .id "$work_dir/session.json")"
+[[ "$session_id" =~ ^[1-9][0-9]*$ ]]
 
-replay_body="$(jq -cn --arg source "$session_id" '{name:"再放送",description:"",order:1,instructorIds:[],resources:[],replayOfSessionIds:[$source],status:"published",expectedRevision:0}')"
+replay_body="$(jq -cn --arg source "$session_id" '{name:"再放送",description:"",order:0,instructorIds:[],resources:[],replayOfSessionIds:[$source],status:"published",expectedRevision:0}')"
 request POST "/lectures/$lecture_id/sessions" "$replay_body" "$work_dir/replay.json"
 replay_id="$(jq -r .id "$work_dir/replay.json")"
+[[ "$replay_id" =~ ^[1-9][0-9]*$ ]]
+test "$replay_id" -eq "$((session_id + 1))"
 replay_status="$(curl --silent --output "$work_dir/replay-completion.json" --write-out '%{http_code}' -X PUT "$api_base/sessions/$replay_id/completion")"
 test "$replay_status" = 400
 
 request PUT "/sessions/$session_id/completion" '' "$work_dir/completion.json"
 request GET "/lectures/$lecture_id" '' "$work_dir/lecture-completed.json"
 jq -e --arg session "$session_id" '.sessions[] | select(.id == $session) | .isCompleted == true' "$work_dir/lecture-completed.json" >/dev/null
-jq -e --arg replay "$replay_id" 'all(.sessions[]; .id != $replay)' "$work_dir/lecture-completed.json" >/dev/null
+jq -e --arg replay "$replay_id" 'any(.sessions[]; .id == $replay and .isReplay == true)' "$work_dir/lecture-completed.json" >/dev/null
 
 flow_text=$'# 準備\n\n{{ lecture.name }}\n\n- [ ]{#confirm-purpose} 目的を確認する'
 flow_class_body="$(jq -cn --arg text "$flow_text" '{name:"事前確認",type:"lecture_pre",text:$text,listed:true,expectedRevision:0}')"

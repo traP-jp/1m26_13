@@ -1,7 +1,7 @@
 # Status
 
-更新日: 2026-09-04
-フェーズ: 固定commitの確定画面設計を本番表示層へ再統合中。
+更新日: 2026-09-05
+フェーズ: Lecture / Sessionの連番IDとLecture詳細統合を実装中。
 
 ## 現在地
 
@@ -23,7 +23,7 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 ## 実装済み
 
 - Go 1.26.4 + Echo v4 + oapi-codegen strict server。OpenAPIをGo/TypeScript双方の正本にした。
-- MariaDB migration、UUID、revision楽観ロック、属性単位の更新イベント。
+- MariaDB migration。Lecture / SessionはAUTO_INCREMENT BIGINT、その他のentityはUUIDを使い、revision楽観ロックと属性単位の更新イベントを記録する。
 - NeoShowcase `X-Forwarded-User`認証、開発用`DEV_USER`、traQ User/Groupのbackend cache。
 - Lecture/Sessionの登録・編集・公開、Resource、講師、運営、問い合わせ、分野、関係。
 - 公開Lectureのキーワード・年度・分野検索。検索条件はURL queryへ保持する。
@@ -41,6 +41,8 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 - 各FlowタブへFlow Rendererを直接埋め込み、本文、入力、task、copy/code、ページ進捗、途中保存、完了をタブ内で操作できるようにした。Flow適用後も別画面へ遷移せず、そのタブで開始する。Session編集と複製は設定タブへ集約した。
 
 ## 最終検証
+
+- Lecture / Sessionの連番化後、隔離した空のMariaDB 11.8へmigrationを適用し、Lecture ID `1`→`2`、Session ID `1`→`2`の自動採番、通常開催と再放送の同一order、公開Lectureへの両Session返却、再放送完了拒否をAPIスモークで確認した。バックエンド再起動後もmigration成功とデータ保持を確認した。
 
 - frontend: API型生成check、oxfmt、oxlint、ESLint、stylelint、Vue型検査、Vitest 6/6、Vite build成功。
 - backend: gofmt差分0、go vet、全Go test、全package build成功。

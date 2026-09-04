@@ -190,7 +190,7 @@ type Badge struct {
 	AcademicYearEnd   int       `json:"academicYearEnd"`
 	AcademicYearStart int       `json:"academicYearStart"`
 	EarnedAt          time.Time `json:"earnedAt"`
-	LectureId         string    `json:"lectureId"`
+	LectureId         LectureId `json:"lectureId"`
 	LectureName       string    `json:"lectureName"`
 }
 
@@ -319,7 +319,7 @@ type Lecture struct {
 	Description           *string           `json:"description,omitempty"`
 	ExpectedRevision      int               `json:"expectedRevision"`
 	FieldId               *string           `json:"fieldId,omitempty"`
-	Id                    string            `json:"id"`
+	Id                    LectureId         `json:"id"`
 	IsCompleted           bool              `json:"isCompleted"`
 	IsIntroductory        bool              `json:"isIntroductory"`
 	IsPublished           bool              `json:"isPublished"`
@@ -336,9 +336,12 @@ type Lecture struct {
 	UpdatedAt             time.Time         `json:"updatedAt"`
 }
 
+// LectureId defines model for LectureId.
+type LectureId = string
+
 // LectureRelation defines model for LectureRelation.
 type LectureRelation struct {
-	ToLectureId string       `json:"toLectureId"`
+	ToLectureId LectureId    `json:"toLectureId"`
 	Type        RelationType `json:"type"`
 }
 
@@ -382,12 +385,12 @@ type Resource struct {
 type Roadmap struct {
 	Audience            string         `json:"audience"`
 	CompletedItemCount  int            `json:"completedItemCount"`
-	CompletedLectureIds []string       `json:"completedLectureIds"`
+	CompletedLectureIds []LectureId    `json:"completedLectureIds"`
 	CreatedAt           time.Time      `json:"createdAt"`
 	Description         string         `json:"description"`
 	ExpectedRevision    int            `json:"expectedRevision"`
 	Id                  string         `json:"id"`
-	NextLectureId       *string        `json:"nextLectureId,omitempty"`
+	NextLectureId       *LectureId     `json:"nextLectureId,omitempty"`
 	ProgressPercent     int            `json:"progressPercent"`
 	Published           bool           `json:"published"`
 	Revision            int            `json:"revision"`
@@ -399,8 +402,8 @@ type Roadmap struct {
 
 // RoadmapItem defines model for RoadmapItem.
 type RoadmapItem struct {
-	LectureId string `json:"lectureId"`
-	Note      string `json:"note"`
+	LectureId LectureId `json:"lectureId"`
+	Note      string    `json:"note"`
 }
 
 // RoadmapStage defines model for RoadmapStage.
@@ -427,16 +430,16 @@ type Session struct {
 	Date               *openapi_types.Date `json:"date,omitempty"`
 	Description        *string             `json:"description,omitempty"`
 	ExpectedRevision   int                 `json:"expectedRevision"`
-	Id                 string              `json:"id"`
+	Id                 SessionId           `json:"id"`
 	InstructorIds      []string            `json:"instructorIds"`
 	IsCompleted        bool                `json:"isCompleted"`
 	IsReplay           bool                `json:"isReplay"`
 	KnoqUrl            *string             `json:"knoqUrl,omitempty"`
-	LectureId          string              `json:"lectureId"`
+	LectureId          LectureId           `json:"lectureId"`
 	Location           *string             `json:"location,omitempty"`
 	Name               string              `json:"name"`
 	Order              int                 `json:"order"`
-	ReplayOfSessionIds []string            `json:"replayOfSessionIds"`
+	ReplayOfSessionIds []SessionId         `json:"replayOfSessionIds"`
 	Resources          []Resource          `json:"resources"`
 	Revision           int                 `json:"revision"`
 	StartTime          *string             `json:"startTime,omitempty"`
@@ -447,9 +450,12 @@ type Session struct {
 // SessionCompletion defines model for SessionCompletion.
 type SessionCompletion struct {
 	CompletedAt time.Time `json:"completedAt"`
-	SessionId   string    `json:"sessionId"`
+	SessionId   SessionId `json:"sessionId"`
 	UserId      string    `json:"userId"`
 }
+
+// SessionId defines model for SessionId.
+type SessionId = string
 
 // SessionStatus defines model for SessionStatus.
 type SessionStatus string
@@ -464,17 +470,11 @@ type SessionWrite struct {
 	Location           *string             `json:"location,omitempty"`
 	Name               string              `json:"name"`
 	Order              int                 `json:"order"`
-	ReplayOfSessionIds []string            `json:"replayOfSessionIds"`
+	ReplayOfSessionIds []SessionId         `json:"replayOfSessionIds"`
 	Resources          []Resource          `json:"resources"`
 	StartTime          *string             `json:"startTime,omitempty"`
 	Status             SessionStatus       `json:"status"`
 }
-
-// LectureId defines model for LectureId.
-type LectureId = string
-
-// SessionId defines model for SessionId.
-type SessionId = string
 
 // Error defines model for Error.
 type Error = ErrorResponse

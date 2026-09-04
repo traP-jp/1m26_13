@@ -828,7 +828,7 @@
 
 ## D-20260904-065 — UUID、明示保存、楽観ロックを初期の更新基盤にする
 
-- 状態: decided
+- 状態: superseded by D-20260905-080（revision比較、明示保存、属性イベントは継続）
 - 判断が必要だった理由: バッジseedと相互参照を安定させ、全員編集時の上書きを検知する必要があった。
 - 選択肢: 連番IDと後勝ち更新／UUIDとrevision比較。
 - 決定: 全entityへUUIDを発行し、更新時は`expectedRevision`を要求する。編集とFlowは明示保存し、不一致を409で拒否する。
@@ -979,6 +979,17 @@
 - 影響: `HomeView.vue`と`RoadmapListView.vue`で共通の`discovery-card`表現を揃える。データ、API、レイアウト寸法は変更しない。
 - 再検討する条件: カードの状態表現をdesign tokenまたは共通コンポーネントへ集約する場合。
 - 参照: 本人の2026-09-04の明示依頼。
+
+## D-20260905-080 — Lecture / Sessionの内部IDをAUTO_INCREMENT BIGINTへ限定する
+
+- 状態: decided
+- 判断が必要だった理由: Lecture詳細URLで人が扱える短い連番を使い、SessionをLecture内の回として扱う仕様が確定した。一方、既存の全entity UUID方針はLecture / SessionにもUUIDを要求していた。
+- 選択肢: UUIDと公開用連番を併存させる／LectureとSessionの主キー自体をMariaDBの`AUTO_INCREMENT BIGINT UNSIGNED`へ置き換える。
+- 決定: 後者。Lecture / Sessionだけを連番主キーへ変更し、APIとJSONではJavaScriptの整数精度に依存しない10進文字列として表す。FlowClass、Flow、Roadmap、更新イベントなどのIDと外部User IDは従来どおりUUIDまたは外部IDを使う。開発DBは移行せず空にしてmigrationから作り直す。
+- 根拠: 二重IDを持たずURLを`/lectures/<integer>#<round>`にでき、既存のFlow IDや外部IDの意味も変えずに済む。
+- 影響: fixtureもIDを指定せずDBへ採番させる。各Lectureの同じ`order`には通常Sessionを1件だけ許し、同じ回の再放送Sessionは同じ`order`を持つ。楽観ロックと属性単位イベントは継続する。
+- 再検討する条件: 複数DBで独立採番したデータの統合、オフライン作成、または外部公開IDの秘匿が必要になった場合。
+- 参照: 本人の2026-09-05のLecture / Session連番化、開発DB初期化、二重IDを持たないという明示判断。
 
 ---
 
