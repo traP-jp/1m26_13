@@ -361,26 +361,23 @@ const ScenarioDetail = defineComponent({
         <BasiqButton tone="neutral" variant="outline"><AppIcon name="edit" :size="17" />編集</BasiqButton>
       </header>
 
-      <section v-if="scenario.rounds.length > 1" class="series-tabs-section" aria-labelledby="series-title">
-        <div class="series-title-row">
-          <div>
-            <span class="eyebrow">シリーズ構成</span>
-            <h2 id="series-title">全{{ scenario.rounds.length }}回</h2>
-          </div>
-          <span>第{{ activeRound.number }}回を表示中</span>
-        </div>
-        <BasiqTabs v-model="selectedRound" :items="roundTabs" aria-label="シリーズの回" class="round-tabs">
-          <template #content>
-            <RoundDetails
-              :scenario="scenario"
-              :round="activeRound"
-              :occurrences="activeOccurrences"
-              :completed="completed"
-              @toggle-completed="$emit('toggle-completed')"
-            />
-          </template>
-        </BasiqTabs>
-      </section>
+      <BasiqTabs
+        v-if="scenario.rounds.length > 1"
+        v-model="selectedRound"
+        :items="roundTabs"
+        aria-label="シリーズの回"
+        class="round-tabs"
+      >
+        <template #content>
+          <RoundDetails
+            :scenario="scenario"
+            :round="activeRound"
+            :occurrences="activeOccurrences"
+            :completed="completed"
+            @toggle-completed="$emit('toggle-completed')"
+          />
+        </template>
+      </BasiqTabs>
 
       <RoundDetails
         v-else
