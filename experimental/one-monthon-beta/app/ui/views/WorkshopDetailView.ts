@@ -27,7 +27,7 @@ export default defineComponent({
   },
   template: `
     <main class="page detail-page" tabindex="-1">
-      <nav class="breadcrumb" aria-label="パンくず"><a href="/workshops" data-route>講習会を探す</a><AppIcon name="chevron" :size="15" /><span aria-current="page">講習会詳細</span></nav>
+      <nav class="breadcrumb" aria-label="パンくず"><a href="/workshops" data-route>講習会を探す</a><span aria-hidden="true">/</span><span aria-current="page">講習会詳細</span></nav>
       <div v-if="loading" class="feedback" role="status">講習会を読み込んでいます。</div>
       <div v-else-if="error && !workshop" class="feedback feedback-error" role="alert"><div><strong>表示できませんでした</strong><p>{{ error }}</p></div><BasiqButton tone="neutral" variant="outline" @click="load">再試行</BasiqButton></div>
       <template v-else-if="workshop">
