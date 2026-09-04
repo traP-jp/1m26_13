@@ -1,12 +1,18 @@
 export type WorkshopStatus = "public" | "draft";
 export type OccurrenceStatus = "planned" | "held" | "cancelled" | "postponed";
-export type OccurrenceRelation = "single" | "alternative" | "sequence" | "rebroadcast";
+export type OccurrenceRelation = "single" | "alternative" | "sequence" | "rebroadcast" | "unknown";
 export type ResourceType = "material" | "video" | "practice" | "source" | "repository";
 
 export type WorkshopOperator = {
   kind: "user" | "group";
   id: string;
   name: string;
+};
+
+export type WorkshopChannel = {
+  id: string;
+  name: string;
+  path: string;
 };
 
 export type WorkshopRelationRef =
@@ -28,9 +34,15 @@ export type Occurrence = {
   description: string;
   date: string;
   time: string;
+  startTime: string;
+  endTime: string;
   mode: "offline" | "online" | "hybrid" | "undecided";
   place: string;
+  onlinePlatform: "qall" | "discord" | "other" | "";
+  onlineLocation: string;
+  offlineLocation: string;
   instructor: string;
+  instructors: WorkshopOperator[];
   relation: OccurrenceRelation;
   status: OccurrenceStatus;
   knoqUrl: string;
@@ -56,11 +68,14 @@ export type Workshop = {
   howToLearn: string;
   team: string;
   operators: WorkshopOperator[];
+  workshopChannel: WorkshopChannel | null;
   targetTeams: string[];
   isZeroToOne: boolean | null;
   previousTextRefs: WorkshopRelationRef[];
   prerequisiteRefs: WorkshopRelationRef[];
   recommendedRefs: WorkshopRelationRef[];
+  requestSetup: boolean;
+  reflectionUrl: string;
   contact: string;
   tags: string[];
   creators: string[];
@@ -82,6 +97,10 @@ type WorkshopWithOptionalStepOneFields = Omit<
   | "previousTextRefs"
   | "prerequisiteRefs"
   | "recommendedRefs"
+  | "workshopChannel"
+  | "requestSetup"
+  | "reflectionUrl"
+  | "occurrences"
 > & Partial<Pick<
   Workshop,
   | "operators"
@@ -90,7 +109,26 @@ type WorkshopWithOptionalStepOneFields = Omit<
   | "previousTextRefs"
   | "prerequisiteRefs"
   | "recommendedRefs"
->>;
+  | "workshopChannel"
+  | "requestSetup"
+  | "reflectionUrl"
+>> & {
+  occurrences: Array<Omit<Occurrence,
+    | "startTime"
+    | "endTime"
+    | "onlinePlatform"
+    | "onlineLocation"
+    | "offlineLocation"
+    | "instructors"
+  > & Partial<Pick<Occurrence,
+    | "startTime"
+    | "endTime"
+    | "onlinePlatform"
+    | "onlineLocation"
+    | "offlineLocation"
+    | "instructors"
+  >>>;
+};
 
 const isOperator = (value: unknown): value is WorkshopOperator => {
   if (!value || typeof value !== "object") return false;
@@ -107,6 +145,35 @@ const isRelationRef = (value: unknown): value is WorkshopRelationRef => {
     || (candidate.kind === "text" && typeof candidate.text === "string");
 };
 
+const isWorkshopChannel = (value: unknown): value is WorkshopChannel => {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<WorkshopChannel>;
+  return typeof candidate.id === "string"
+    && typeof candidate.name === "string"
+    && typeof candidate.path === "string";
+};
+
+const normalizeOccurrence = (occurrence: WorkshopWithOptionalStepOneFields["occurrences"][number]): Occurrence => {
+  const legacyTime = occurrence.time.trim();
+  const structuredLegacyTime = legacyTime.match(/^(\d{1,2}:\d{2})\s*[〜～–—-]\s*(\d{1,2}:\d{2})$/u);
+  const legacyInstructor = occurrence.instructor.trim();
+  return {
+    ...occurrence,
+    startTime: occurrence.startTime ?? structuredLegacyTime?.[1] ?? "",
+    endTime: occurrence.endTime ?? structuredLegacyTime?.[2] ?? "",
+    onlinePlatform: occurrence.onlinePlatform ?? "",
+    onlineLocation: occurrence.onlineLocation ?? (occurrence.mode === "online" ? occurrence.place : ""),
+    offlineLocation: occurrence.offlineLocation ?? (
+      occurrence.mode === "offline" || occurrence.mode === "hybrid" ? occurrence.place : ""
+    ),
+    instructors: Array.isArray(occurrence.instructors)
+      ? occurrence.instructors.filter((operator) => isOperator(operator) && operator.kind === "user")
+      : legacyInstructor
+        ? [{ kind: "user", id: `legacy-${legacyInstructor}`, name: legacyInstructor }]
+        : [],
+  };
+};
+
 const normalizeTeamName = (team: string) => {
   if (team === "Algorithm班") return "アルゴリズム班";
   if (team === "ゲーム系") return "ゲーム班";
@@ -118,10 +185,11 @@ export const normalizeWorkshop = (workshop: WorkshopWithOptionalStepOneFields): 
   ...workshop,
   team: normalizeTeamName(workshop.team),
   operators: Array.isArray(workshop.operators) ? workshop.operators.filter(isOperator) : [],
+  workshopChannel: isWorkshopChannel(workshop.workshopChannel) ? workshop.workshopChannel : null,
   targetTeams: Array.isArray(workshop.targetTeams)
     ? workshop.targetTeams.filter((team): team is string => typeof team === "string")
     : [],
-  isZeroToOne: typeof workshop.isZeroToOne === "boolean" ? workshop.isZeroToOne : false,
+  isZeroToOne: typeof workshop.isZeroToOne === "boolean" ? workshop.isZeroToOne : null,
   previousTextRefs: Array.isArray(workshop.previousTextRefs)
     ? workshop.previousTextRefs.filter(
       (reference): reference is Extract<WorkshopRelationRef, { kind: "text" }> => (
@@ -135,6 +203,9 @@ export const normalizeWorkshop = (workshop: WorkshopWithOptionalStepOneFields): 
   recommendedRefs: Array.isArray(workshop.recommendedRefs)
     ? workshop.recommendedRefs.filter(isRelationRef)
     : [],
+  requestSetup: workshop.requestSetup === true,
+  reflectionUrl: typeof workshop.reflectionUrl === "string" ? workshop.reflectionUrl : "",
+  occurrences: workshop.occurrences.map(normalizeOccurrence),
 });
 
 export const getAcademicYear = (date = new Date()): number => (
@@ -501,49 +572,62 @@ export const seedWorkshops: Workshop[] = seedWorkshopRecords.map(normalizeWorksh
 
 export const cloneSeedWorkshops = (): Workshop[] => JSON.parse(JSON.stringify(seedWorkshops));
 
-export const makeBlankWorkshop = (): Workshop => ({
-  id: `draft-${Date.now()}`,
-  lineageId: `new-${Date.now()}`,
-  title: "",
-  year: getAcademicYear(),
-  status: "draft",
-  summary: "",
-  outcome: "",
-  audience: "",
-  prerequisites: "",
-  preparation: "",
-  howToLearn: "",
-  team: "",
-  operators: [],
-  targetTeams: [],
-  isZeroToOne: false,
-  previousTextRefs: [],
-  prerequisiteRefs: [],
-  recommendedRefs: [],
-  contact: "",
-  tags: [],
-  creators: ["rurun"],
-  previousIds: [],
-  occurrences: [
-    {
-      id: `occurrence-${Date.now()}`,
-      title: "第1回",
-      description: "",
-      date: "",
-      time: "",
-      mode: "undecided",
-      place: "",
-      instructor: "",
-      relation: "single",
-      status: "planned",
-      knoqUrl: "",
-    },
-  ],
-  resources: [],
-  sourceUrl: "",
-  sourceLabel: "",
-  revisions: [],
-});
+export const makeBlankWorkshop = (): Workshop => {
+  const createdAt = Date.now();
+  const draftId = `draft-${createdAt}`;
+  return {
+    id: draftId,
+    lineageId: `new-${createdAt}`,
+    title: "",
+    year: getAcademicYear(),
+    status: "draft",
+    summary: "",
+    outcome: "",
+    audience: "",
+    prerequisites: "",
+    preparation: "",
+    howToLearn: "",
+    team: "",
+    operators: [],
+    workshopChannel: null,
+    targetTeams: [],
+    isZeroToOne: false,
+    previousTextRefs: [],
+    prerequisiteRefs: [],
+    recommendedRefs: [],
+    requestSetup: false,
+    reflectionUrl: "",
+    contact: "",
+    tags: [],
+    creators: ["rurun"],
+    previousIds: [],
+    occurrences: [
+      {
+        id: `occurrence-${Date.now()}`,
+        title: "第1回",
+        description: "",
+        date: "",
+        time: "",
+        startTime: "",
+        endTime: "",
+        mode: "undecided",
+        place: "",
+        onlinePlatform: "",
+        onlineLocation: "",
+        offlineLocation: "",
+        instructor: "",
+        instructors: [],
+        relation: "single",
+        status: "planned",
+        knoqUrl: "",
+      },
+    ],
+    resources: [],
+    sourceUrl: "",
+    sourceLabel: "",
+    revisions: [],
+  };
+};
 
 export const inheritWorkshop = (source: Workshop): Workshop => {
   const next = makeBlankWorkshop();
@@ -557,10 +641,13 @@ export const inheritWorkshop = (source: Workshop): Workshop => {
   next.howToLearn = "";
   next.team = source.team;
   next.operators = [];
+  next.workshopChannel = null;
   next.targetTeams = [...source.targetTeams];
   next.isZeroToOne = source.isZeroToOne;
   next.prerequisiteRefs = source.prerequisiteRefs.map((reference) => ({ ...reference }));
   next.recommendedRefs = source.recommendedRefs.map((reference) => ({ ...reference }));
+  next.requestSetup = false;
+  next.reflectionUrl = "";
   next.contact = "";
   next.tags = [...source.tags];
   next.previousIds = [source.id];
@@ -569,9 +656,15 @@ export const inheritWorkshop = (source: Workshop): Workshop => {
     id: `occurrence-${Date.now()}-${index}`,
     date: "",
     time: "",
+    startTime: "",
+    endTime: "",
     mode: "undecided",
     place: "",
+    onlinePlatform: "",
+    onlineLocation: "",
+    offlineLocation: "",
     instructor: "",
+    instructors: [],
     knoqUrl: "",
     status: "planned",
   }));

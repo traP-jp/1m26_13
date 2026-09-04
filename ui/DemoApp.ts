@@ -37,9 +37,11 @@ import {
   type Occurrence,
   type ResourceType,
   type Workshop,
+  type WorkshopChannel,
   type WorkshopOperator,
   type WorkshopRelationRef,
 } from "./data";
+import { makeRandomWorkshopTitle } from "./randomWorkshopWords";
 import { searchTextScore } from "./search";
 
 type Route =
@@ -63,6 +65,8 @@ type TraqDirectoryCandidate = {
   label: string;
   detail: string;
 };
+
+type TraqChannelCandidate = WorkshopChannel;
 
 type RelationEntryView = {
   key: string;
@@ -94,6 +98,27 @@ const OCCURRENCE_FORMATS = [
   { value: "online", label: "オンライン" },
   { value: "offline", label: "オフライン" },
   { value: "hybrid", label: "ハイブリッド" },
+] as const;
+
+const ONLINE_PLATFORMS = [
+  { value: "qall", label: "Qall" },
+  { value: "discord", label: "Discord" },
+  { value: "other", label: "その他" },
+] as const;
+
+const SCIENCE_TOKYO_ROOMS = [
+  "S2-201",
+  "S2-202",
+  "S3-201",
+  "S3-202",
+  "S4-201",
+  "S4-202",
+  "W2-301",
+  "W2-401",
+  "W8E-101",
+  "W8E-102",
+  "西9号館ディジタル多目的ホール",
+  "Hisao & Hiroko Taki Plaza",
 ] as const;
 
 // traQ APIから読み取った候補の安全なスナップショット。認証情報は含めない。
@@ -216,11 +241,14 @@ export default defineComponent({
     const activeBasicInfoSection = ref("basic-name");
     const activeOccurrenceId = ref("");
     const activeLecturerId = ref("");
+    const activeEditorSection = ref("basic-name");
     const operatorQuery = ref("");
+    const lecturerQuery = ref<Record<string, string>>({});
+    const channelQuery = ref("");
     const traqDirectory = ref<TraqDirectoryCandidate[]>(TRAQ_DIRECTORY);
+    const traqChannels = ref<TraqChannelCandidate[]>([]);
     const traqDirectoryRequested = ref(false);
     const relationQuery = ref<Record<RelationKind, string>>({ previous: "", prerequisite: "", recommended: "" });
-    const noticeKind = ref<"traq" | "knoq">("traq");
     const resetDialogOpen = ref(false);
     const toast = ref("");
     let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -316,6 +344,17 @@ export default defineComponent({
         workshop.audience,
         workshop.prerequisites,
         workshop.team,
+        workshop.workshopChannel?.path ?? "",
+        ...workshop.operators.flatMap((operator) => [operator.name, operatorLabel(operator)]),
+        ...workshop.targetTeams,
+        ...workshop.occurrences.flatMap((occurrence) => [
+          occurrence.title,
+          occurrence.description,
+          occurrence.onlineLocation,
+          occurrence.offlineLocation,
+          ...occurrence.instructors.map((instructor) => instructor.name),
+        ]),
+        ...workshop.resources.flatMap((resource) => [resource.title, resource.note ?? ""]),
         ...workshop.previousTextRefs.map(relationReferenceText),
         ...workshop.prerequisiteRefs.map(relationReferenceText),
         ...workshop.recommendedRefs.map(relationReferenceText),
@@ -368,25 +407,61 @@ export default defineComponent({
       occurrence.title.trim()
       && occurrence.description.trim()
       && occurrence.date
-      && occurrence.instructor.trim()
+      && occurrence.startTime
+      && occurrence.endTime
+      && occurrence.instructors.length
       && occurrence.mode !== "undecided",
+    );
+
+    const occurrenceHasPlace = (occurrence: Occurrence) => {
+      const needsOnline = occurrence.mode === "online" || occurrence.mode === "hybrid";
+      const needsOffline = occurrence.mode === "offline" || occurrence.mode === "hybrid";
+      return (!needsOnline || Boolean(occurrence.onlinePlatform && occurrence.onlineLocation.trim()))
+        && (!needsOffline || Boolean(occurrence.offlineLocation.trim()));
+    };
+
+    const occurrenceHasStream = (occurrence: Occurrence) => editorDraft.value.resources.some(
+      (resource) => resource.type === "video"
+        && resource.occurrenceId === occurrence.id
+        && Boolean(resource.url?.trim()),
     );
 
     const editorSections = computed(() => {
       const draft = editorDraft.value;
-      const firstOccurrence = draft.occurrences[0];
+      const hasOccurrences = draft.occurrences.length > 0;
       return [
-        { label: "基本情報", done: Boolean(draft.title && draft.summary && draft.audience) },
         {
-          label: "開催枠の設定",
-          done: Boolean(
-            firstOccurrence
-            && draft.occurrences.every(isOccurrenceComplete),
-          ),
+          key: "basic",
+          label: "基本情報",
+          done: Boolean(draft.year && draft.team && draft.summary.trim()),
         },
-        { label: "", done: Boolean(draft.preparation && draft.howToLearn && draft.contact) },
-        { label: "", done: hasLearningResource(draft) },
-        { label: "", done: false },
+        {
+          key: "occurrences",
+          label: "開催枠",
+          done: hasOccurrences && draft.occurrences.every(isOccurrenceComplete),
+        },
+        {
+          key: "preparation",
+          label: "開催準備",
+          done: hasOccurrences && draft.occurrences.every((occurrence) => (
+            occurrence.mode !== "undecided" && occurrenceHasPlace(occurrence)
+          )),
+        },
+        {
+          key: "materials",
+          label: "資料",
+          done: hasLearningResource(draft),
+        },
+        {
+          key: "announcements",
+          label: "告知",
+          done: Boolean(hasOccurrences && draft.occurrences.some((occurrence) => occurrence.date)),
+        },
+        {
+          key: "retrospective",
+          label: "振り返り",
+          done: Boolean(draft.reflectionUrl.trim()),
+        },
       ];
     });
 
@@ -399,14 +474,16 @@ export default defineComponent({
     const basicInfoSections = computed(() => {
       const draft = editorDraft.value;
       return [
-        { id: "basic-name", label: "講習会名", done: Boolean(draft.title.trim()) },
-        { id: "basic-overview", label: "概要", done: Boolean(draft.year && draft.summary.trim()) },
+        { id: "basic-name", label: "名前", done: Boolean(draft.year) },
         { id: "basic-operations", label: "運営", done: Boolean(draft.team && draft.operators.length) },
-        { id: "basic-target", label: "対象", done: Boolean(draft.audience.trim() || draft.targetTeams.length) },
-        { id: "basic-attributes", label: "属性", done: draft.isZeroToOne !== null },
+        {
+          id: "basic-introduction",
+          label: "紹介",
+          done: Boolean(draft.summary.trim() && (draft.audience.trim() || draft.targetTeams.length)),
+        },
         {
           id: "basic-relations",
-          label: "関連する講習会",
+          label: "関連講習会",
           done: Boolean(
             draft.previousIds.length
             || draft.previousTextRefs.length
@@ -415,6 +492,44 @@ export default defineComponent({
           ),
         },
       ];
+    });
+
+    const preparationSections = computed(() => [
+      { id: "preparation-admin", label: "庶務への連絡", done: !editorDraft.value.requestSetup || Boolean(editorDraft.value.occurrences.length) },
+      { id: "preparation-place", label: "開催場所", done: editorDraft.value.occurrences.every((occurrence) => occurrence.mode !== "undecided" && occurrenceHasPlace(occurrence)) },
+      { id: "preparation-stream", label: "配信", done: editorDraft.value.occurrences.some(occurrenceHasStream) },
+      { id: "preparation-knoq", label: "knoQ", done: editorDraft.value.occurrences.every((occurrence) => Boolean(occurrence.knoqUrl.trim())) },
+    ]);
+
+    const materialSections = computed(() => [
+      { id: "materials-common", label: "講習会全体", done: resourcesFor("material").some((resource) => Boolean(resource.url?.trim())) },
+      ...editorDraft.value.occurrences.map((occurrence) => ({
+        id: `materials-${occurrence.id}`,
+        label: occurrence.title.trim() || "名称未定の開催枠",
+        done: resourcesFor("material", occurrence.id).some((resource) => Boolean(resource.url?.trim())),
+      })),
+    ]);
+
+    const announcementSections = computed(() => [
+      { id: "announcement-event", label: "#event/workshop", done: true },
+      { id: "announcement-channel", label: "講習会チャンネル", done: Boolean(editorDraft.value.workshopChannel) },
+      { id: "announcement-reminders", label: "直前リマインド", done: editorDraft.value.occurrences.some((occurrence) => Boolean(occurrence.date)) },
+    ]);
+
+    const retrospectiveSections = computed(() => [
+      { id: "retrospective-record", label: "振り返り・引き継ぎ", done: Boolean(editorDraft.value.reflectionUrl.trim()) },
+    ]);
+
+    const editorNavigationSections = computed(() => {
+      if (editorStep.value === 0) return basicInfoSections.value;
+      if (editorStep.value === 1) return occurrenceSections.value.map((section) => ({
+        ...section,
+        id: `occurrence-slot-${section.id}`,
+      }));
+      if (editorStep.value === 2) return preparationSections.value;
+      if (editorStep.value === 3) return materialSections.value;
+      if (editorStep.value === 4) return announcementSections.value;
+      return retrospectiveSections.value;
     });
 
     const operatorSuggestions = computed(() => {
@@ -435,6 +550,20 @@ export default defineComponent({
         .slice(0, 8);
     });
 
+    const channelSuggestions = computed(() => {
+      const needle = channelQuery.value.trim().replace(/^#/, "");
+      if (!needle) return [];
+      return traqChannels.value
+        .map((channel) => ({
+          channel,
+          score: searchTextScore([channel.name, channel.path], needle),
+        }))
+        .filter(({ score }) => score >= 0)
+        .sort((left, right) => right.score - left.score || left.channel.path.localeCompare(right.channel.path, "ja"))
+        .map(({ channel }) => channel)
+        .slice(0, 10);
+    });
+
     const zeroToOneEnabled = computed<boolean>({
       get: () => editorDraft.value.isZeroToOne === true,
       set: (value) => {
@@ -442,27 +571,13 @@ export default defineComponent({
       },
     });
 
-    const editorProgress = computed(() => {
-      const draft = editorDraft.value;
-      const checks = [
-        draft.title,
-        draft.summary,
-        draft.outcome,
-        draft.audience,
-        draft.team,
-        draft.operators.length ? "yes" : "",
-        draft.targetTeams.length ? "yes" : "",
-        draft.isZeroToOne !== null ? "yes" : "",
-        draft.occurrences[0]?.title,
-        draft.occurrences[0]?.date,
-        draft.occurrences[0]?.mode !== "undecided" ? "yes" : "",
-        draft.preparation,
-        draft.howToLearn,
-        draft.contact,
-        hasLearningResource(draft) ? "yes" : "",
-      ];
-      return Math.round((checks.filter(Boolean).length / checks.length) * 100);
-    });
+    const editorWorkshopTitle = computed(() => (
+      editorDraft.value.title.trim() || makeRandomWorkshopTitle(editorDraft.value.id)
+    ));
+
+    const editorProgress = computed(() => Math.round(
+      (editorSections.value.filter((section) => section.done).length / editorSections.value.length) * 100,
+    ));
 
     const tagText = computed({
       get: () => editorDraft.value.tags.join("、"),
@@ -479,34 +594,26 @@ export default defineComponent({
       },
     });
 
-    const resourceUrl = (type: ResourceType, occurrenceId?: string) => editorDraft.value.resources.find(
-      (resource) => resource.type === type && resource.occurrenceId === occurrenceId,
-    )?.url ?? "";
-    const setResourceUrl = (type: ResourceType, value: string, occurrenceId?: string) => {
-      const existingIndex = editorDraft.value.resources.findIndex(
+    function resourcesFor(type: ResourceType, occurrenceId?: string) {
+      return editorDraft.value.resources.filter(
         (resource) => resource.type === type && resource.occurrenceId === occurrenceId,
       );
-      const normalized = value.trim();
-      if (!normalized) {
-        if (existingIndex >= 0) editorDraft.value.resources.splice(existingIndex, 1);
-        return;
-      }
-      const existing = editorDraft.value.resources[existingIndex];
-      if (existing) {
-        existing.url = normalized;
-        return;
-      }
+    }
+
+    function addResource(type: ResourceType, occurrenceId?: string) {
+      const resourceNumber = resourcesFor(type, occurrenceId).length + 1;
       editorDraft.value.resources.push({
-        id: `${type}-${Date.now()}`,
+        id: `${type}-${crypto.randomUUID()}`,
         type,
-        title: type === "video" ? "動画" : "資料",
-        url: normalized,
+        title: type === "video" ? `配信・動画 ${resourceNumber}` : `資料 ${resourceNumber}`,
+        url: "",
         occurrenceId,
       });
-    };
+    }
 
-    const materialUrl = computed({ get: () => resourceUrl("material"), set: (value: string) => setResourceUrl("material", value) });
-    const videoUrl = computed({ get: () => resourceUrl("video"), set: (value: string) => setResourceUrl("video", value) });
+    function removeResource(resourceId: string) {
+      editorDraft.value.resources = editorDraft.value.resources.filter((resource) => resource.id !== resourceId);
+    }
 
     const occurrenceRelation = computed({
       get: () => editorDraft.value.occurrences.find((occurrence) => occurrence.relation !== "single")?.relation
@@ -516,11 +623,6 @@ export default defineComponent({
         editorDraft.value.occurrences.forEach((occurrence) => { occurrence.relation = relation; });
       },
     });
-
-    const occurrenceResourceUrl = (occurrenceId: string, type: "material" | "video") => resourceUrl(type, occurrenceId);
-    const setOccurrenceResourceUrl = (occurrenceId: string, type: "material" | "video", value: string) => {
-      setResourceUrl(type, value, occurrenceId);
-    };
 
     const occurrenceTitle = (occurrenceId?: string) => {
       if (!occurrenceId) return "講習会共通";
@@ -536,44 +638,109 @@ export default defineComponent({
       return labels.join("・") || "未登録";
     };
 
+    const formatOccurrenceTime = (occurrence: Occurrence) => {
+      if (occurrence.startTime && occurrence.endTime) return `${occurrence.startTime}〜${occurrence.endTime}`;
+      if (occurrence.startTime) return `${occurrence.startTime}〜`;
+      if (occurrence.endTime) return `〜${occurrence.endTime}`;
+      return occurrence.time;
+    };
+
+    const formatOccurrencePlace = (occurrence: Occurrence) => {
+      const locations: string[] = [];
+      if (occurrence.mode === "online" || occurrence.mode === "hybrid") {
+        const platform = ONLINE_PLATFORMS.find((item) => item.value === occurrence.onlinePlatform)?.label;
+        if (platform || occurrence.onlineLocation) locations.push([platform, occurrence.onlineLocation].filter(Boolean).join(" "));
+      }
+      if ((occurrence.mode === "offline" || occurrence.mode === "hybrid") && occurrence.offlineLocation) {
+        locations.push(occurrence.offlineLocation);
+      }
+      return locations.join(" / ") || occurrence.place;
+    };
+
     const formatOccurrenceForNotice = (occurrence: Occurrence) => {
-      const when = [formatDate(occurrence.date), occurrence.time].filter((value) => value && value !== "未登録").join(" ");
-      const where = occurrence.place || (occurrence.mode === "undecided" ? "" : modeLabel(occurrence.mode));
+      const when = [formatDate(occurrence.date), formatOccurrenceTime(occurrence)]
+        .filter((value) => value && value !== "未登録")
+        .join(" ");
+      const place = formatOccurrencePlace(occurrence);
+      const where = place || (occurrence.mode === "undecided" ? "" : modeLabel(occurrence.mode));
       return `・${occurrence.title}${when ? `：${when}` : "：日時未定"}${where ? ` / ${where}` : ""}`;
     };
 
-    const generatedTraq = computed(() => {
+    const generatedEventAnnouncement = computed(() => {
       const draft = editorDraft.value;
       const lines = [
-        `## ${draft.title || "講習会名未定"}`,
-        draft.summary || "概要は準備中です。",
+        `## ${editorWorkshopTitle.value}`,
+        draft.summary,
         "",
-        `対象：${draft.audience || "未定"}`,
+        draft.audience ? `対象：${draft.audience}` : "",
         "",
         "### 開催枠",
         ...draft.occurrences.map(formatOccurrenceForNotice),
-      ];
-      if (draft.preparation) lines.push("", `事前準備：${draft.preparation}`);
+      ].filter((line, index, values) => line !== "" || values[index - 1] !== "");
       const knoqOccurrences = draft.occurrences.filter((occurrence) => occurrence.knoqUrl);
       for (const occurrence of knoqOccurrences) {
         const label = draft.occurrences.length > 1 ? `knoQ（${occurrence.title}）` : "knoQ";
         lines.push(`${label}：${occurrence.knoqUrl}`);
       }
-      if (draft.contact) lines.push(`質問・連絡先：${draft.contact}`);
+      if (draft.workshopChannel) lines.push(`質問：${draft.workshopChannel.path}`);
       return lines.join("\n");
     });
 
-    const generatedKnoq = computed(() => {
+    const generatedChannelAnnouncement = computed(() => {
       const draft = editorDraft.value;
       return [
+        `## ${editorWorkshopTitle.value}`,
         draft.summary,
         draft.audience ? `対象：${draft.audience}` : "",
-        draft.preparation ? `事前準備：${draft.preparation}` : "",
-        draft.contact ? `質問・連絡先：${draft.contact}` : "",
-      ].filter(Boolean).join("\n\n") || "入力した情報から説明文を生成します。";
+        "### 開催枠",
+        ...draft.occurrences.map(formatOccurrenceForNotice),
+        draft.resources.some((resource) => resource.type === "material" && resource.url)
+          ? "資料はLeQturesの講習会ページから確認できます。"
+          : "",
+      ].filter(Boolean).join("\n\n");
     });
 
-    const activeNotice = computed(() => noticeKind.value === "traq" ? generatedTraq.value : generatedKnoq.value);
+    const generatedSetupRequest = computed(() => {
+      const draft = editorDraft.value;
+      const offline = draft.occurrences.filter((occurrence) => occurrence.mode === "offline" || occurrence.mode === "hybrid");
+      const streamed = draft.occurrences.filter((occurrence) => (
+        occurrence.mode === "online"
+        || occurrence.mode === "hybrid"
+        || occurrenceHasStream(occurrence)
+      ));
+      const requests = [
+        offline.length ? "講義室の予約と当日の設営" : "",
+        streamed.length ? "配信枠の確保" : "",
+      ].filter(Boolean).join("、");
+      return [
+        `お疲れさまです。${editorWorkshopTitle.value}の開催について、${requests || "必要な準備"}をお願いしたいです。`,
+        "",
+        ...draft.occurrences.map(formatOccurrenceForNotice),
+        "",
+        "よろしくお願いします。",
+      ].join("\n");
+    });
+
+    function generatedKnoq(occurrence: Occurrence) {
+      const draft = editorDraft.value;
+      return [
+        `${editorWorkshopTitle.value}${draft.occurrences.length > 1 ? ` ${occurrence.title || "開催枠"}` : ""}`,
+        occurrence.description || draft.summary,
+        draft.audience ? `対象：${draft.audience}` : "",
+        `日時：${[formatDate(occurrence.date), formatOccurrenceTime(occurrence)].filter(Boolean).join(" ")}`,
+        formatOccurrencePlace(occurrence) ? `場所：${formatOccurrencePlace(occurrence)}` : "",
+        draft.workshopChannel ? `質問：${draft.workshopChannel.path}` : "",
+      ].filter(Boolean).join("\n\n");
+    }
+
+    function generatedReminder(occurrence: Occurrence) {
+      return [
+        `本日は${editorWorkshopTitle.value}${editorDraft.value.occurrences.length > 1 ? ` ${occurrence.title || "開催枠"}` : ""}です。`,
+        `日時：${[formatDate(occurrence.date), formatOccurrenceTime(occurrence)].filter(Boolean).join(" ")}`,
+        formatOccurrencePlace(occurrence) ? `場所：${formatOccurrencePlace(occurrence)}` : "",
+        occurrence.knoqUrl ? `knoQ：${occurrence.knoqUrl}` : "",
+      ].filter(Boolean).join("\n");
+    }
 
     function formatDate(value: string) {
       if (!value) return "未登録";
@@ -592,6 +759,7 @@ export default defineComponent({
     function relationLabel(occurrences: Occurrence[]) {
       if (occurrences.length <= 1) return "1回完結";
       const relations = new Set(occurrences.map((occurrence) => occurrence.relation));
+      if (relations.has("unknown") || relations.has("single")) return "複数の開催枠があります";
       if (relations.size === 1 && relations.has("alternative")) return "同じ内容です。いずれか1回を選びます";
       if (relations.size === 1 && relations.has("rebroadcast")) return "本編と再放送です。いずれか1回を選びます";
       if (!relations.has("sequence") && (relations.has("alternative") || relations.has("rebroadcast"))) return "同じ内容の別日程・再放送です。いずれかを選びます";
@@ -665,6 +833,7 @@ export default defineComponent({
       }
       editorStep.value = index;
       await nextTick();
+      activeEditorSection.value = editorNavigationSections.value[0]?.id ?? "";
       requestAnimationFrame(() => {
         const root = document.documentElement;
         const previousBehavior = root.style.scrollBehavior;
@@ -676,12 +845,17 @@ export default defineComponent({
 
     async function scrollToEditorSection(id: string) {
       activeBasicInfoSection.value = id;
+      activeEditorSection.value = id;
+      if (id.startsWith("occurrence-slot-")) {
+        activeOccurrenceId.value = id.slice("occurrence-slot-".length);
+      }
       await nextTick();
       document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     async function scrollToOccurrence(id: string) {
       activeOccurrenceId.value = id;
+      activeEditorSection.value = `occurrence-slot-${id}`;
       await nextTick();
       document.getElementById(`occurrence-slot-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
@@ -694,6 +868,10 @@ export default defineComponent({
 
     function setOccurrenceMode(occurrence: Occurrence, value: string | null) {
       if (value === "online" || value === "offline" || value === "hybrid") occurrence.mode = value;
+    }
+
+    function setOnlinePlatform(occurrence: Occurrence, value: string | null) {
+      if (value === "qall" || value === "discord" || value === "other") occurrence.onlinePlatform = value;
     }
 
     function addOperator(candidate: TraqDirectoryCandidate) {
@@ -731,15 +909,21 @@ export default defineComponent({
       return detail ? `${operatorLabel(operator)} · ${detail}` : operatorLabel(operator);
     }
 
+    function instructorNames(occurrence: Occurrence) {
+      if (occurrence.instructors.length) return occurrence.instructors.map(operatorLabel).join("、");
+      return occurrence.instructor.trim() || "未登録";
+    }
+
     function operatorAvatar(candidate: TraqDirectoryCandidate) {
       return candidate.kind === "user" ? `https://q.trap.jp/api/v3/public/icon/${encodeURIComponent(candidate.name)}` : "";
     }
 
     function lecturerSuggestions(occurrence: Occurrence) {
-      const needle = occurrence.instructor.trim().replace(/^@/, "");
+      const needle = (lecturerQuery.value[occurrence.id] ?? "").trim().replace(/^@/, "");
       if (!needle) return [];
+      const selectedIds = new Set(occurrence.instructors.map((instructor) => instructor.id));
       return traqDirectory.value
-        .filter((candidate) => candidate.kind === "user")
+        .filter((candidate) => candidate.kind === "user" && !selectedIds.has(candidate.id))
         .map((candidate) => ({
           candidate,
           score: searchTextScore([candidate.name, candidate.label, candidate.detail], needle),
@@ -752,13 +936,22 @@ export default defineComponent({
     }
 
     function setLecturerQuery(occurrence: Occurrence, value: string) {
-      occurrence.instructor = value;
+      lecturerQuery.value = { ...lecturerQuery.value, [occurrence.id]: value };
       activeLecturerId.value = occurrence.id;
     }
 
     function selectLecturer(occurrence: Occurrence, candidate: TraqDirectoryCandidate) {
-      occurrence.instructor = candidate.name;
-      activeLecturerId.value = "";
+      if (!occurrence.instructors.some((instructor) => instructor.id === candidate.id)) {
+        occurrence.instructors.push({ kind: "user", id: candidate.id, name: candidate.name });
+      }
+      occurrence.instructor = occurrence.instructors.map((instructor) => instructor.name).join("、");
+      lecturerQuery.value = { ...lecturerQuery.value, [occurrence.id]: "" };
+      activeLecturerId.value = occurrence.id;
+    }
+
+    function removeLecturer(occurrence: Occurrence, lecturerId: string) {
+      occurrence.instructors = occurrence.instructors.filter((instructor) => instructor.id !== lecturerId);
+      occurrence.instructor = occurrence.instructors.map((instructor) => instructor.name).join("、");
     }
 
     function addFirstLecturerSuggestion(event: KeyboardEvent, occurrence: Occurrence) {
@@ -784,10 +977,13 @@ export default defineComponent({
           method: "GET",
           headers: { Accept: "application/json" },
         });
-        if (!response.ok) return;
-        const payload = await response.json() as { candidates?: unknown };
-        if (!Array.isArray(payload.candidates)) return;
-        const candidates = payload.candidates.filter((candidate): candidate is TraqDirectoryCandidate => {
+        if (!response.ok) throw new Error("traQ directory request failed");
+        const payload = await response.json() as {
+          candidates?: unknown;
+          channels?: unknown;
+          sources?: unknown;
+        };
+        const candidates = (Array.isArray(payload.candidates) ? payload.candidates : []).filter((candidate): candidate is TraqDirectoryCandidate => {
           if (!candidate || typeof candidate !== "object") return false;
           const value = candidate as Partial<TraqDirectoryCandidate>;
           return (value.kind === "user" || value.kind === "group")
@@ -796,8 +992,11 @@ export default defineComponent({
             && typeof value.label === "string"
             && typeof value.detail === "string";
         });
-        if (candidates.length) {
-          const enrichedCandidates = candidates.map((candidate) => {
+        const sources = payload.sources && typeof payload.sources === "object"
+          ? payload.sources as { users?: unknown; groups?: unknown; channels?: unknown }
+          : null;
+        if (Array.isArray(payload.candidates)) {
+          const enriched = candidates.map((candidate) => {
             const snapshot = TRAQ_DIRECTORY.find((entry) => (
               entry.kind === candidate.kind
               && (entry.id === candidate.id || entry.name.toLowerCase() === candidate.name.toLowerCase())
@@ -806,15 +1005,54 @@ export default defineComponent({
               ? { ...candidate, detail: snapshot.detail }
               : candidate;
           });
-          const fetchedKeys = new Set(enrichedCandidates.map((candidate) => `${candidate.kind}:${candidate.id}`));
+          const currentUsers = traqDirectory.value.filter((candidate) => candidate.kind === "user");
+          const currentGroups = traqDirectory.value.filter((candidate) => candidate.kind === "group");
           traqDirectory.value = [
-            ...enrichedCandidates,
-            ...TRAQ_DIRECTORY.filter((candidate) => !fetchedKeys.has(`${candidate.kind}:${candidate.id}`)),
+            ...(sources && sources.users !== true
+              ? currentUsers
+              : enriched.filter((candidate) => candidate.kind === "user")),
+            ...(sources && sources.groups !== true
+              ? currentGroups
+              : enriched.filter((candidate) => candidate.kind === "group")),
           ];
+        }
+        const channels = (Array.isArray(payload.channels) ? payload.channels : []).filter(
+          (channel): channel is TraqChannelCandidate => {
+            if (!channel || typeof channel !== "object") return false;
+            const value = channel as Partial<TraqChannelCandidate>;
+            return typeof value.id === "string"
+              && typeof value.name === "string"
+              && typeof value.path === "string";
+          },
+        );
+        if (Array.isArray(payload.channels) && (!sources || sources.channels === true)) {
+          traqChannels.value = channels;
+        }
+        if (sources && (sources.users !== true || sources.groups !== true || sources.channels !== true)) {
+          traqDirectoryRequested.value = false;
         }
       } catch {
         // 読み取りに失敗した場合は、安全な同梱スナップショットを使う。
+        traqDirectoryRequested.value = false;
       }
+    }
+
+    function selectWorkshopChannel(channel: TraqChannelCandidate) {
+      editorDraft.value.workshopChannel = { ...channel };
+      channelQuery.value = "";
+    }
+
+    function clearWorkshopChannel() {
+      editorDraft.value.workshopChannel = null;
+      channelQuery.value = "";
+    }
+
+    function addFirstChannelSuggestion(event: KeyboardEvent) {
+      if (event.isComposing || event.keyCode === 229) return;
+      const first = channelSuggestions.value[0];
+      if (!first) return;
+      event.preventDefault();
+      selectWorkshopChannel(first);
     }
 
     function setRelationQuery(kind: RelationKind, value: string) {
@@ -894,6 +1132,36 @@ export default defineComponent({
       return [...linked, ...references];
     }
 
+    function publicRelationEntries(workshop: Workshop, kind: RelationKind): RelationEntryView[] {
+      const linked = kind === "previous"
+        ? workshop.previousIds.map((id) => ({ kind: "workshop" as const, workshopId: id }))
+        : [];
+      const references = kind === "previous"
+        ? workshop.previousTextRefs
+        : kind === "prerequisite"
+          ? workshop.prerequisiteRefs
+          : workshop.recommendedRefs;
+      return [...linked, ...references].map((reference, index): RelationEntryView => {
+        if (reference.kind === "text") {
+          return {
+            key: `${kind}:text:${index}:${reference.text}`,
+            kind: "text",
+            text: reference.text,
+            label: reference.text,
+            meta: "",
+          };
+        }
+        const relatedWorkshop = workshops.value.find((candidate) => candidate.id === reference.workshopId);
+        return {
+          key: `${kind}:workshop:${reference.workshopId}`,
+          kind: "workshop",
+          workshopId: reference.workshopId,
+          label: relatedWorkshop?.title ?? "参照先を確認できません",
+          meta: relatedWorkshop ? `${relatedWorkshop.year}年度` : "",
+        };
+      });
+    }
+
     function removeRelationEntry(kind: RelationKind, entry: RelationEntryView) {
       if (kind === "previous" && entry.kind === "workshop" && entry.workshopId) {
         editorDraft.value.previousIds = editorDraft.value.previousIds.filter((id) => id !== entry.workshopId);
@@ -925,7 +1193,14 @@ export default defineComponent({
         const existing = workshops.value.find((workshop) => workshop.id === currentRoute.id);
         if (existing) {
           editorDraft.value = cloneWorkshop(normalizeWorkshop(existing));
+          const requestedStep = Number(new URLSearchParams(location.hash.split("?")[1] ?? "").get("step"));
+          if (Number.isInteger(requestedStep) && requestedStep >= 1 && requestedStep <= editorSections.value.length) {
+            editorStep.value = requestedStep - 1;
+          }
           activeOccurrenceId.value = editorDraft.value.occurrences[0]?.id ?? "";
+          activeEditorSection.value = editorNavigationSections.value[0]?.id ?? "basic-name";
+          lecturerQuery.value = {};
+          channelQuery.value = "";
         }
         void loadTraqDirectory();
       }
@@ -986,20 +1261,9 @@ export default defineComponent({
       navigate(`/edit/${workshop.id}`);
     }
 
-    async function focusRequiredName() {
-      editorStep.value = 0;
-      await nextTick();
-      await scrollToEditorSection("basic-name");
-      document.querySelector<HTMLInputElement>("#basic-name input")?.focus({ preventScroll: true });
-      showToast("講習会名を入力してください");
-    }
-
     function saveDraft() {
       const isPublic = editorDraft.value.status === "public";
-      if (isPublic && !editorDraft.value.title.trim()) {
-        void focusRequiredName();
-        return;
-      }
+      if (!editorDraft.value.title.trim()) editorDraft.value.title = makeRandomWorkshopTitle(editorDraft.value.id);
       editorDraft.value.revisions.push({ at: "たった今", by: "rurun", summary: isPublic ? "公開情報を更新" : "下書きを保存" });
       upsertDraft(editorDraft.value);
       showToast(isPublic ? "変更を保存しました" : "下書きを保存しました");
@@ -1007,10 +1271,7 @@ export default defineComponent({
     }
 
     async function publishDraft() {
-      if (!editorDraft.value.title.trim()) {
-        await focusRequiredName();
-        return;
-      }
+      if (!editorDraft.value.title.trim()) editorDraft.value.title = makeRandomWorkshopTitle(editorDraft.value.id);
       const wasPublic = editorDraft.value.status === "public";
       editorDraft.value.status = "public";
       editorDraft.value.revisions.push({ at: "たった今", by: "rurun", summary: wasPublic ? "公開情報を更新" : "講習会を公開" });
@@ -1021,7 +1282,7 @@ export default defineComponent({
 
     async function addOccurrence() {
       const relation = editorDraft.value.occurrences.length === 1 && occurrenceRelation.value === "single"
-        ? "sequence"
+        ? "unknown"
         : occurrenceRelation.value;
       editorDraft.value.occurrences.forEach((occurrence) => { occurrence.relation = relation; });
       const previousTitle = editorDraft.value.occurrences[editorDraft.value.occurrences.length - 1]?.title.trim() ?? "";
@@ -1035,9 +1296,15 @@ export default defineComponent({
         description: "",
         date: "",
         time: "",
+        startTime: "",
+        endTime: "",
         mode: "undecided",
         place: "",
+        onlinePlatform: "",
+        onlineLocation: "",
+        offlineLocation: "",
         instructor: "",
+        instructors: [],
         relation,
         status: "planned",
         knoqUrl: "",
@@ -1152,14 +1419,26 @@ export default defineComponent({
 
     return {
       activeBasicInfoSection,
+      activeEditorSection,
       activeOccurrenceId,
       activeLecturerId,
       activeFilter,
-      activeNotice,
       activeTeam,
+      addFirstChannelSuggestion,
+      addFirstLecturerSuggestion,
+      addFirstOperatorSuggestion,
+      addOccurrence,
+      addOperator,
+      addRelationText,
+      addRelationWorkshop,
+      addResource,
       availability,
       badgeLabel,
       basicInfoSections,
+      channelQuery,
+      channelSuggestions,
+      clearWorkshopChannel,
+      closeLecturerSuggestions,
       completedAt,
       completedWorkshops,
       collaboratorText,
@@ -1170,25 +1449,34 @@ export default defineComponent({
       drafts,
       editorDraft,
       editorProgress,
+      editorNavigationSections,
       editorSections,
       editorStep,
       editWorkshop,
       formatDate,
+      formatOccurrencePlace,
+      formatOccurrenceTime,
+      generatedChannelAnnouncement,
+      generatedEventAnnouncement,
       HomeIcon,
       generatedKnoq,
-      generatedTraq,
+      generatedReminder,
+      generatedSetupRequest,
       hasResource,
-      materialUrl,
+      instructorNames,
+      lecturerQuery,
+      lecturerSuggestions,
+      loadTraqDirectory,
       modeLabel,
       navigate,
       nextWorkshops,
-      noticeKind,
+      onlinePlatforms: ONLINE_PLATFORMS,
       occurrenceFormats: OCCURRENCE_FORMATS,
       occurrenceModes,
       occurrenceSections,
       occurrenceRelation,
       PlusIcon,
-      occurrenceResourceUrl,
+      publicRelationEntries,
       occurrenceTitle,
       occurrenceStatusLabel,
       openWorkshop,
@@ -1198,7 +1486,6 @@ export default defineComponent({
       operatorTagLabel,
       operatorQuery,
       operatorSuggestions,
-      lecturerSuggestions,
       organizerSources: ORGANIZER_SOURCES,
       previousWorkshops,
       profileVisible,
@@ -1213,27 +1500,32 @@ export default defineComponent({
       relationQuery,
       relationSections: RELATION_SECTIONS,
       resetDialogOpen,
+      removeLecturer,
       removeOperator,
       removeRelationEntry,
       removeOccurrence,
+      removeResource,
       resetDemo,
+      resourcesFor,
       returnFromDetail,
       route,
       saveDraft,
+      scienceTokyoRooms: SCIENCE_TOKYO_ROOMS,
       searchResults,
       searchByTeam,
       SearchIcon,
+      selectLecturer,
+      selectWorkshopChannel,
       selectedWorkshop,
       scrollToSection,
       scrollToEditorSection,
       scrollToOccurrence,
-      closeLecturerSuggestions,
       searchRelationText,
       setEditorStep,
+      setOnlinePlatform,
       setRelationQuery,
       shareBadge,
       shareText,
-      setOccurrenceResourceUrl,
       setLecturerQuery,
       setOccurrenceMode,
       showAllYears,
@@ -1247,20 +1539,13 @@ export default defineComponent({
       trapTeams: TRAP_TEAMS,
       teams,
       teamSummaries,
+      makeRandomWorkshopTitle,
       traqUserIconUrl: TRAQ_USER_ICON_URL,
       toast,
       toggleCompletion,
       typeLabel,
-      videoUrl,
       workshopLatestDate,
       zeroToOneEnabled,
-      addOccurrence,
-      addFirstOperatorSuggestion,
-      addFirstLecturerSuggestion,
-      addOperator,
-      addRelationText,
-      addRelationWorkshop,
-      selectLecturer,
       workshops,
     };
   },
@@ -1422,26 +1707,73 @@ export default defineComponent({
               <BasiqCard v-if="selectedWorkshop.status === 'draft'" class="draft-notice"><strong>下書き</strong><span>作成者と共同編集者だけが閲覧できます。情報が揃っていなくても公開できます。</span></BasiqCard>
               <div class="detail-layout">
                 <article class="detail-content">
-                  <section id="overview" class="detail-section"><h2>基本情報</h2><dl class="facts"><div><dt>年度</dt><dd>{{ selectedWorkshop.year }}年度</dd></div><div><dt>分野・班</dt><dd>{{ selectedWorkshop.team || '未登録' }}</dd></div><div><dt>タグ</dt><dd>{{ selectedWorkshop.tags.join('、') || '未登録' }}</dd></div></dl></section>
-                  <section id="audience" class="detail-section"><h2>学べること・対象者</h2><dl class="stacked-facts"><div><dt>学べること</dt><dd>{{ selectedWorkshop.outcome || '未登録' }}</dd></div><div><dt>対象者</dt><dd>{{ selectedWorkshop.audience || '未登録' }}</dd></div><div><dt>前提知識</dt><dd>{{ selectedWorkshop.prerequisites || '未登録' }}</dd></div></dl></section>
+                  <section id="overview" class="detail-section">
+                    <h2>基本情報</h2>
+                    <dl class="facts">
+                      <div><dt>開催年度</dt><dd>{{ selectedWorkshop.year }}年度</dd></div>
+                      <div><dt>運営元</dt><dd>{{ selectedWorkshop.team || '未登録' }}</dd></div>
+                      <div><dt>運営メンバー</dt><dd>{{ selectedWorkshop.operators.length ? selectedWorkshop.operators.map(operatorLabel).join('、') : '未登録' }}</dd></div>
+                      <div><dt>対象班</dt><dd>{{ selectedWorkshop.targetTeams.join('、') || '未登録' }}</dd></div>
+                      <div><dt>0→1講習会</dt><dd>{{ selectedWorkshop.isZeroToOne === null ? '未登録' : selectedWorkshop.isZeroToOne ? 'はい' : 'いいえ' }}</dd></div>
+                      <div><dt>講習会チャンネル</dt><dd>{{ selectedWorkshop.workshopChannel?.path || '未登録' }}</dd></div>
+                    </dl>
+                  </section>
+                  <section id="audience" class="detail-section">
+                    <h2>紹介</h2>
+                    <dl class="stacked-facts">
+                      <div v-if="selectedWorkshop.outcome"><dt>学べること</dt><dd>{{ selectedWorkshop.outcome }}</dd></div>
+                      <div><dt>対象者</dt><dd>{{ selectedWorkshop.audience || '未登録' }}</dd></div>
+                    </dl>
+                  </section>
                   <section id="occurrences" class="detail-section">
                     <div class="section-title-row"><h2>開催枠</h2><span>{{ selectedWorkshop.occurrences.length }}件</span></div>
                     <p v-if="selectedWorkshop.occurrences.length" class="section-note">{{ relationLabel(selectedWorkshop.occurrences) }}</p>
                     <div v-if="selectedWorkshop.occurrences.length" class="occurrence-list">
                       <BasiqCard v-for="(occurrence, index) in selectedWorkshop.occurrences" :key="occurrence.id" class="occurrence-card">
-                        <header><span class="occurrence-number">{{ index + 1 }}</span><div><h3>{{ occurrence.title }}</h3><p>{{ occurrence.description || '内容は未登録です。' }}</p></div><BasiqTag :label="occurrenceStatusLabel(occurrence.status)" /></header>
-                        <dl><div><dt>日時</dt><dd>{{ formatDate(occurrence.date) }}<span v-if="occurrence.time"> {{ occurrence.time }}</span></dd></div><div><dt>形式・場所</dt><dd>{{ modeLabel(occurrence.mode) }}<span v-if="occurrence.place">・{{ occurrence.place }}</span></dd></div><div><dt>講師</dt><dd>{{ occurrence.instructor || '未登録' }}</dd></div><div><dt>knoQ</dt><dd><a v-if="occurrence.knoqUrl" :href="occurrence.knoqUrl" target="_blank" rel="noreferrer">参加ページを開く</a><span v-else>未登録</span></dd></div></dl>
+                        <header><span class="occurrence-number">{{ index + 1 }}</span><div><h3>{{ occurrence.title || '名称未定の開催枠' }}</h3><p>{{ occurrence.description || '内容は未登録です。' }}</p></div><BasiqTag :label="occurrenceStatusLabel(occurrence.status)" /></header>
+                        <dl>
+                          <div><dt>日時</dt><dd>{{ formatDate(occurrence.date) }}<span v-if="formatOccurrenceTime(occurrence)"> {{ formatOccurrenceTime(occurrence) }}</span></dd></div>
+                          <div><dt>開催形式</dt><dd>{{ modeLabel(occurrence.mode) }}</dd></div>
+                          <div><dt>開催場所</dt><dd>{{ formatOccurrencePlace(occurrence) || '未登録' }}</dd></div>
+                          <div><dt>講師</dt><dd>{{ instructorNames(occurrence) }}</dd></div>
+                          <div><dt>knoQ</dt><dd><a v-if="occurrence.knoqUrl" :href="occurrence.knoqUrl" target="_blank" rel="noreferrer">knoQを開く ↗</a><span v-else>未登録</span></dd></div>
+                        </dl>
                       </BasiqCard>
                     </div>
                     <BasiqCard v-else class="empty-inline">開催枠はまだ登録されていません。</BasiqCard>
                   </section>
-                  <section id="how-to" class="detail-section"><h2>参加・受講方法</h2><dl class="stacked-facts"><div><dt>事前準備</dt><dd>{{ selectedWorkshop.preparation || '未登録' }}</dd></div><div><dt>後から受講する場合</dt><dd>{{ selectedWorkshop.howToLearn || '未登録' }}</dd></div><div><dt>質問・連絡先</dt><dd>{{ selectedWorkshop.contact || '未登録' }}</dd></div></dl></section>
                   <section id="resources" class="detail-section">
                     <div class="section-title-row"><h2>資料・動画・関連情報</h2><span>{{ selectedWorkshop.resources.length }}件</span></div>
                     <div v-if="selectedWorkshop.resources.length" class="resource-list">
                       <article v-for="resource in selectedWorkshop.resources" :key="resource.id"><BasiqTag :label="typeLabel[resource.type]" /><div><h3>{{ resource.title }}</h3><small v-if="resource.occurrenceId">{{ occurrenceTitle(resource.occurrenceId) }}</small><p v-if="resource.note">{{ resource.note }}</p></div><a v-if="resource.url" :href="resource.url" target="_blank" rel="noreferrer">開く ↗</a><span v-else class="unavailable">URL未登録</span></article>
                     </div>
                     <BasiqCard v-else class="empty-inline">資料・動画はまだ登録されていません。この講習会は記録として検索できます。</BasiqCard>
+                  </section>
+                  <section id="relations" class="detail-section">
+                    <h2>関連する講習会</h2>
+                    <dl class="stacked-facts public-relations">
+                      <div>
+                        <dt>前提とする講習会</dt>
+                        <dd>
+                          <span v-if="selectedWorkshop.prerequisites">{{ selectedWorkshop.prerequisites }}</span>
+                          <template v-for="entry in publicRelationEntries(selectedWorkshop, 'prerequisite')" :key="entry.key">
+                            <button v-if="entry.kind === 'workshop' && entry.workshopId" type="button" @click="openWorkshop(entry.workshopId)">{{ entry.label }}<small v-if="entry.meta">{{ entry.meta }}</small></button>
+                            <span v-else>{{ entry.label }}</span>
+                          </template>
+                          <span v-if="!selectedWorkshop.prerequisites && !publicRelationEntries(selectedWorkshop, 'prerequisite').length">未登録</span>
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>次におすすめの講習会</dt>
+                        <dd>
+                          <template v-for="entry in publicRelationEntries(selectedWorkshop, 'recommended')" :key="entry.key">
+                            <button v-if="entry.kind === 'workshop' && entry.workshopId" type="button" @click="openWorkshop(entry.workshopId)">{{ entry.label }}<small v-if="entry.meta">{{ entry.meta }}</small></button>
+                            <span v-else>{{ entry.label }}</span>
+                          </template>
+                          <span v-if="!publicRelationEntries(selectedWorkshop, 'recommended').length">未登録</span>
+                        </dd>
+                      </div>
+                    </dl>
                   </section>
                   <section id="lineage" class="detail-section">
                     <h2>引き継ぎのつながり</h2>
@@ -1454,19 +1786,26 @@ export default defineComponent({
                       <div class="lineage-side"><small>この講習会を引き継いだもの</small><button v-for="workshop in nextWorkshops" :key="workshop.id" type="button" @click="openWorkshop(workshop.id)"><span>{{ workshop.year }}年度</span><strong>{{ workshop.title }}</strong></button><span v-if="!nextWorkshops.length">まだありません</span></div>
                     </div>
                     <BasiqCard v-else class="empty-inline">引き継ぎ関係はまだ登録されていません。</BasiqCard>
+                    <dl v-if="selectedWorkshop.previousTextRefs.length" class="stacked-facts lineage-notes"><div><dt>対応関係のメモ</dt><dd><span v-for="entry in selectedWorkshop.previousTextRefs" :key="entry.kind === 'text' ? entry.text : entry.workshopId">{{ entry.kind === 'text' ? entry.text : '' }}</span></dd></div></dl>
                   </section>
-                  <section id="management" class="detail-section"><h2>運営・更新情報</h2><dl class="stacked-facts"><div><dt>作成・編集</dt><dd>{{ selectedWorkshop.creators.join('、') || '移行元では未確認' }}</dd></div><div><dt>情報源</dt><dd><a v-if="selectedWorkshop.sourceUrl" :href="selectedWorkshop.sourceUrl" target="_blank" rel="noreferrer">{{ selectedWorkshop.sourceLabel || '元のページを開く' }} ↗</a><span v-else>このサービスで新規作成</span></dd></div></dl><details v-if="selectedWorkshop.revisions.length" class="history"><summary>編集履歴（{{ selectedWorkshop.revisions.length }}件）</summary><ol><li v-for="revision in selectedWorkshop.revisions" :key="revision.at + revision.summary"><span>{{ revision.at }}</span><strong>{{ revision.summary }}</strong><small>{{ revision.by }}</small></li></ol></details><BasiqCard v-else class="empty-inline">このサービス上での編集履歴はまだありません。</BasiqCard></section>
+                  <section id="retrospective" class="detail-section">
+                    <h2>振り返り・引き継ぎ</h2>
+                    <a v-if="selectedWorkshop.reflectionUrl" :href="selectedWorkshop.reflectionUrl" target="_blank" rel="noreferrer">振り返り・引き継ぎ資料を開く ↗</a>
+                    <BasiqCard v-else class="empty-inline">振り返り・引き継ぎ資料はまだ登録されていません。</BasiqCard>
+                  </section>
+                  <section id="management" class="detail-section"><h2>更新情報</h2><dl class="stacked-facts"><div><dt>作成・編集</dt><dd>{{ selectedWorkshop.creators.join('、') || '移行元では未確認' }}</dd></div><div><dt>情報源</dt><dd><a v-if="selectedWorkshop.sourceUrl" :href="selectedWorkshop.sourceUrl" target="_blank" rel="noreferrer">{{ selectedWorkshop.sourceLabel || '元のページを開く' }} ↗</a><span v-else>このサービスで新規作成</span></dd></div></dl><details v-if="selectedWorkshop.revisions.length" class="history"><summary>編集履歴（{{ selectedWorkshop.revisions.length }}件）</summary><ol><li v-for="revision in selectedWorkshop.revisions" :key="revision.at + revision.summary"><span>{{ revision.at }}</span><strong>{{ revision.summary }}</strong><small>{{ revision.by }}</small></li></ol></details><BasiqCard v-else class="empty-inline">このサービス上での編集履歴はまだありません。</BasiqCard></section>
                   <section class="completion-panel"><div><h2>受講記録</h2><p>この講習会を受講したら、講習会全体を受講完了として記録します。</p></div><BasiqButton v-if="!completedAt[selectedWorkshop.id]" type="button" @click="toggleCompletion(selectedWorkshop)">この講習会を受講完了</BasiqButton><div v-else class="completed-action"><strong>✓ {{ completionDate(selectedWorkshop.id) }}に完了</strong><BasiqButton type="button" tone="danger" variant="outline" @click="toggleCompletion(selectedWorkshop)">取り消す</BasiqButton></div></section>
                 </article>
                 <aside class="detail-index">
                   <BasiqNavigationList aria-label="このページの項目">
                     <BasiqNavigationItem as-child><button type="button" @click="scrollToSection('overview')">基本情報</button></BasiqNavigationItem>
-                    <BasiqNavigationItem as-child><button type="button" @click="scrollToSection('audience')">学べること・対象者</button></BasiqNavigationItem>
+                    <BasiqNavigationItem as-child><button type="button" @click="scrollToSection('audience')">紹介</button></BasiqNavigationItem>
                     <BasiqNavigationItem as-child><button type="button" @click="scrollToSection('occurrences')">開催枠</button></BasiqNavigationItem>
-                    <BasiqNavigationItem as-child><button type="button" @click="scrollToSection('how-to')">参加・受講方法</button></BasiqNavigationItem>
                     <BasiqNavigationItem as-child><button type="button" @click="scrollToSection('resources')">資料・動画</button></BasiqNavigationItem>
+                    <BasiqNavigationItem as-child><button type="button" @click="scrollToSection('relations')">関連する講習会</button></BasiqNavigationItem>
                     <BasiqNavigationItem as-child><button type="button" @click="scrollToSection('lineage')">引き継ぎ</button></BasiqNavigationItem>
-                    <BasiqNavigationItem as-child><button type="button" @click="scrollToSection('management')">運営・更新情報</button></BasiqNavigationItem>
+                    <BasiqNavigationItem as-child><button type="button" @click="scrollToSection('retrospective')">振り返り・引き継ぎ</button></BasiqNavigationItem>
+                    <BasiqNavigationItem as-child><button type="button" @click="scrollToSection('management')">更新情報</button></BasiqNavigationItem>
                   </BasiqNavigationList>
                   <BasiqTag :label="availability(selectedWorkshop)" />
                 </aside>
@@ -1476,17 +1815,17 @@ export default defineComponent({
             <template v-else-if="route.name === 'create'">
               <header class="page-header"><div><h1>講習会を作る</h1><p>過去の講習会を引き継ぐと、共通する情報や資料を参考にしながら準備できます。</p></div><BasiqButton type="button" tone="neutral" variant="outline" @click="startBlank">白紙から作る</BasiqButton></header>
               <BasiqCard class="create-search"><BasiqFormField label="引き継ぐ講習会を探す" control-id="creation-search"><BasiqInput id="creation-search" v-model="creationQuery" type="search" size="lg" placeholder="講習会名、分野" /></BasiqFormField></BasiqCard>
-              <section class="create-list"><h2>過去の講習会から作る</h2><p>概要、対象者、前提知識、開催枠の構成を引き継ぎます。日時・場所・knoQ・受講方法・資料URLは空になります。</p><div v-if="creationResults.length" class="inherit-list"><article v-for="workshop in creationResults" :key="workshop.id"><div class="card-meta"><span>{{ workshop.year }}年度</span><span v-if="workshop.team">{{ workshop.team }}</span></div><div><h3>{{ workshop.title }}</h3><p>{{ workshop.summary }}</p></div><div class="inherit-resources"><span>{{ availability(workshop) }}</span><small>対応する過去版 {{ Math.max(0, workshops.filter(w => w.lineageId === workshop.lineageId).length - 1) }}件</small></div><BasiqButton type="button" tone="neutral" variant="outline" @click="startFromWorkshop(workshop)">引き継いで作る</BasiqButton></article></div><BasiqCard v-else class="empty-state"><strong>該当する講習会がありません</strong><p>講習会名や分野を変えてください。</p></BasiqCard></section>
+              <section class="create-list"><h2>過去の講習会から作る</h2><p>名前、紹介、対象、関連する講習会、開催枠の構成を引き継ぎます。日時・講師・場所・knoQ・資料URLは空になります。</p><div v-if="creationResults.length" class="inherit-list"><article v-for="workshop in creationResults" :key="workshop.id"><div class="card-meta"><span>{{ workshop.year }}年度</span><span v-if="workshop.team">{{ workshop.team }}</span></div><div><h3>{{ workshop.title }}</h3><p>{{ workshop.summary }}</p></div><div class="inherit-resources"><span>{{ availability(workshop) }}</span><small>対応する過去版 {{ Math.max(0, workshops.filter(w => w.lineageId === workshop.lineageId).length - 1) }}件</small></div><BasiqButton type="button" tone="neutral" variant="outline" @click="startFromWorkshop(workshop)">引き継いで作る</BasiqButton></article></div><BasiqCard v-else class="empty-state"><strong>該当する講習会がありません</strong><p>講習会名や分野を変えてください。</p></BasiqCard></section>
             </template>
 
             <template v-else-if="route.name === 'edit'">
               <header class="editor-header"><div><button class="back-button" type="button" @click="navigate(editorDraft.status === 'public' ? '/workshops/' + editorDraft.id : '/drafts')">← {{ editorDraft.status === 'public' ? '講習会へ' : '下書きへ' }}</button><span class="editor-status" :class="{ public: editorDraft.status === 'public' }">{{ editorDraft.status === 'draft' ? '下書き' : '公開中' }}</span><h1>{{ editorDraft.title || '名称未定の講習会' }}</h1></div><div class="header-actions"><BasiqButton type="button" tone="neutral" variant="outline" @click="saveDraft">{{ editorDraft.status === 'public' ? '変更を保存' : '下書きを保存' }}</BasiqButton><BasiqButton v-if="editorDraft.status === 'draft'" type="button" @click="publishDraft">今の内容で公開</BasiqButton></div></header>
-              <BasiqTabsRoot class="editor-step-tabs" :model-value="String(editorStep)" orientation="horizontal" @update:model-value="setEditorStep(Number($event))">
+              <BasiqTabsRoot class="editor-step-tabs" :model-value="String(editorStep)" orientation="horizontal" activation-mode="manual" @update:model-value="setEditorStep(Number($event))">
                 <div class="editor-step-tabs-wrap">
-                  <BasiqTabsList aria-label="Step">
-                    <BasiqTabsTrigger v-for="(section, index) in editorSections" :key="index" :value="String(index)">
-                      <span>Step {{ index + 1 }}</span>
-                      <strong v-if="section.label">{{ section.label }}</strong>
+                  <BasiqTabsList class="editor-step-list" aria-label="講習会作成の手順">
+                    <BasiqTabsTrigger v-for="(section, index) in editorSections" :key="section.key" class="editor-step-trigger" :value="String(index)">
+                      <span class="editor-step-number">Step {{ index + 1 }}</span>
+                      <strong class="editor-step-label">{{ section.label }}</strong>
                     </BasiqTabsTrigger>
                   </BasiqTabsList>
                 </div>
@@ -1494,47 +1833,33 @@ export default defineComponent({
                   <div v-if="editorStep === tabIndex" class="editor-layout">
                 <aside class="editor-navigation">
                   <div class="editor-toc">
-                    <template v-if="editorStep === 0">
-                      <BasiqNavigationList class="editor-toc-list" aria-label="基本情報の項目">
-                        <BasiqNavigationItem v-for="(section, index) in basicInfoSections" :key="section.id" as-child :current="activeBasicInfoSection === section.id">
-                          <button type="button" @click="scrollToEditorSection(section.id)"><span class="toc-number">{{ index + 1 }}</span><strong>{{ section.label }}</strong><em v-if="section.done" aria-label="入力済み">✓</em></button>
-                        </BasiqNavigationItem>
-                      </BasiqNavigationList>
-                    </template>
-                    <template v-else-if="editorStep === 1">
-                      <BasiqNavigationList class="editor-toc-list" aria-label="開催枠">
-                        <BasiqNavigationItem v-for="(section, index) in occurrenceSections" :key="section.id" as-child :current="activeOccurrenceId === section.id">
-                          <button type="button" @click="scrollToOccurrence(section.id)"><span class="toc-number">{{ index + 1 }}</span><strong>{{ section.label }}</strong><em v-if="section.done" aria-label="入力済み">✓</em></button>
-                        </BasiqNavigationItem>
-                      </BasiqNavigationList>
-                      <div class="editor-toc-action"><BasiqButton type="button" tone="neutral" variant="outline" @click="addOccurrence">開催枠を追加</BasiqButton></div>
-                    </template>
+                    <BasiqNavigationList class="editor-toc-list" :aria-label="editorSections[editorStep].label + 'の項目'">
+                      <BasiqNavigationItem v-for="(section, index) in editorNavigationSections" :key="section.id" as-child :current="activeEditorSection === section.id">
+                        <button type="button" @click="scrollToEditorSection(section.id)"><span class="toc-number">{{ index + 1 }}</span><strong>{{ section.label }}</strong><em v-if="section.done" aria-label="入力済み">✓</em></button>
+                      </BasiqNavigationItem>
+                    </BasiqNavigationList>
+                    <div v-if="editorStep === 1" class="editor-toc-action"><BasiqButton type="button" tone="neutral" variant="outline" @click="addOccurrence">開催枠を追加</BasiqButton></div>
                   </div>
                 </aside>
                 <section class="editor-form">
                   <template v-if="editorStep === 0">
+                    <header class="editor-step-heading"><h2>基本情報を設定しよう。</h2></header>
                     <section id="basic-name" class="editor-subsection">
-                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">1</span><h3>講習会の名称を決めよう</h3></div>
-                      <BasiqFormField class="full" label="講習会名" required>
-                        <BasiqInput id="workshop-title" v-model="editorDraft.title" />
-                      </BasiqFormField>
-                    </section>
-
-                    <section id="basic-overview" class="editor-subsection">
-                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">2</span><h3>講習会の概要を決めよう</h3></div>
+                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">1</span><h3>講習会の名前を決めよう</h3></div>
                       <div class="form-grid">
-                        <BasiqFormField label="年度" description="年ではなく年度" control-id="workshop-year"><input id="workshop-year" v-model.number="editorDraft.year" type="number" min="2000" max="2100"></BasiqFormField>
-                        <BasiqFormField class="full" label="説明" description="この講習会は何について学べる講習会ですか？"><BasiqTextarea v-model="editorDraft.summary" :rows="4" /></BasiqFormField>
+                        <BasiqFormField class="full" label="講習会名" control-id="workshop-title"><BasiqInput id="workshop-title" v-model="editorDraft.title" :placeholder="makeRandomWorkshopTitle(editorDraft.id)" /></BasiqFormField>
+                        <BasiqFormField v-slot="{ id, describedBy, invalid, required }" label="開催年度" description="4月始まりの年度" control-id="workshop-year"><input :id="id" v-model.number="editorDraft.year" class="native-control" type="number" min="2000" max="2100" :aria-describedby="describedBy" :aria-invalid="invalid ? 'true' : undefined" :required="required"></BasiqFormField>
                       </div>
                     </section>
 
                     <section id="basic-operations" class="editor-subsection">
-                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">3</span><h3>運営を決めよう</h3></div>
+                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">2</span><h3>講習会の運営を決めよう</h3></div>
                       <div class="field-stack">
+                        <p class="field-question">この講習会を主導しているのはどのグループですか？</p>
                         <BasiqRadioGroup v-model="editorDraft.team" class="compact-radio-group" label="運営元" name="organizer-source" orientation="horizontal" :items="organizerSources" />
-                        <BasiqFormField class="full" label="運営" description="traQ ID・グループから複数選択">
+                        <BasiqFormField class="full" label="運営メンバー" description="traQのユーザーまたはグループを複数選択できます">
                           <div class="operator-picker">
-                            <BasiqInput v-model="operatorQuery" type="search" placeholder="traQ ID・グループ" @keydown.enter="addFirstOperatorSuggestion" />
+                            <BasiqInput v-model="operatorQuery" type="search" placeholder="traQ IDまたはグループを入力" @focus="loadTraqDirectory" @keydown.enter="addFirstOperatorSuggestion" />
                             <div v-if="operatorQuery.trim()" class="suggestion-list operator-suggestions" role="listbox" aria-label="運営候補">
                               <button v-for="candidate in operatorSuggestions" :key="candidate.kind + candidate.id" type="button" role="option" @click="addOperator(candidate)">
                                 <BasiqAvatar v-if="candidate.kind === 'user'" class="candidate-avatar" :src="operatorAvatar(candidate)" :name="candidate.name" alt="" shape="circle" :size="28" referrerpolicy="no-referrer" />
@@ -1551,27 +1876,35 @@ export default defineComponent({
                       </div>
                     </section>
 
-                    <section id="basic-target" class="editor-subsection">
-                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">4</span><h3>対象を決めよう</h3></div>
+                    <section id="basic-introduction" class="editor-subsection">
+                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">3</span><h3>講習会の紹介を考えよう</h3></div>
                       <div class="form-grid">
-                        <BasiqFormField class="full" label="対象者" description="例：プログラミング未経験者・初心者 / ゲームの作り方を学びたい人"><BasiqInput v-model="editorDraft.audience" /></BasiqFormField>
+                        <BasiqFormField class="full" label="説明" description="この講習会ではどんなことを扱いますか？ この講習会のゴールはなんですか？"><BasiqTextarea v-model="editorDraft.summary" :rows="4" /></BasiqFormField>
+                        <BasiqFormField class="full" label="対象者" description="この講習会はどんな人を対象にしていますか？"><BasiqInput v-model="editorDraft.audience" /></BasiqFormField>
                         <fieldset class="compact-checkbox-field">
                           <legend>対象班</legend>
+                          <p>この講習会を特に受講してほしいのはどの班の人ですか？</p>
                           <div class="basiq-check-grid"><BasiqCheckbox v-for="(team, index) in trapTeams" :id="'target-team-' + index" :key="team" :model-value="editorDraft.targetTeams.includes(team)" name="target-teams" @update:model-value="setTargetTeam(team, $event)">{{ team }}</BasiqCheckbox></div>
                         </fieldset>
+                        <div class="full inline-switch"><BasiqSwitch v-model="zeroToOneEnabled">0→1講習会として設定する</BasiqSwitch></div>
+                        <BasiqFormField class="full" label="講習会のチャンネル">
+                          <div class="channel-picker">
+                            <BasiqInput v-model="channelQuery" type="search" placeholder="traQのチャンネルを入力" @focus="loadTraqDirectory" @keydown.enter="addFirstChannelSuggestion" />
+                            <div v-if="channelQuery.trim()" class="suggestion-list channel-suggestions" role="listbox" aria-label="traQチャンネル候補">
+                              <button v-for="channel in channelSuggestions" :key="channel.id" type="button" role="option" @click="selectWorkshopChannel(channel)"><span><strong>{{ channel.path }}</strong></span><em>選択</em></button>
+                              <p v-if="!channelSuggestions.length">一致する候補がありません。</p>
+                            </div>
+                          </div>
+                          <div v-if="editorDraft.workshopChannel" class="selected-tags"><BasiqTag :label="editorDraft.workshopChannel.path" :removable="true" :remove-label="editorDraft.workshopChannel.path + 'を削除'" @remove="clearWorkshopChannel" /></div>
+                        </BasiqFormField>
                       </div>
                     </section>
 
-                    <section id="basic-attributes" class="editor-subsection">
-                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">5</span><h3>属性を決めよう</h3></div>
-                      <BasiqSwitch v-model="zeroToOneEnabled">0→1講習会として登録する</BasiqSwitch>
-                    </section>
-
                     <section id="basic-relations" class="editor-subsection">
-                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">6</span><h3>関連する講習会を登録しよう</h3></div>
+                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">4</span><h3>関連する講習会を設定しよう</h3></div>
                       <div class="relation-editors">
                         <section v-for="relation in relationSections" :key="relation.kind" class="relation-editor">
-                          <header><h4>{{ relation.label }}</h4></header>
+                          <header><h4>{{ relation.label }}</h4><p>{{ relation.kind === 'previous' ? '内容が対応している最も直近の講習会はどれですか？' : relation.kind === 'prerequisite' ? 'この講習会の受講者に受けておいてほしい講習会はどれですか？' : 'この講習会の次に、ぜひ受けてほしい講習会はどれですか？' }}</p></header>
                           <div class="relation-picker">
                             <BasiqInput :model-value="relationQuery[relation.kind]" type="search" placeholder="講習会名を入力" @update:model-value="setRelationQuery(relation.kind, $event)" />
                             <div v-if="relationQuery[relation.kind].trim()" class="suggestion-list relation-suggestions">
@@ -1587,32 +1920,134 @@ export default defineComponent({
                     </section>
                   </template>
                   <template v-else-if="editorStep === 1">
+                    <header class="editor-step-heading"><h2>開催枠を設定しよう。</h2></header>
                     <section v-for="(occurrence, index) in editorDraft.occurrences" :id="'occurrence-slot-' + occurrence.id" :key="occurrence.id" class="occurrence-editor">
                       <div class="occurrence-editor-title"><h3>{{ occurrence.title.trim() || ('開催枠 ' + (index + 1)) }}</h3><BasiqButton v-if="editorDraft.occurrences.length > 1" type="button" tone="danger" variant="outline" @click="removeOccurrence(index)">削除</BasiqButton></div>
                       <div class="occurrence-fields">
                         <BasiqFormField label="タイトル" description="「第1回」「Web編」など"><BasiqInput v-model="occurrence.title" /></BasiqFormField>
-                        <BasiqFormField label="内容" description="この回の内容や説明"><BasiqTextarea v-model="occurrence.description" :rows="4" /></BasiqFormField>
-                        <BasiqFormField label="講師" description="traQ ID">
+                        <BasiqFormField label="内容" description="この開催枠ではどんな内容を扱いますか？ ゴールはなんですか？"><BasiqTextarea v-model="occurrence.description" :rows="4" /></BasiqFormField>
+                        <BasiqFormField label="講師" description="traQ IDを複数選択できます">
                           <div class="lecturer-picker" @focusout="closeLecturerSuggestions">
-                            <BasiqInput :model-value="occurrence.instructor" type="search" placeholder="traQ ID" role="combobox" :aria-expanded="activeLecturerId === occurrence.id && Boolean(occurrence.instructor.trim())" @focus="activeLecturerId = occurrence.id" @update:model-value="setLecturerQuery(occurrence, $event)" @keydown.enter="addFirstLecturerSuggestion($event, occurrence)" @keydown.esc="activeLecturerId = ''" />
-                            <div v-if="activeLecturerId === occurrence.id && occurrence.instructor.trim()" class="suggestion-list operator-suggestions" role="listbox" aria-label="講師候補">
+                            <BasiqInput :model-value="lecturerQuery[occurrence.id] ?? ''" type="search" placeholder="traQ IDを入力" role="combobox" :aria-expanded="activeLecturerId === occurrence.id && Boolean((lecturerQuery[occurrence.id] ?? '').trim())" @focus="activeLecturerId = occurrence.id; loadTraqDirectory()" @update:model-value="setLecturerQuery(occurrence, $event)" @keydown.enter="addFirstLecturerSuggestion($event, occurrence)" @keydown.esc="activeLecturerId = ''" />
+                            <div v-if="activeLecturerId === occurrence.id && (lecturerQuery[occurrence.id] ?? '').trim()" class="suggestion-list operator-suggestions" role="listbox" aria-label="講師候補">
                               <button v-for="candidate in lecturerSuggestions(occurrence)" :key="candidate.id" type="button" role="option" @click="selectLecturer(occurrence, candidate)">
                                 <BasiqAvatar class="candidate-avatar" :src="operatorAvatar(candidate)" :name="candidate.name" alt="" shape="circle" :size="28" referrerpolicy="no-referrer" />
                                 <span><strong>{{ candidate.label }}</strong><small v-if="candidate.detail">{{ candidate.detail }}</small></span>
-                                <em>選択</em>
+                                <em>追加</em>
                               </button>
                               <p v-if="!lecturerSuggestions(occurrence).length">一致する候補がありません。</p>
                             </div>
                           </div>
+                          <div v-if="occurrence.instructors.length" class="selected-tags"><BasiqTag v-for="instructor in occurrence.instructors" :key="instructor.id" :label="operatorLabel(instructor)" :removable="true" :remove-label="operatorLabel(instructor) + 'を削除'" @remove="removeLecturer(occurrence, instructor.id)" /></div>
                         </BasiqFormField>
                         <BasiqRadioGroup :model-value="occurrence.mode === 'undecided' ? null : occurrence.mode" class="compact-radio-group" label="開催形式" :name="'occurrence-mode-' + occurrence.id" orientation="horizontal" :items="occurrenceFormats" @update:model-value="setOccurrenceMode(occurrence, $event)" />
-                        <BasiqFormField class="occurrence-date-field" label="日付" :control-id="'occurrence-date-' + occurrence.id"><input :id="'occurrence-date-' + occurrence.id" v-model="occurrence.date" type="date"></BasiqFormField>
+                        <div class="occurrence-time-fields">
+                          <BasiqFormField v-slot="{ id, describedBy, invalid, required }" label="日付" :control-id="'occurrence-date-' + occurrence.id"><input :id="id" v-model="occurrence.date" class="native-control" type="date" :aria-describedby="describedBy" :aria-invalid="invalid ? 'true' : undefined" :required="required"></BasiqFormField>
+                          <BasiqFormField v-slot="{ id, describedBy, invalid, required }" label="開始時刻" :control-id="'occurrence-start-' + occurrence.id"><input :id="id" v-model="occurrence.startTime" class="native-control" type="time" :aria-describedby="describedBy" :aria-invalid="invalid ? 'true' : undefined" :required="required"></BasiqFormField>
+                          <BasiqFormField v-slot="{ id, describedBy, invalid, required }" label="終了時刻" :control-id="'occurrence-end-' + occurrence.id"><input :id="id" v-model="occurrence.endTime" class="native-control" type="time" :aria-describedby="describedBy" :aria-invalid="invalid ? 'true' : undefined" :required="required"></BasiqFormField>
+                        </div>
                       </div>
                     </section>
                   </template>
-                  <template v-else-if="editorStep === 2"><header><span>3 / 5</span><h2>参加する人・後から受講する人に何を伝えますか</h2><p>開催前後で同じ項目を同じ順番で表示します。</p></header><div class="form-grid"><BasiqFormField class="full" label="事前準備" description="必要なアプリ、アカウント、持ち物など"><BasiqTextarea v-model="editorDraft.preparation" :rows="4" /></BasiqFormField><BasiqFormField class="full" label="後から受講する方法" description="資料や動画をどの順番で使うか"><BasiqTextarea v-model="editorDraft.howToLearn" :rows="4" /></BasiqFormField><BasiqFormField class="full" label="質問・連絡先" description="traQチャンネルや担当者"><BasiqInput v-model="editorDraft.contact" placeholder="#event/workshop、@担当者 など" /></BasiqFormField></div></template>
-                  <template v-else-if="editorStep === 3"><header><span>4 / 5</span><h2>資料・動画を登録します</h2><p>まだできていなければ空のまま進められます。開催後に追加しても同じ場所へ表示されます。</p></header><BasiqCard v-if="sourceWorkshop" class="reference-resources"><strong>前年度の参考資料</strong><p>今回の資料としては登録されません。必要なら内容を確認して新しいURLを入力してください。</p><a v-for="resource in sourceWorkshop.resources.filter(resource => resource.url)" :key="resource.id" :href="resource.url" target="_blank" rel="noreferrer"><span>{{ typeLabel[resource.type] }}</span>{{ resource.title }} ↗</a></BasiqCard><div class="form-grid"><BasiqFormField class="full" label="全開催枠で共通の資料URL"><BasiqInput v-model="materialUrl" type="url" placeholder="https://..." /></BasiqFormField><BasiqFormField class="full" label="全開催枠で共通の動画URL"><BasiqInput v-model="videoUrl" type="url" placeholder="https://..." /></BasiqFormField></div><div v-if="editorDraft.occurrences.length > 1" class="occurrence-resources"><h3>開催枠ごとの資料・動画</h3><p>回ごとに内容が違う場合だけ入力します。</p><details v-for="occurrence in editorDraft.occurrences" :key="occurrence.id"><summary>{{ occurrence.title }}</summary><div class="form-grid"><BasiqFormField label="資料URL"><BasiqInput :model-value="occurrenceResourceUrl(occurrence.id, 'material')" type="url" placeholder="https://..." @update:model-value="setOccurrenceResourceUrl(occurrence.id, 'material', $event)" /></BasiqFormField><BasiqFormField label="動画URL"><BasiqInput :model-value="occurrenceResourceUrl(occurrence.id, 'video')" type="url" placeholder="https://..." @update:model-value="setOccurrenceResourceUrl(occurrence.id, 'video', $event)" /></BasiqFormField></div></details></div></template>
-                  <template v-else><header><span>5 / 5</span><h2>告知文を確認して公開します</h2><p>入力済みの情報を再利用します。knoQやtraQへの投稿は自動では行いません。</p></header><BasiqFormField class="collaborator-field" label="共同編集者" description="下書きを見られるtraQ IDを、読点で区切って入力します"><BasiqInput v-model="collaboratorText" placeholder="例：alice、bob" /></BasiqFormField><BasiqTabsRoot class="notice-tabs" :model-value="noticeKind" orientation="horizontal" @update:model-value="noticeKind = $event === 'knoq' ? 'knoq' : 'traq'"><BasiqTabsList aria-label="生成する文章"><BasiqTabsTrigger value="traq">traQ告知文</BasiqTabsTrigger><BasiqTabsTrigger value="knoq">knoQ説明文</BasiqTabsTrigger></BasiqTabsList><BasiqTabsContent value="traq"><BasiqTextarea aria-label="生成されたtraQ告知文" :model-value="generatedTraq" :rows="12" readonly /></BasiqTabsContent><BasiqTabsContent value="knoq"><BasiqTextarea aria-label="生成されたknoQ説明文" :model-value="generatedKnoq" :rows="12" readonly /></BasiqTabsContent></BasiqTabsRoot><div class="notice-actions"><BasiqButton type="button" tone="neutral" variant="outline" @click="copyText(activeNotice, '告知文をコピーしました')">文章をコピー</BasiqButton><BasiqButton v-if="editorDraft.status === 'draft'" type="button" @click="publishDraft">今の内容で公開</BasiqButton><BasiqButton v-else type="button" @click="saveDraft">変更を保存</BasiqButton></div></template>
+                  <template v-else-if="editorStep === 2">
+                    <header class="editor-step-heading"><h2>講習会を行うための準備をしよう。</h2></header>
+                    <section id="preparation-admin" class="editor-subsection">
+                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">1</span><h3>庶務に連絡しよう</h3></div>
+                      <div class="inline-switch"><BasiqSwitch v-model="editorDraft.requestSetup">講習会の設営を庶務に依頼する</BasiqSwitch></div>
+                      <BasiqCard v-if="editorDraft.requestSetup" class="copy-panel">
+                        <BasiqTextarea aria-label="庶務への依頼文" :model-value="generatedSetupRequest" :rows="8" readonly />
+                        <BasiqButton type="button" tone="neutral" variant="outline" @click="copyText(generatedSetupRequest, '依頼文をコピーしました')">依頼文をコピー</BasiqButton>
+                      </BasiqCard>
+                    </section>
+
+                    <section id="preparation-place" class="editor-subsection">
+                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">2</span><h3>開催場所を決めよう</h3></div>
+                      <p class="section-help">講義室が必要な場合は、庶務に依頼して予約してもらおう。</p>
+                      <div class="preparation-card-list">
+                        <BasiqCard v-for="occurrence in editorDraft.occurrences" :key="occurrence.id" class="preparation-card">
+                          <div class="preparation-card-heading"><h4>{{ occurrence.title || '名称未定の開催枠' }}</h4><BasiqTag :label="modeLabel(occurrence.mode)" /></div>
+                          <div v-if="occurrence.mode === 'online' || occurrence.mode === 'hybrid'" class="venue-fields">
+                            <BasiqRadioGroup :model-value="occurrence.onlinePlatform || null" class="compact-radio-group" label="オンラインの開催場所" :name="'online-platform-' + occurrence.id" orientation="horizontal" :items="onlinePlatforms" @update:model-value="setOnlinePlatform(occurrence, $event)" />
+                            <BasiqFormField :label="occurrence.onlinePlatform === 'other' ? 'URLなど' : 'チャンネル名'"><BasiqInput v-model="occurrence.onlineLocation" :placeholder="occurrence.onlinePlatform === 'other' ? 'URLなどを入力' : 'チャンネル名を入力'" /></BasiqFormField>
+                          </div>
+                          <BasiqFormField v-if="occurrence.mode === 'offline' || occurrence.mode === 'hybrid'" label="講義室"><BasiqInput v-model="occurrence.offlineLocation" list="science-tokyo-rooms" placeholder="講義室名または自由入力" /></BasiqFormField>
+                        </BasiqCard>
+                      </div>
+                      <datalist id="science-tokyo-rooms"><option v-for="room in scienceTokyoRooms" :key="room" :value="room"></option></datalist>
+                    </section>
+
+                    <section id="preparation-stream" class="editor-subsection">
+                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">3</span><h3>配信を観られるようにしよう</h3></div>
+                      <div class="preparation-card-list">
+                        <BasiqCard v-for="occurrence in editorDraft.occurrences" :key="occurrence.id" class="preparation-card">
+                          <div class="preparation-card-heading"><h4>{{ occurrence.title || '名称未定の開催枠' }}</h4><BasiqButton type="button" tone="neutral" variant="outline" @click="addResource('video', occurrence.id)">配信・動画を追加</BasiqButton></div>
+                          <div v-for="resource in resourcesFor('video', occurrence.id)" :key="resource.id" class="link-editor-row">
+                            <BasiqFormField label="名前"><BasiqInput v-model="resource.title" /></BasiqFormField>
+                            <BasiqFormField label="URL"><BasiqInput :model-value="resource.url ?? ''" type="url" placeholder="https://..." @update:model-value="resource.url = $event || null" /></BasiqFormField>
+                            <BasiqButton type="button" tone="danger" variant="outline" :aria-label="resource.title + 'を削除'" @click="removeResource(resource.id)">削除</BasiqButton>
+                          </div>
+                        </BasiqCard>
+                      </div>
+                    </section>
+
+                    <section id="preparation-knoq" class="editor-subsection">
+                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">4</span><h3>knoQに登録しよう</h3></div>
+                      <div class="preparation-card-list">
+                        <BasiqCard v-for="occurrence in editorDraft.occurrences" :key="occurrence.id" class="preparation-card">
+                          <div class="preparation-card-heading"><h4>{{ occurrence.title || '名称未定の開催枠' }}</h4><BasiqButton type="button" tone="neutral" variant="outline" @click="copyText(generatedKnoq(occurrence), 'knoQ本文をコピーしました')">本文をコピー</BasiqButton></div>
+                          <BasiqTextarea aria-label="knoQ本文" :model-value="generatedKnoq(occurrence)" :rows="7" readonly />
+                          <BasiqFormField label="登録したknoQのリンク"><BasiqInput v-model="occurrence.knoqUrl" type="url" placeholder="https://knoq.trap.jp/events/..." /></BasiqFormField>
+                        </BasiqCard>
+                      </div>
+                    </section>
+                  </template>
+
+                  <template v-else-if="editorStep === 3">
+                    <header class="editor-step-heading"><h2>資料のリンクを設定しよう。</h2></header>
+                    <BasiqCard v-if="sourceWorkshop" class="reference-resources"><strong>前年度の資料</strong><a v-for="resource in sourceWorkshop.resources.filter(resource => resource.url)" :key="resource.id" :href="resource.url" target="_blank" rel="noreferrer"><span>{{ typeLabel[resource.type] }}</span>{{ resource.title }} ↗</a></BasiqCard>
+                    <section id="materials-common" class="editor-subsection">
+                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">1</span><h3>講習会全体の資料</h3></div>
+                      <div class="material-heading-action"><BasiqButton type="button" tone="neutral" variant="outline" @click="addResource('material')">資料を追加</BasiqButton></div>
+                      <div v-for="resource in resourcesFor('material')" :key="resource.id" class="link-editor-row">
+                        <BasiqFormField label="名前"><BasiqInput v-model="resource.title" /></BasiqFormField>
+                        <BasiqFormField label="URL"><BasiqInput :model-value="resource.url ?? ''" type="url" placeholder="https://..." @update:model-value="resource.url = $event || null" /></BasiqFormField>
+                        <BasiqButton type="button" tone="danger" variant="outline" :aria-label="resource.title + 'を削除'" @click="removeResource(resource.id)">削除</BasiqButton>
+                      </div>
+                    </section>
+                    <section v-for="(occurrence, index) in editorDraft.occurrences" :id="'materials-' + occurrence.id" :key="occurrence.id" class="editor-subsection">
+                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">{{ index + 2 }}</span><h3>{{ occurrence.title || '名称未定の開催枠' }}の資料</h3></div>
+                      <div class="material-heading-action"><BasiqButton type="button" tone="neutral" variant="outline" @click="addResource('material', occurrence.id)">資料を追加</BasiqButton></div>
+                      <div v-for="resource in resourcesFor('material', occurrence.id)" :key="resource.id" class="link-editor-row">
+                        <BasiqFormField label="名前"><BasiqInput v-model="resource.title" /></BasiqFormField>
+                        <BasiqFormField label="URL"><BasiqInput :model-value="resource.url ?? ''" type="url" placeholder="https://..." @update:model-value="resource.url = $event || null" /></BasiqFormField>
+                        <BasiqButton type="button" tone="danger" variant="outline" :aria-label="resource.title + 'を削除'" @click="removeResource(resource.id)">削除</BasiqButton>
+                      </div>
+                    </section>
+                  </template>
+
+                  <template v-else-if="editorStep === 4">
+                    <header class="editor-step-heading"><h2>講習会を告知しよう。</h2></header>
+                    <section id="announcement-event" class="editor-subsection">
+                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">1</span><h3>#event/workshopチャンネルで告知しよう</h3></div>
+                      <div class="copy-panel"><BasiqTextarea aria-label="#event/workshop向け告知文" :model-value="generatedEventAnnouncement" :rows="10" readonly /><BasiqButton type="button" tone="neutral" variant="outline" @click="copyText(generatedEventAnnouncement, '告知文をコピーしました')">告知文をコピー</BasiqButton></div>
+                    </section>
+                    <section id="announcement-channel" class="editor-subsection">
+                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">2</span><h3>{{ editorDraft.workshopChannel?.path || '講習会チャンネル' }}で告知しよう</h3></div>
+                      <div class="copy-panel"><BasiqTextarea aria-label="講習会チャンネル向け告知文" :model-value="generatedChannelAnnouncement" :rows="10" readonly /><BasiqButton type="button" tone="neutral" variant="outline" @click="copyText(generatedChannelAnnouncement, '告知文をコピーしました')">告知文をコピー</BasiqButton></div>
+                    </section>
+                    <section id="announcement-reminders" class="editor-subsection">
+                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">3</span><h3>直前のリマインドを打とう</h3></div>
+                      <div class="preparation-card-list"><BasiqCard v-for="occurrence in editorDraft.occurrences" :key="occurrence.id" class="copy-panel"><h4>{{ occurrence.title || '名称未定の開催枠' }}</h4><BasiqTextarea :aria-label="occurrence.title + 'のリマインド文'" :model-value="generatedReminder(occurrence)" :rows="6" readonly /><BasiqButton type="button" tone="neutral" variant="outline" @click="copyText(generatedReminder(occurrence), 'リマインドをコピーしました')">リマインドをコピー</BasiqButton></BasiqCard></div>
+                    </section>
+                  </template>
+
+                  <template v-else>
+                    <header class="editor-step-heading"><h2>振り返りを残そう。</h2></header>
+                    <section id="retrospective-record" class="editor-subsection">
+                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">1</span><h3>反省点や引き継ぎ事項をWikiやMDに残しておこう</h3></div>
+                      <BasiqFormField label="振り返り・引き継ぎ資料のリンク"><BasiqInput v-model="editorDraft.reflectionUrl" type="url" placeholder="https://wiki.trap.jp/... または https://md.trap.jp/..." /></BasiqFormField>
+                    </section>
+                  </template>
                 </section>
                   </div>
                 </BasiqTabsContent>

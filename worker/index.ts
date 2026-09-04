@@ -27,45 +27,109 @@ type TraqGroup = {
   description?: unknown;
 };
 
+type TraqChannel = {
+  id?: unknown;
+  name?: unknown;
+  parentId?: unknown;
+  archived?: unknown;
+};
+
 const TRAQ_API_ORIGIN = "https://q.trap.jp";
+const TRAQ_READ_PATHS = new Set([
+  "/api/v3/users?include-suspended=false",
+  "/api/v3/groups",
+  "/api/v3/channels?include-dm=false",
+]);
+
+async function traqGet(env: Env, path: string): Promise<unknown> {
+  if (!env.TRAQ_BOT_TOKEN || !TRAQ_READ_PATHS.has(path)) throw new Error("traQ read is unavailable");
+  const response = await fetch(`${TRAQ_API_ORIGIN}${path}`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${env.TRAQ_BOT_TOKEN}`,
+    },
+    signal: AbortSignal.timeout(5000),
+  });
+  if (!response.ok) throw new Error("traQ read failed");
+  return response.json();
+}
+
+function channelPath(channel: TraqChannel, channelMap: Map<string, TraqChannel>) {
+  const parts: string[] = [];
+  const visited = new Set<string>();
+  let current: TraqChannel | undefined = channel;
+  for (let depth = 0; current && depth < 16; depth += 1) {
+    if (typeof current.id !== "string" || visited.has(current.id)) break;
+    visited.add(current.id);
+    if (typeof current.name === "string" && current.name.trim()) parts.unshift(current.name.trim());
+    current = typeof current.parentId === "string" ? channelMap.get(current.parentId) : undefined;
+  }
+  return `#${parts.join("/")}`;
+}
 
 async function getTraqDirectory(env: Env) {
   if (!env.TRAQ_BOT_TOKEN) {
-    return Response.json({ candidates: [] }, {
+    return Response.json({ candidates: [], channels: [] }, {
       status: 503,
       headers: { "Cache-Control": "no-store" },
     });
   }
 
-  const headers = {
-    Accept: "application/json",
-    Authorization: `Bearer ${env.TRAQ_BOT_TOKEN}`,
-  };
   try {
-    const [usersResponse, groupsResponse] = await Promise.all([
-      fetch(`${TRAQ_API_ORIGIN}/api/v3/users?include-suspended=false`, {
-        method: "GET",
-        headers,
-        signal: AbortSignal.timeout(5000),
-      }),
-      fetch(`${TRAQ_API_ORIGIN}/api/v3/groups`, {
-        method: "GET",
-        headers,
-        signal: AbortSignal.timeout(5000),
-      }),
+    const [usersResult, groupsResult, channelsResult] = await Promise.allSettled([
+      traqGet(env, "/api/v3/users?include-suspended=false"),
+      traqGet(env, "/api/v3/groups"),
+      traqGet(env, "/api/v3/channels?include-dm=false"),
     ]);
-
-    if (!usersResponse.ok || !groupsResponse.ok) {
-      return Response.json({ candidates: [] }, {
+    if ([usersResult, groupsResult, channelsResult].every((result) => result.status === "rejected")) {
+      return Response.json({ candidates: [], channels: [] }, {
         status: 502,
         headers: { "Cache-Control": "no-store" },
       });
     }
-
-    const users = await usersResponse.json() as unknown;
-    const groups = await groupsResponse.json() as unknown;
+    const users = usersResult.status === "fulfilled" && Array.isArray(usersResult.value)
+      ? usersResult.value
+      : null;
+    const groups = groupsResult.status === "fulfilled" && Array.isArray(groupsResult.value)
+      ? groupsResult.value
+      : null;
+    const channelPayload = channelsResult.status === "fulfilled" ? channelsResult.value : null;
+    const rawChannels = Array.isArray(channelPayload)
+      ? channelPayload
+      : channelPayload && typeof channelPayload === "object" && Array.isArray((channelPayload as { public?: unknown }).public)
+        ? (channelPayload as { public: unknown[] }).public
+        : null;
+    const sources = {
+      users: users !== null,
+      groups: groups !== null,
+      channels: rawChannels !== null,
+    };
+    if (!sources.users && !sources.groups && !sources.channels) {
+      return Response.json({ candidates: [], channels: [], sources }, {
+        status: 502,
+        headers: { "Cache-Control": "no-store" },
+      });
+    }
+    const channelRecords = (rawChannels ?? []).filter(
+      (channel): channel is TraqChannel => Boolean(channel)
+        && typeof channel === "object"
+        && typeof (channel as TraqChannel).id === "string"
+        && typeof (channel as TraqChannel).name === "string"
+        && ((channel as TraqChannel).parentId === null || typeof (channel as TraqChannel).parentId === "string")
+        && typeof (channel as TraqChannel).archived === "boolean",
+    );
+    const channelMap = new Map(channelRecords.map((channel) => [channel.id as string, channel]));
+    const channels = channelRecords
+      .filter((channel) => channel.archived !== true)
+      .map((channel) => ({
+        id: channel.id as string,
+        name: channel.name as string,
+        path: channelPath(channel, channelMap),
+      }))
+      .sort((left, right) => left.path.localeCompare(right.path, "ja"));
     const candidates = [
-      ...(Array.isArray(users) ? users : [])
+      ...(users ?? [])
         .filter((user): user is TraqUser => Boolean(user) && typeof user === "object")
         .filter((user) => user.bot !== true && typeof user.id === "string" && typeof user.name === "string")
         .map((user) => ({
@@ -77,7 +141,7 @@ async function getTraqDirectory(env: Env) {
             ? user.displayName
             : user.name as string,
         })),
-      ...(Array.isArray(groups) ? groups : [])
+      ...(groups ?? [])
         .filter((group): group is TraqGroup => Boolean(group) && typeof group === "object")
         .filter((group) => typeof group.id === "string" && typeof group.name === "string")
         .map((group) => ({
@@ -91,14 +155,14 @@ async function getTraqDirectory(env: Env) {
         })),
     ];
 
-    return Response.json({ candidates }, {
+    return Response.json({ candidates, channels, sources }, {
       headers: {
         "Cache-Control": "private, max-age=300",
         "Content-Type": "application/json; charset=utf-8",
       },
     });
   } catch {
-    return Response.json({ candidates: [] }, {
+    return Response.json({ candidates: [], channels: [] }, {
       status: 502,
       headers: { "Cache-Control": "no-store" },
     });
