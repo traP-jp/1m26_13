@@ -47,6 +47,7 @@ import {
   type EditorAttributeDraft,
 } from "@/lib/editorDraftStorage";
 import { parseFlow } from "@/lib/flowParser";
+import { loadOptional } from "@/lib/optionalLoad";
 
 type Target = "lecture" | "session";
 type Modal =
@@ -78,6 +79,10 @@ const directory = ref<Directory>({ users: [], groups: [] });
 const fields = ref<Field[]>([]);
 const lectures = ref<Lecture[]>([]);
 const flowClasses = ref<FlowClass[]>([]);
+const directoryError = ref("");
+const fieldsError = ref("");
+const flowClassesError = ref("");
+const lecturesError = ref("");
 const historyCategory = ref<"data" | "flow">("data");
 const history = ref<HistoryEvent[]>([]);
 const historyLoading = ref(false);
@@ -150,6 +155,16 @@ const replacementCandidates = computed(() => {
 });
 const normalOrderIds = computed(() =>
   orderIds.value.filter((id) => !sessions.value.find((entry) => entry.id === id)?.isReplay),
+);
+const supportWarnings = computed(
+  () =>
+    [
+      directoryError.value &&
+        "担当者・講師の候補を取得できません。既存値とほかの項目は編集できます。",
+      fieldsError.value && "分野の候補を取得できません。現在の分野は変更せず表示します。",
+      flowClassesError.value && "Flow候補を取得できません。現在のFlowはそのまま利用できます。",
+      lecturesError.value && "関連講習会の候補を取得できません。既存のつながりは保持されます。",
+    ].filter(Boolean) as string[],
 );
 
 const scalarLectureFields = [
@@ -374,19 +389,46 @@ async function copyDraft(draft: EditorAttributeDraft) {
 async function load() {
   loading.value = true;
   error.value = "";
+  directoryError.value = "";
+  fieldsError.value = "";
+  flowClassesError.value = "";
+  lecturesError.value = "";
   try {
-    const [directoryValue, fieldValues, flowValues, lectureValues] = await Promise.all([
-      getDirectory(),
-      listFields(),
-      listFlowClasses(true),
-      listLectures({ includeDraft: true }),
-    ]);
-    directory.value = directoryValue;
-    fields.value = fieldValues;
-    flowClasses.value = flowValues;
-    lectures.value = lectureValues;
-    if (!isNew.value) {
-      workspace.value = await getLectureWorkspace(lectureId.value);
+    const directoryLoad = loadOptional(getDirectory(), { users: [], groups: [] } as Directory);
+    const fieldsLoad = loadOptional(listFields(), [] as Field[]);
+    const lecturesLoad = loadOptional(listLectures({ includeDraft: true }), [] as Lecture[]);
+    if (isNew.value) {
+      const [flowValues, directoryResult, fieldsResult, lecturesResult] = await Promise.all([
+        listFlowClasses(true),
+        directoryLoad,
+        fieldsLoad,
+        lecturesLoad,
+      ]);
+      flowClasses.value = flowValues;
+      directory.value = directoryResult.value;
+      fields.value = fieldsResult.value;
+      lectures.value = lecturesResult.value;
+      directoryError.value = directoryResult.error;
+      fieldsError.value = fieldsResult.error;
+      lecturesError.value = lecturesResult.error;
+    } else {
+      const [workspaceValue, directoryResult, fieldsResult, flowResult, lecturesResult] =
+        await Promise.all([
+          getLectureWorkspace(lectureId.value),
+          directoryLoad,
+          fieldsLoad,
+          loadOptional(listFlowClasses(true), [] as FlowClass[]),
+          lecturesLoad,
+        ]);
+      workspace.value = workspaceValue;
+      directory.value = directoryResult.value;
+      fields.value = fieldsResult.value;
+      flowClasses.value = flowResult.value;
+      lectures.value = lecturesResult.value;
+      directoryError.value = directoryResult.error;
+      fieldsError.value = fieldsResult.error;
+      flowClassesError.value = flowResult.error;
+      lecturesError.value = lecturesResult.error;
       activeTab.value =
         preFlow.value?.id ?? sessionTabs.value[0]?.flow?.id ?? postFlow.value?.id ?? "bulk";
       restoreDrafts();
@@ -672,6 +714,9 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
     </header>
     <p v-if="toast" class="toast" role="status">{{ toast }}</p>
     <p v-if="error" class="notice error" role="alert">{{ error }}</p>
+    <div v-if="supportWarnings.length" class="support-warning" role="status">
+      <p v-for="warning in supportWarnings" :key="warning">{{ warning }}</p>
+    </div>
     <div v-if="loading" class="loading-state">編集データを読み込んでいます</div>
 
     <form v-else-if="isNew && !workspace" class="create-panel" @submit.prevent="submitCreate">
@@ -760,6 +805,7 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
             variant="outline"
             type="button"
             aria-label="開催を追加"
+            :disabled="Boolean(flowClassesError)"
             @click="openSessionModal"
             ><AppIcon name="plus" :size="16"
           /></BasiqButton>
@@ -870,8 +916,15 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
                   ><span>分野</span
                   ><select
                     :value="fieldValue('lecture', lecture.id, 'fieldId')"
+                    :disabled="Boolean(fieldsError)"
                     @change="setField('lecture', lecture.id, 'fieldId', inputValue($event), true)"
                   >
+                    <option
+                      v-if="fieldsError && fieldValue('lecture', lecture.id, 'fieldId')"
+                      :value="fieldValue('lecture', lecture.id, 'fieldId')"
+                    >
+                      現在の設定 ({{ fieldValue("lecture", lecture.id, "fieldId") }})
+                    </option>
                     <option value="">未設定</option>
                     <option v-for="field in fields" :key="field.id" :value="field.id">
                       {{ field.name }}
@@ -969,10 +1022,17 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
                   ><label class="native-field"
                     ><select
                       :value="fieldValue('session', session.id, 'instructorId')"
+                      :disabled="Boolean(directoryError)"
                       @change="
                         setField('session', session.id, 'instructorId', inputValue($event), true)
                       "
                     >
+                      <option
+                        v-if="directoryError && fieldValue('session', session.id, 'instructorId')"
+                        :value="fieldValue('session', session.id, 'instructorId')"
+                      >
+                        現在の講師 ({{ fieldValue("session", session.id, "instructorId") }})
+                      </option>
                       <option value="">未設定</option>
                       <option v-for="user in directory.users" :key="user.id" :value="user.id">
                         {{ user.displayName }} (@{{ user.traqId }})
@@ -1050,7 +1110,12 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
             >
           </header>
           <div class="action-list">
-            <BasiqButton tone="neutral" variant="outline" type="button" @click="openReplace"
+            <BasiqButton
+              tone="neutral"
+              variant="outline"
+              type="button"
+              :disabled="Boolean(flowClassesError)"
+              @click="openReplace"
               >使用Flowを変更</BasiqButton
             ><BasiqButton tone="neutral" variant="outline" type="button" @click="openOrder"
               >開催順を変更</BasiqButton
@@ -1144,10 +1209,16 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
           </header>
           <div class="form-stack">
             <template v-if="complexForm.path === 'organizer'"
-              ><label class="native-field"
+              ><p v-if="directoryError" class="inline-warning">
+                担当候補を取得できません。現在の担当は
+                {{ (complexForm.value as any)?.id ?? "未設定" }}
+                です。
+              </p>
+              <label class="native-field"
                 ><span>担当種別</span
                 ><select
                   :value="(complexForm.value as any)?.kind ?? ''"
+                  :disabled="Boolean(directoryError)"
                   @change="
                     complexForm.value = inputValue($event)
                       ? { kind: inputValue($event), id: '' }
@@ -1160,7 +1231,13 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
                 </select></label
               ><label v-if="(complexForm.value as any)?.kind" class="native-field"
                 ><span>担当</span
-                ><select v-model="(complexForm.value as any).id">
+                ><select
+                  v-model="(complexForm.value as any).id"
+                  :disabled="Boolean(directoryError)"
+                >
+                  <option v-if="directoryError" :value="(complexForm.value as any).id">
+                    現在の担当 ({{ (complexForm.value as any).id }})
+                  </option>
                   <option value="" disabled>選択してください</option>
                   <option
                     v-for="entry in (complexForm.value as any).kind === 'group'
@@ -1217,6 +1294,9 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
                   <option value="previous_year">過去年度版</option>
                   <option value="recommended_next">次に学ぶ</option></select
                 ><select v-model="relation.toLectureId">
+                  <option v-if="lecturesError" :value="relation.toLectureId">
+                    現在の講習会 ({{ relation.toLectureId }})
+                  </option>
                   <option value="" disabled>講習会を選択</option>
                   <option
                     v-for="item in lectures.filter((entry) => entry.id !== lecture?.id)"
@@ -1233,7 +1313,13 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
                   >外す</BasiqButton
                 >
               </div>
-              <BasiqButton tone="neutral" variant="outline" type="button" @click="addRelation"
+              <p v-if="lecturesError" class="inline-warning">関連講習会の候補を取得できません。</p>
+              <BasiqButton
+                tone="neutral"
+                variant="outline"
+                type="button"
+                :disabled="Boolean(lecturesError)"
+                @click="addRelation"
                 >つながりを追加</BasiqButton
               ></template
             >
@@ -1467,6 +1553,25 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
 .create-panel {
   max-width: 720px;
   margin: 40px auto;
+}
+
+.support-warning,
+.inline-warning {
+  color: #7a4c00;
+  border: 1px solid #d29b2d;
+  border-radius: var(--basiq-radius-sm);
+  background: #fff8e8;
+}
+
+.support-warning {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+}
+
+.inline-warning {
+  padding: 10px 12px;
 }
 
 .form-stack {

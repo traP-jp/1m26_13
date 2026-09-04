@@ -53,10 +53,11 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 
 ## 最終検証
 
+- directory APIだけを502にするローカルプロキシで補助データ障害を再現した。PCでは警告を表示したままFlowタブと一覧編集が操作でき、`directory=502`に対してworkspace、fields、FlowClass、Lecture候補は200で完了した。390px iframeでも`viewport=390`、`scrollWidth=390`、Flow本文あり、縮退警告ありを実測した。補助読込の成功・失敗テストを追加し、frontend Vitestは26件成功した。
 - 空DBのMariaDB 11.8とEchoを`127.0.0.1:8082`で起動し、講習会作成から第1回draft Sessionと3 Flowが原子的に作られることを確認した。講習会、各開催、事後の横タブは常に対応Flowを内容として表示し、同一画面でチェック、属性自動保存、ページ移動が永続化される。
 - 実ブラウザで講習会作成、開催追加、一覧編集、公開警告、開催順保存、データ／Flow履歴、FlowClass変更、Flow内属性入力を一巡した。タブは`講習会`、`第1回`、`+`、`事後`、`一覧編集`、`…`の順で、削除操作はない。
 - 390px幅でdocumentの横overflowがないことを実測した。タブ列だけは内部で横スクロールし、Basiq Tabsのtab／tabpanel対応を維持する。
-- frontendはOpenAPI生成差分、formatter、oxlint、ESLint、stylelint、Vue型検査、Vitest 24件、Vite production buildが成功した。backendはgofmt差分0、OpenAPI生成、go vet、全Go test、全package buildが成功した。
+- frontendはOpenAPI生成差分、formatter、oxlint、ESLint、stylelint、Vue型検査、Vitest 26件、Vite production buildが成功した。backendはgofmt差分0、OpenAPI生成、go vet、全Go test、全package buildが成功した。
 - Lecture / Sessionの連番化後、隔離した空のMariaDB 11.8へmigrationを適用し、Lecture ID `1`→`2`、Session ID `1`→`2`の自動採番、通常開催と再放送の同一order、公開Lectureへの両Session返却、再放送完了拒否をAPIスモークで確認した。バックエンド再起動後もmigration成功とデータ保持を確認した。
 - Lecture詳細を通常Sessionだけで構成し、再放送と再放送しかない`order`を回数、タブ、カード、件数表示から除外した。複数回のfragmentはタブ名と同じ`#第N回`とし、旧`#N`とfragmentなしから正規URLへ置換する。単発はfragmentなしを維持する。
 - Lecture 3を実ブラウザで確認し、旧`#2`が`#第2回`のpercent-encoded URLへ正規化され、タブ2件、通常カード1件、「再放送」0件、「この回で学べること」、bookアイコン付き教材ボタンを表示した。ArrowLeftで第1回へ切り替わり、URLとtabpanel本文も同期した。
