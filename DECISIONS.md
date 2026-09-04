@@ -1015,7 +1015,7 @@
 
 ## D-20260905-083 — 回の選択肢があるLectureだけ横タブとfragmentを表示する
 
-- 状態: decided
+- 状態: decided（BasiqTabs content slotの保留はD-20260905-084で解消）
 - 判断が必要だった理由: 通常開催と録画を同じroundにまとめた結果、論理的な開催回が1回だけのLectureにも選択肢のない「第1回」タブと`#1`が表示されていた。
 - 選択肢: 1回でも常にタブと`#1`を表示する／2回以上のLectureだけに表示する。
 - 決定: 後者。公開Sessionを`order`でまとめたroundが2件以上のときだけ横タブを表示し、`#<round>`を選択状態として使う。roundが0件または1件ならfragmentを付けず、`#1`などで入った場合も同じLectureのfragmentなしURLへ置き換える。
@@ -1023,6 +1023,17 @@
 - 影響: 同じ`order`の通常Sessionと録画Sessionは1 roundのままなので、録画追加だけではタブが増えない。BasiqTabsのcontent slot構造は別途のコンポーネント監査が終わるまで変更しない。
 - 再検討する条件: 単発Lectureでもround名や進行状態をタブとして常時示す画面要件が確定した場合。
 - 参照: 本人の2026-09-05の単発タブ非表示と`/lectures/1`正規化の明示判断。
+
+## D-20260905-084 — 複数回Lectureの回本文をBasiqTabsのtabpanel内へ置く
+
+- 状態: decided
+- 判断が必要だった理由: BasiqTabsのcontent slotへ空要素だけを渡していたため、`aria-controls`先のtabpanelが空で、選択回の本文がタブ構造の外に置かれていた。
+- 選択肢: 空要素だけを削除して本文を外に残す／各itemに対応する実際の回本文をcontent slotへ渡す。
+- 決定: 後者。回本文を`LectureRoundDetail`へ抽出し、複数回では選択中のtabpanelへ対応roundの本文を配置する。タブ切替時はBasiqTabsの既定動作に従って本文を切り替える。単発ではBasiqTabs自体を描画せず、同じコンポーネントを直接表示する。
+- 根拠: tab、`aria-controls`、tabpanel、回本文の意味上の対応が成立し、単発と複数回で本文実装も重複しない。
+- 影響: BasiqTabs内部classには依存せず、この画面の`[role="tabpanel"]`だけwidth 100%・左右margin 0・padding 0・白背景にし、タブ直下24px、PCの本文＋310px補助欄、モバイルの本文先行を維持する。
+- 再検討する条件: BasiqTabsが複雑なVNodeをItems APIの`content`として型安全に受け取れるようになる、またはtabpanelの既定余白が画面設計と一致する場合。
+- 参照: basiQ UI公式Storybookとインストール済みbeta.3 bundleの監査結果、および本人の2026-09-05の具体指示。
 
 ---
 

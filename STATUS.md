@@ -46,6 +46,8 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 - Lecture詳細を実ブラウザで確認し、第1回に通常開催と再放送が同時表示されること、第2回タブでURLが`#2`になり、戻る・進む・再読込後も選択回とURLが同期することを確認した。完了操作後も`#2`、選択回、`scrollY`を維持した。1280pxと390×844で横overflow 0、console warning/error 0件だった。
 - roundが1件だけのLectureでは横タブを表示せず、`#1`で入ってもfragmentなしのURLへ正規化する。roundが2件以上のLectureでは従来どおりタブと`#<round>`を使う。
 - 単発Lectureを1280×900と390×844の実ブラウザで確認し、タブ0件、`#1`除去、通常開催＋録画の2カード表示、横overflow 0、console warning/error 0件だった。複数回Lectureはタブ2件と`#2`選択を維持した。frontendの生成型check、formatter、全lint、Vue型検査、Vitest 9/9、Vite buildも成功した。
+- 複数回Lectureの回本文を`LectureRoundDetail`へ抽出し、選択中のBasiqTabs tabpanel内へ対応roundの開催カード、講習会情報、学習状況を配置した。単発Lectureはtablist / tab / tabpanelを描画せず同じ本文を直接表示する。
+- BasiqTabsの既定focus gutterはこの画面のtabpanelだけで相殺し、1280px実測でtabs root・tabpanel・本文gridの左右端と幅が一致、タブ直下24px、白背景、padding 0を確認した。390pxでも本文先行の縦積み、横overflow 0、console warning/error 0件だった。
 - 学習者向け`/sessions/1`は404へ解決する。講習会編集はLecture / Sessionの連番が衝突する場合もFlow IDで重複排除し、横タブ1つにFlow 1つ、その内容にFlow本文・進捗・入力・task・完了操作が直接表示されることを実ブラウザで確認した。
 - badge alphaのseedをLecture名へ変更し、同名なら同じSVG、異なる名前なら異なるSVGになるテストを追加した。固定済みの生成アルゴリズムは変更していない。
 
