@@ -4,6 +4,7 @@ withDefaults(
     name:
       | "archive"
       | "arrow"
+      | "award"
       | "book"
       | "calendar"
       | "check"
@@ -60,6 +61,11 @@ withDefaults(
     </template>
     <template v-else-if="name === 'archive'">
       <path d="M4 7.2h16v12H4v-12Zm-1-3h18v3H3v-3Zm6 7h6" />
+    </template>
+    <template v-else-if="name === 'award'">
+      <circle cx="12" cy="9" r="6" />
+      <path d="m8.5 14-1 7 4.5-2 4.5 2-1-7" />
+      <path d="m9.5 9 1.5 1.5L14.5 7" />
     </template>
     <template v-else-if="name === 'book'">
       <path

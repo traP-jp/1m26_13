@@ -4,6 +4,7 @@ import { computed, nextTick, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 
 import { getProfile, type Profile } from "@/api/resources";
+import AppIcon from "@/components/AppIcon.vue";
 import BadgeAlpha from "@/components/BadgeAlpha.vue";
 
 const route = useRoute();
@@ -67,11 +68,7 @@ onMounted(load);
           <span class="profile-avatar" aria-hidden="true">{{
             profile.user.displayName.slice(0, 1).toLocaleUpperCase("ja-JP") || "1"
           }}</span>
-          <div>
-            <p class="eyebrow">プロフィール</p>
-            <h1>{{ profile.user.displayName }}</h1>
-            <p>@{{ profile.user.traqId }}</p>
-          </div>
+          <h1>{{ profile.user.displayName }}</h1>
         </div>
         <dl class="profile-stats" aria-label="学習状況">
           <div>
@@ -164,6 +161,7 @@ onMounted(load);
                     >{{ badge.academicYearStart }}年度 · {{ formatDate(badge.earnedAt) }}</small
                   >
                 </span>
+                <AppIcon name="chevron" :size="18" />
               </button>
             </li>
           </ul>
@@ -171,7 +169,12 @@ onMounted(load);
 
         <aside v-if="selectedBadge" class="badge-detail-rail" aria-label="選択したバッジ">
           <BasiqCard class="badge-detail-card">
-            <template #header><h2>バッジ詳細</h2></template>
+            <template #header
+              ><div class="badge-detail-heading">
+                <AppIcon name="award" :size="18" />
+                <h2>バッジ詳細</h2>
+              </div></template
+            >
             <div class="badge-detail-mark">
               <BadgeAlpha
                 :lecture-id="selectedBadge.lectureId"
@@ -276,7 +279,8 @@ onMounted(load);
 <style scoped>
 /* stylelint-disable no-descending-specificity */
 .profile-page {
-  max-width: 1120px;
+  width: min(1120px, 100%);
+  padding: 48px 40px 72px;
 }
 
 .profile-header {
@@ -296,8 +300,8 @@ onMounted(load);
 }
 
 .profile-avatar {
-  width: 64px;
-  height: 64px;
+  width: 72px;
+  height: 72px;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
@@ -310,10 +314,6 @@ onMounted(load);
 
 .profile-header h1 {
   font-size: 1.75rem;
-}
-
-.profile-identity > div > p:last-child {
-  color: var(--basiq-color-content-subtle);
 }
 
 .profile-stats {
@@ -373,8 +373,8 @@ onMounted(load);
 
 .badge-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 32px;
+  grid-template-columns: minmax(0, 1fr) 288px;
+  gap: 16px;
   align-items: start;
 }
 
@@ -396,11 +396,12 @@ onMounted(load);
 
 .badge-tile {
   width: 100%;
-  min-height: 112px;
-  display: flex;
+  min-height: 106px;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 16px;
-  padding: 16px;
+  gap: 12px;
+  padding: 12px;
   border: 1px solid var(--basiq-color-border-separator);
   border-radius: var(--basiq-radius-sm);
   color: inherit;
@@ -415,7 +416,7 @@ onMounted(load);
 
 .badge-tile.is-selected {
   border-color: var(--basiq-color-accent-default);
-  background: var(--app-accent-faint);
+  background: var(--app-accent-soft);
 }
 
 .badge-mark {
@@ -451,9 +452,16 @@ onMounted(load);
   font-size: 1.05rem;
 }
 
+.badge-detail-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--basiq-color-content-accent);
+}
+
 .badge-detail-mark {
-  width: 128px;
-  height: 128px;
+  width: 112px;
+  height: 112px;
   margin: 12px auto;
 }
 
@@ -570,7 +578,7 @@ onMounted(load);
   background: var(--basiq-color-accent-default);
 }
 
-@media (width <= 900px) and (width >= 761px) {
+@media (width <= 980px) and (width >= 761px) {
   .profile-header {
     align-items: flex-start;
     flex-direction: column;
@@ -580,9 +588,21 @@ onMounted(load);
     padding-left: 0;
     border-left: 0;
   }
+
+  .badge-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .badge-detail-rail {
+    position: static;
+  }
 }
 
 @media (width <= 760px) {
+  .profile-page {
+    padding: 24px 16px 48px;
+  }
+
   .profile-header {
     align-items: flex-start;
     flex-direction: column;
@@ -620,6 +640,10 @@ onMounted(load);
     grid-template-columns: 1fr;
   }
 
+  .badge-grid {
+    grid-template-columns: 1fr;
+  }
+
   .badge-detail-rail {
     position: static;
   }
@@ -646,8 +670,8 @@ onMounted(load);
   }
 
   .profile-avatar {
-    width: 52px;
-    height: 52px;
+    width: 58px;
+    height: 58px;
   }
 
   .profile-stats dt {

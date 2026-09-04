@@ -59,6 +59,7 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 - Lecture／Session詳細の390px表示は本文を先、学習状況・開催情報の補助欄を後にした。実ブラウザの要素位置で本文上端が補助欄上端より前で、横overflow 0、console warning/error 0件を確認した。
 - Lecture／Session詳細の完了操作は画面全体を再読込せず、対象SessionとLecture集計だけを局所更新する。390×844の実ブラウザで完了・取消を往復し、URL、選択回、scrollYが前後で同一、DB状態も初期値へ戻ることを確認した。
 - badge alphaは固定commit `574c7ec5`の生成器へ置き換え、PRNG呼び出し順、8配色、5ベゼル、5中間層、6コアを正本と一致させた。seedは`badge-alpha-v1:${lectureId}`のまま維持し、SVG文字列へユーザー入力を含めない。
+- Profileは最新正本の72pxアバター、2列バッジ一覧＋288px詳細欄、選択表示、モバイル1列へ合わせた。完了した講習会・開催・Roadmap内完了の3指標は明示指定どおり実データの横並びでヘッダーに残し、完了Session／Roadmapタブも維持した。4件の代表バッジで1440×900と390×844を確認し、全バッジが異なる正本SVG、横overflow 0、console warning/error 0件だった。
 
 ## 再現手順
 
