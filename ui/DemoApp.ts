@@ -1,7 +1,9 @@
 import {
+  BasiqAvatar,
   BasiqButton,
   BasiqCard,
   BasiqFormField,
+  BasiqIcon,
   BasiqInput,
   BasiqSwitch,
   BasiqTag,
@@ -11,6 +13,7 @@ import {
 import {
   computed,
   defineComponent,
+  h,
   nextTick,
   onBeforeUnmount,
   onMounted,
@@ -42,6 +45,7 @@ type SearchFilter = "all" | "learnable" | "material" | "video" | "record";
 const WORKSHOP_STORAGE_KEY = "trap-workshop-demo:workshops-v3";
 const COMPLETION_STORAGE_KEY = "trap-workshop-demo:completions-v3";
 const VISIBILITY_STORAGE_KEY = "trap-workshop-demo:profile-visible-v3";
+const TRAQ_USER_ICON_URL = "https://q.trap.jp/api/v3/public/icon/rurun";
 
 const parseRoute = (hash: string): Route => {
   const path = hash.replace(/^#/, "") || "/";
@@ -79,12 +83,32 @@ const typeLabel: Record<ResourceType, string> = {
   repository: "リポジトリ",
 };
 
+const makeIcon = (name: string, path: string) => defineComponent({
+  name,
+  inheritAttrs: false,
+  setup(_, { attrs }) {
+    return () => h("svg", {
+      viewBox: "0 0 24 24",
+      fill: "currentColor",
+      xmlns: "http://www.w3.org/2000/svg",
+      ...attrs,
+    }, [h("path", { d: path })]);
+  },
+});
+
+const HomeIcon = makeIcon("HomeIcon", "M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8h5Z");
+const SearchIcon = makeIcon("SearchIcon", "M9.5 3a6.5 6.5 0 1 0 4.02 11.61L18.91 20l1.42-1.41-5.39-5.38A6.5 6.5 0 0 0 9.5 3Zm0 2a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9Z");
+const DraftIcon = makeIcon("DraftIcon", "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Zm0 2.5L17.5 8H14V4.5ZM8 12h8v2H8v-2Zm0 4h8v2H8v-2Z");
+const PlusIcon = makeIcon("PlusIcon", "M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2Z");
+
 export default defineComponent({
   name: "DemoApp",
   components: {
+    BasiqAvatar,
     BasiqButton,
     BasiqCard,
     BasiqFormField,
+    BasiqIcon,
     BasiqInput,
     BasiqSwitch,
     BasiqTag,
@@ -688,6 +712,7 @@ export default defineComponent({
       editorStep,
       editWorkshop,
       formatDate,
+      HomeIcon,
       generatedKnoq,
       generatedTraq,
       hasResource,
@@ -698,6 +723,7 @@ export default defineComponent({
       noticeKind,
       occurrenceModes,
       occurrenceRelation,
+      PlusIcon,
       occurrenceResourceUrl,
       occurrenceTitle,
       occurrenceStatusLabel,
@@ -717,6 +743,7 @@ export default defineComponent({
       saveDraft,
       searchResults,
       searchByTeam,
+      SearchIcon,
       selectedWorkshop,
       scrollToSection,
       shareBadge,
@@ -727,9 +754,11 @@ export default defineComponent({
       sourceWorkshop,
       startBlank,
       startFromWorkshop,
+      DraftIcon,
       tagText,
       teams,
       teamSummaries,
+      traqUserIconUrl: TRAQ_USER_ICON_URL,
       toast,
       toggleCompletion,
       typeLabel,
@@ -745,22 +774,22 @@ export default defineComponent({
       <div class="app-shell">
         <aside class="sidebar">
           <a class="brand" href="#/" aria-label="LeQtures ホーム">
-            <span class="brand-mark">Q</span>
+            <img class="brand-mark" src="/favicon.svg" alt="" />
             <span><strong>LeQtures</strong><small>traP 講習会</small></span>
           </a>
           <nav aria-label="メインナビゲーション">
             <p>受講する</p>
-            <a class="nav-item" :class="{ active: route.name === 'home' }" :aria-current="route.name === 'home' ? 'page' : undefined" href="#/"><span aria-hidden="true">⌂</span>ホーム</a>
-            <a class="nav-item" :class="{ active: route.name === 'search' || route.name === 'detail' }" :aria-current="route.name === 'search' || route.name === 'detail' ? 'page' : undefined" href="#/search"><span aria-hidden="true">⌕</span>講習会を探す</a>
+            <a class="nav-item" :class="{ active: route.name === 'home' }" :aria-current="route.name === 'home' ? 'page' : undefined" href="#/"><BasiqIcon class="nav-icon" :icon="HomeIcon" />ホーム</a>
+            <a class="nav-item" :class="{ active: route.name === 'search' || route.name === 'detail' }" :aria-current="route.name === 'search' || route.name === 'detail' ? 'page' : undefined" href="#/search"><BasiqIcon class="nav-icon" :icon="SearchIcon" />講習会を探す</a>
             <p>運営する</p>
-            <a class="nav-item" :class="{ active: route.name === 'drafts' }" :aria-current="route.name === 'drafts' ? 'page' : undefined" href="#/drafts"><span aria-hidden="true">▤</span>自分の下書き <em v-if="drafts.length">{{ drafts.length }}</em></a>
+            <a class="nav-item" :class="{ active: route.name === 'drafts' }" :aria-current="route.name === 'drafts' ? 'page' : undefined" href="#/drafts"><BasiqIcon class="nav-icon" :icon="DraftIcon" />自分の下書き <em v-if="drafts.length">{{ drafts.length }}</em></a>
           </nav>
           <div class="sidebar-footer">
             <div class="sidebar-note"><strong>デモ版</strong><span>操作内容はこの端末だけに保存されます。</span></div>
             <button class="reset-button" type="button" @click="resetDemo">初期状態に戻す</button>
-            <BasiqButton class="sidebar-create" type="button" @click="navigate('/new')">＋ 講習会を作る</BasiqButton>
+            <BasiqButton class="sidebar-create" type="button" :icon="PlusIcon" icon-placement="leading" @click="navigate('/new')">講習会を作る</BasiqButton>
             <a class="account-row" :class="{ active: route.name === 'me' || route.name === 'share' }" :aria-current="route.name === 'me' || route.name === 'share' ? 'page' : undefined" href="#/me">
-              <img src="https://q.trap.jp/api/v3/public/icon/rurun" alt="" />
+              <BasiqAvatar class="account-avatar" :src="traqUserIconUrl" name="rurun" alt="" size="sm" />
               <span><strong>rurun</strong><small>マイページ</small></span>
               <span aria-hidden="true">›</span>
             </a>
@@ -769,14 +798,14 @@ export default defineComponent({
 
         <div class="workspace">
           <header class="mobile-header">
-            <a class="mobile-brand" href="#/" aria-label="LeQtures ホーム"><span class="brand-mark">Q</span><strong>LeQtures</strong></a>
+            <a class="mobile-brand" href="#/" aria-label="LeQtures ホーム"><img class="brand-mark" src="/favicon.svg" alt="" /><strong>LeQtures</strong></a>
           </header>
           <nav class="mobile-nav" aria-label="モバイルナビゲーション">
-            <a :class="{ active: route.name === 'home' }" :aria-current="route.name === 'home' ? 'page' : undefined" href="#/"><span aria-hidden="true">⌂</span><small>ホーム</small></a>
-            <a :class="{ active: route.name === 'search' || route.name === 'detail' }" :aria-current="route.name === 'search' || route.name === 'detail' ? 'page' : undefined" href="#/search"><span aria-hidden="true">⌕</span><small>探す</small></a>
-            <a :class="{ active: route.name === 'create' || route.name === 'edit' }" :aria-current="route.name === 'create' || route.name === 'edit' ? 'page' : undefined" href="#/new"><span aria-hidden="true">＋</span><small>作る</small></a>
-            <a :class="{ active: route.name === 'drafts' }" :aria-current="route.name === 'drafts' ? 'page' : undefined" href="#/drafts"><span aria-hidden="true">▤</span><small>下書き</small></a>
-            <a :class="{ active: route.name === 'me' || route.name === 'share' }" :aria-current="route.name === 'me' || route.name === 'share' ? 'page' : undefined" href="#/me"><img src="https://q.trap.jp/api/v3/public/icon/rurun" alt="" /><small>rurun</small></a>
+            <a :class="{ active: route.name === 'home' }" :aria-current="route.name === 'home' ? 'page' : undefined" href="#/"><BasiqIcon class="mobile-nav-icon" :icon="HomeIcon" /><small>ホーム</small></a>
+            <a :class="{ active: route.name === 'search' || route.name === 'detail' }" :aria-current="route.name === 'search' || route.name === 'detail' ? 'page' : undefined" href="#/search"><BasiqIcon class="mobile-nav-icon" :icon="SearchIcon" /><small>探す</small></a>
+            <a :class="{ active: route.name === 'create' || route.name === 'edit' }" :aria-current="route.name === 'create' || route.name === 'edit' ? 'page' : undefined" href="#/new"><BasiqIcon class="mobile-nav-icon" :icon="PlusIcon" /><small>作る</small></a>
+            <a :class="{ active: route.name === 'drafts' }" :aria-current="route.name === 'drafts' ? 'page' : undefined" href="#/drafts"><BasiqIcon class="mobile-nav-icon" :icon="DraftIcon" /><small>下書き</small></a>
+            <a :class="{ active: route.name === 'me' || route.name === 'share' }" :aria-current="route.name === 'me' || route.name === 'share' ? 'page' : undefined" href="#/me"><BasiqAvatar class="mobile-avatar" :src="traqUserIconUrl" name="rurun" alt="" :size="22" /><small>rurun</small></a>
           </nav>
 
           <main id="main-content" tabindex="-1">
@@ -954,7 +983,7 @@ export default defineComponent({
             </template>
 
             <template v-else-if="route.name === 'me'">
-              <header class="page-header profile-heading"><div><img class="profile-avatar" src="https://q.trap.jp/api/v3/public/icon/rurun" alt="" /><div><h1>rurun のマイページ</h1><p>受講履歴と、獲得したバッジを確認できます。</p></div></div></header>
+              <header class="page-header profile-heading"><div><BasiqAvatar class="profile-avatar" :src="traqUserIconUrl" name="rurun" alt="" size="lg" /><div><h1>rurun のマイページ</h1><p>受講履歴と、獲得したバッジを確認できます。</p></div></div></header>
               <section class="privacy-setting"><div><h2>traP内プロフィールでバッジを公開</h2><p>初期状態は非公開です。公開しても、共有するバッジは自分で選べます。</p></div><BasiqSwitch v-model="profileVisible" aria-label="バッジをtraP内プロフィールで公開" /></section>
               <section class="badge-section"><div class="section-heading"><div><h2>獲得したバッジ</h2><p>講習会を受講完了すると追加されます。</p></div><span>{{ completedWorkshops.length }}個</span></div><div v-if="completedWorkshops.length" class="badge-grid"><article v-for="workshop in completedWorkshops" :key="workshop.id"><div class="badge-medal"><span>{{ badgeLabel(workshop) }}</span><small>{{ workshop.year }}</small></div><div><h3>{{ workshop.title }}</h3><p>{{ completionDate(workshop.id) }}に受講完了</p></div><BasiqButton type="button" tone="neutral" variant="outline" @click="shareBadge(workshop)">このバッジを共有</BasiqButton></article></div><div v-else class="empty-state"><strong>まだバッジはありません</strong><p>講習会ページから受講完了を記録してください。</p><BasiqButton type="button" tone="neutral" variant="outline" @click="navigate('/search')">講習会を探す</BasiqButton></div></section>
             </template>
