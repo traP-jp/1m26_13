@@ -53,8 +53,6 @@ const Icon = defineComponent({
       <template v-else-if="name === 'user'"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></template>
       <template v-else-if="name === 'edit'"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></template>
       <template v-else-if="name === 'chevron'"><path d="m9 18 6-6-6-6"/></template>
-      <template v-else-if="name === 'up'"><path d="m6 15 6-6 6 6"/></template>
-      <template v-else-if="name === 'down'"><path d="m6 9 6 6 6-6"/></template>
       <template v-else-if="name === 'grip'"><circle cx="9" cy="7" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="7" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="17" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="17" r="1" fill="currentColor" stroke="none"/></template>
       <template v-else-if="name === 'plus'"><path d="M12 5v14M5 12h14"/></template>
       <template v-else-if="name === 'trash'"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13"/></template>
@@ -96,13 +94,6 @@ const App = defineComponent({
         description: `${workshop.team} · ${workshop.year}`,
         disabled: selectedElsewhere.has(workshop.id),
       }));
-    };
-    const moveWorkshop = (index: number, offset: number) => {
-      const targetIndex = index + offset;
-      if (targetIndex < 0 || targetIndex >= roadmapItems.value.length) return;
-      const nextItems = [...roadmapItems.value];
-      [nextItems[index], nextItems[targetIndex]] = [nextItems[targetIndex], nextItems[index]];
-      roadmapItems.value = nextItems;
     };
     const removeWorkshop = (id: number) => {
       if (roadmapItems.value.length === 1) return;
@@ -161,7 +152,7 @@ const App = defineComponent({
       roadmapItems.value.push({ id: nextId, workshopId: nextWorkshop.id, editing: true, comment: '' });
     };
 
-    return { addWorkshop, audience, dragOverItemId, draggingItemId, getWorkshop, moveWorkshop, published, removeWorkshop, roadmapItems, startDrag, summary, title, workshops, workshopOptionsFor };
+    return { addWorkshop, audience, dragOverItemId, draggingItemId, getWorkshop, published, removeWorkshop, roadmapItems, startDrag, summary, title, workshops, workshopOptionsFor };
   },
   template: `
     <BasiqThemeProvider mode="light" class="prototype-theme">
@@ -246,14 +237,12 @@ const App = defineComponent({
                         <Icon name="map" />
                         <span class="workshop-copy"><strong>{{ getWorkshop(item.workshopId).title }}</strong><small>{{ getWorkshop(item.workshopId).team }} · {{ getWorkshop(item.workshopId).year }}</small></span>
                         <div class="sequence-actions">
-                          <BasiqButton type="button" tone="neutral" variant="outline" :disabled="itemIndex === 0" :aria-label="getWorkshop(item.workshopId).title + 'を上へ移動'" @click="moveWorkshop(itemIndex, -1)"><Icon name="up" /></BasiqButton>
-                          <BasiqButton type="button" tone="neutral" variant="outline" :disabled="itemIndex === roadmapItems.length - 1" :aria-label="getWorkshop(item.workshopId).title + 'を下へ移動'" @click="moveWorkshop(itemIndex, 1)"><Icon name="down" /></BasiqButton>
                           <BasiqButton type="button" tone="neutral" variant="outline" @click="item.editing = !item.editing">{{ item.editing ? '閉じる' : '変更' }}</BasiqButton>
                           <BasiqButton type="button" tone="danger" variant="outline" :disabled="roadmapItems.length === 1" :aria-label="getWorkshop(item.workshopId).title + 'を削除'" @click="removeWorkshop(item.id)"><Icon name="trash" /></BasiqButton>
                         </div>
                       </div>
-                      <BasiqFormField class="item-comment" label="コメント（任意）">
-                        <template #default="field"><BasiqTextarea v-model="item.comment" :id="field.id" :invalid="field.invalid" :aria-describedby="field.describedBy" :rows="2" resize="vertical" maxlength="300" placeholder="この講習会についての補足" /></template>
+                      <BasiqFormField class="item-comment" label="コメント">
+                        <template #default="field"><BasiqTextarea v-model="item.comment" :id="field.id" :invalid="field.invalid" :aria-describedby="field.describedBy" :rows="1" resize="vertical" maxlength="300" placeholder="補足があれば入力" /></template>
                       </BasiqFormField>
                       <div v-if="item.editing" class="workshop-picker">
                         <BasiqRadioGroup v-model="item.workshopId" :items="workshopOptionsFor(item)" :name="'roadmap-item-' + item.id" label="講習会を選択" orientation="vertical" required />
