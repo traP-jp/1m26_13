@@ -31,6 +31,7 @@
 - デスクトップは固定サイドバー、モバイルは上部ヘッダーと下部ナビゲーションを共通化した。画面設計の削除操作だけは、確定済み製品仕様に従って除外した。
 - 講習会編集を仕様基準で再構成した。Lecture属性、構造化Resource・Relation、順序付きSession、複数元Sessionによる再放送、内容複製、`lecture_pre → session_main → lecture_post`の対象対応、Sessionから導出する公開状態、保存後確認、競合案内、初期読込失敗時の編集保護を一画面で扱う。
 - 講習会編集の横タブをFlow単位へ修正した。事前Flow、各SessionのメインFlow、事後Flowを1 Flow 1タブで並べ、未適用時は同じ位置でFlowClassを選べる。開催追加とLecture設定は補助タブとして分離した。
+- 各FlowタブへFlow Rendererを直接埋め込み、本文、入力、task、copy/code、ページ進捗、途中保存、完了をタブ内で操作できるようにした。Flow適用後も別画面へ遷移せず、そのタブで開始する。Session編集と複製は設定タブへ集約した。
 
 ## 最終検証
 
@@ -43,6 +44,7 @@
 - 画面設計反映後のfrontendで、API型生成check、oxfmt、oxlint、ESLint、stylelint、Vue型検査、Vitest 6/6、Vite buildを再実行して成功。
 - 講習会編集の再実装後もfrontend全ゲートを再実行して成功。実ブラウザで2タブ、Flowの対象対応、Session追加、再放送として複製、`?session=`からの対象編集、404時の入力欄非表示と再試行、console warning/error 0件を確認した。
 - Flow単位タブへの修正後、frontendのVue型検査、ESLint、stylelint、Vitest 6/6、Vite buildとbackend全Go testを再実行して成功。実ブラウザで「全般・各開催・事後」の横タブ、Flow IDとの1対1表示、未適用Flowの選択欄、開催タブ内のSession編集を確認した。
+- Flowのタブ内実行化後、実ブラウザで完了済み事前Flowの本文・入力・task・完了状態と、未適用の事後Flow選択面を確認した。
 
 ## 再現手順
 

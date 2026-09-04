@@ -33,6 +33,7 @@ import {
   type SessionWrite,
 } from "@/api/resources";
 import AppIcon from "@/components/AppIcon.vue";
+import FlowInlineRunner from "@/components/FlowInlineRunner.vue";
 
 type EditableResource = { title: string; url: string };
 type RelationType = Lecture["relations"][number]["type"];
@@ -168,23 +169,10 @@ const editorTabs = computed<EditorTab[]>(() => {
 function editorTab(value: string) {
   return editorTabs.value.find((item) => item.value === value)!;
 }
-function tabFlow(item: EditorTab) {
-  return appliedFlows.value.find((flow) => flow.id === item.flowId);
-}
-function tabSession(item: EditorTab) {
-  return sortedSessions.value.find((session) => session.id === item.sessionId);
-}
-function tabFlowClass(item: EditorTab) {
-  const flow = tabFlow(item);
-  return flowClasses.value.find((flowClass) => flowClass.id === flow?.flowClassId);
-}
 function flowTypeLabel(type?: FlowClass["type"]) {
   if (type === "lecture_pre") return "講習会の事前Flow";
   if (type === "lecture_post") return "講習会の事後Flow";
   return "開催のメインFlow";
-}
-function tabTargetLabel(item: EditorTab) {
-  return tabSession(item)?.name ?? current.value?.name ?? "";
 }
 function selectEditorTab(value: string) {
   activeTab.value = value;
@@ -220,11 +208,6 @@ function addRelation() {
 }
 function removeRelation(index: number) {
   lectureRelations.value.splice(index, 1);
-}
-function flowStatusLabel(status: Flow["status"]) {
-  if (status === "completed") return "完了";
-  if (status === "cancelled") return "中断";
-  return "進行中";
 }
 function flowOptions(type: FlowClass["type"], targetId: string) {
   return flowClasses.value.filter(
@@ -286,7 +269,7 @@ function fillSession(session: Session) {
   sessionResources.value = resourceRows(session.resources);
 }
 function editSession(session: Session) {
-  selectSessionTab(session.id);
+  activeTab.value = "settings";
   fillSession(session);
   requestAnimationFrame(() =>
     document.querySelector("#session-editor")?.scrollIntoView({ behavior: "smooth" }),
@@ -382,7 +365,7 @@ async function load() {
         (session) => session.id === requestedSessionId,
       );
       if (requestedSession) {
-        selectSessionTab(requestedSession.id);
+        activeTab.value = "settings";
         fillSession(requestedSession);
       } else {
         activeTab.value = editorTabs.value[0]?.value ?? "settings";
@@ -479,10 +462,20 @@ async function startFlow(flowClassId: string, targetId: string) {
   try {
     const existing = existingFlow(flowClassId, targetId);
     const flow = existing || (await applyFlow(flowClassId, targetId));
-    await router.push(`/flows/${flow.id}`);
+    if (current.value) await refreshFlows(current.value);
+    activeTab.value = `flow:${flow.id}`;
   } catch (reason) {
     error.value = formatFailure(reason, "Flowを適用できませんでした");
   }
+}
+async function handleInlineFlowUpdated(updated: Flow) {
+  const index = appliedFlows.value.findIndex((flow) => flow.id === updated.id);
+  if (index >= 0) appliedFlows.value[index] = updated;
+  if (!current.value) return;
+  const refreshed = await getLecture(current.value.id, true);
+  fillLecture(refreshed);
+  await refreshFlows(refreshed);
+  activeTab.value = `flow:${updated.id}`;
 }
 function resumeEditing(tab: string) {
   confirmation.value = undefined;
@@ -612,138 +605,20 @@ onMounted(load);
                   v-if="tab.kind === 'flow' || tab.kind === 'flow-slot'"
                   class="flow-tab-panel"
                 >
-                  <header class="flow-tab-header">
-                    <div>
-                      <p class="card-kicker">{{ tab.flowType?.replace("_", " ").toUpperCase() }}</p>
-                      <h2>{{ tab.label }}</h2>
-                      <p>{{ flowTypeLabel(tab.flowType) }} · {{ tabTargetLabel(tab) }}</p>
-                    </div>
-                    <span v-if="tabFlow(tab)" :class="['flow-state', tabFlow(tab)?.status]">{{
-                      flowStatusLabel(tabFlow(tab)!.status)
-                    }}</span>
-                    <span v-else class="flow-state empty">未適用</span>
-                  </header>
-
-                  <BasiqCard v-if="tabSession(tab)" class="session-overview">
-                    <template #header>
-                      <div class="card-heading">
-                        <div>
-                          <div class="session-badges">
-                            <span
-                              :class="[
-                                'pill',
-                                tabSession(tab)?.status === 'published' ? 'success' : 'draft',
-                              ]"
-                              >{{
-                                tabSession(tab)?.status === "published" ? "公開" : "下書き"
-                              }}</span
-                            >
-                            <span v-if="tabSession(tab)?.isReplay" class="pill"
-                              >再放送・総集編</span
-                            >
-                          </div>
-                          <h3>{{ tabSession(tab)?.name }}</h3>
-                        </div>
-                        <div class="session-actions">
-                          <BasiqButton
-                            tone="neutral"
-                            variant="outline"
-                            type="button"
-                            @click="editSession(tabSession(tab)!)"
-                            ><AppIcon name="edit" :size="15" />開催情報を編集</BasiqButton
-                          >
-                          <BasiqButton
-                            tone="neutral"
-                            variant="outline"
-                            type="button"
-                            @click="duplicateSession(tabSession(tab)!, false)"
-                            ><AppIcon name="copy" :size="15" />複製</BasiqButton
-                          >
-                          <BasiqButton
-                            v-if="!tabSession(tab)?.isReplay"
-                            tone="neutral"
-                            variant="outline"
-                            type="button"
-                            @click="duplicateSession(tabSession(tab)!, true)"
-                            >再放送として複製</BasiqButton
-                          >
-                        </div>
-                      </div>
-                    </template>
-                    <div class="session-summary">
-                      <div>
-                        <span>日時</span
-                        ><strong
-                          >{{ tabSession(tab)?.date || "未定" }}
-                          {{ tabSession(tab)?.startTime }}</strong
-                        >
-                      </div>
-                      <div>
-                        <span>場所</span><strong>{{ tabSession(tab)?.location || "未定" }}</strong>
-                      </div>
-                      <div>
-                        <span>講師</span
-                        ><strong>{{ tabSession(tab)?.instructorIds.length }}人</strong>
-                      </div>
-                      <div>
-                        <span>Resource</span
-                        ><strong>{{ tabSession(tab)?.resources.length }}件</strong>
-                      </div>
-                    </div>
-                  </BasiqCard>
-
-                  <BasiqCard v-if="tabFlow(tab)" class="flow-focus-card">
-                    <template #header>
-                      <div class="card-heading">
-                        <div>
-                          <p class="card-kicker">FLOW</p>
-                          <h2>{{ tabFlowClass(tab)?.name ?? "適用済みFlow" }}</h2>
-                        </div>
-                        <span class="snapshot-label">適用時スナップショット</span>
-                      </div>
-                    </template>
-                    <p class="flow-description">
-                      このタブはFlow ID
-                      <code>{{ tabFlow(tab)?.id }}</code>
-                      に対応します。StockのFlowClassを後から変更しても、このFlowの本文は変わりません。
-                    </p>
-                    <div class="flow-metrics">
-                      <div>
-                        <span>現在ページ</span><strong>{{ tabFlow(tab)!.currentPage + 1 }}</strong>
-                      </div>
-                      <div>
-                        <span>回答</span
-                        ><strong>{{ Object.keys(tabFlow(tab)!.answers).length }}件</strong>
-                      </div>
-                      <div>
-                        <span>タスク</span
-                        ><strong
-                          >{{
-                            Object.values(tabFlow(tab)!.tasks).filter(Boolean).length
-                          }}件完了</strong
-                        >
-                      </div>
-                    </div>
-                    <template #footer
-                      ><BasiqButton
-                        type="button"
-                        @click="router.push(`/flows/${tabFlow(tab)!.id}`)"
-                        >{{
-                          tabFlow(tab)?.status === "active" ? "Flowを進める" : "Flowを確認"
-                        }}</BasiqButton
-                      ></template
-                    >
-                  </BasiqCard>
-
+                  <FlowInlineRunner
+                    v-if="tab.kind === 'flow' && tab.flowId"
+                    :flow-id="tab.flowId"
+                    @updated="handleInlineFlowUpdated"
+                  />
                   <BasiqCard v-else class="flow-focus-card unapplied">
-                    <template #header
-                      ><div>
+                    <template #header>
+                      <div>
                         <p class="card-kicker">FLOW STOCK</p>
                         <h2>{{ flowTypeLabel(tab.flowType) }}を選ぶ</h2>
-                      </div></template
-                    >
+                      </div>
+                    </template>
                     <p class="flow-description">
-                      まだFlowが適用されていません。StockのFlowClassを選ぶと、本文をコピーしたFlowが作成され、このタブがそのFlowに対応します。
+                      まだFlowが適用されていません。StockのFlowClassを選ぶと、本文をコピーしたFlowが作成され、このタブでそのまま実行できます。
                     </p>
                     <div
                       v-if="flowOptions(tab.flowType!, tab.targetId!).length"
@@ -776,8 +651,7 @@ onMounted(load);
 
                 <form
                   v-if="
-                    tab.kind === 'add-session' ||
-                    (tab.sessionId && sessionEditorOpen && sessionEditingId === tab.sessionId)
+                    tab.kind === 'add-session' || (tab.kind === 'settings' && sessionEditorOpen)
                   "
                   id="session-editor"
                   class="session-form"
@@ -1162,20 +1036,39 @@ onMounted(load);
                       </div></template
                     >
                     <div v-if="sortedSessions.length" class="settings-session-list">
-                      <button
-                        v-for="session in sortedSessions"
-                        :key="session.id"
-                        type="button"
-                        @click="editSession(session)"
-                      >
+                      <article v-for="session in sortedSessions" :key="session.id">
                         <span
                           ><strong>{{ session.name }}</strong
                           ><small
                             >{{ session.date || "日付未定" }} ·
                             {{ session.status === "published" ? "公開" : "下書き" }}</small
                           ></span
-                        ><AppIcon name="chevron" :size="16" />
-                      </button>
+                        >
+                        <div class="session-actions">
+                          <BasiqButton
+                            tone="neutral"
+                            variant="outline"
+                            type="button"
+                            @click="editSession(session)"
+                            >編集</BasiqButton
+                          >
+                          <BasiqButton
+                            tone="neutral"
+                            variant="outline"
+                            type="button"
+                            @click="duplicateSession(session, false)"
+                            >複製</BasiqButton
+                          >
+                          <BasiqButton
+                            v-if="!session.isReplay"
+                            tone="neutral"
+                            variant="outline"
+                            type="button"
+                            @click="duplicateSession(session, true)"
+                            >再放送として複製</BasiqButton
+                          >
+                        </div>
+                      </article>
                     </div>
                     <p v-else class="empty-copy">開催はまだありません。</p>
                   </BasiqCard>
@@ -1596,7 +1489,7 @@ onMounted(load);
   font-size: 10px;
 }
 
-.settings-session-list button {
+.settings-session-list article {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1607,10 +1500,9 @@ onMounted(load);
   color: inherit;
   background: var(--basiq-color-surface-base);
   text-align: left;
-  cursor: pointer;
 }
 
-.settings-session-list button > span {
+.settings-session-list article > span {
   display: grid;
   gap: 3px;
 }
