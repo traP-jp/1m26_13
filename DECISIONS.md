@@ -937,6 +937,17 @@
 - 再検討する条件: 本人が新しい画面設計を正本として明示した場合。
 - 参照: `references/ui-canonical/README.md`、`references/ui-canonical/screens.json`。
 
+## D-20260904-076 — Profile正本の欠落pathは同commitの実画面で補う
+
+- 状態: decided
+- 判断が必要だった理由: `screens.json`がProfile正本として示す`app/prototypes/profile`は、指定commit `8b41ea6b43b7f532bf77d7964fa6d58997fb35c0`に存在しない。
+- 選択肢: Profileの再統合を止める／同じ固定commitの`app/ui/views/ProfileView.ts`と`app/styles/pages.css`、`app/qa/redesign-profile-desktop.jpg`を使う。
+- 決定: 後者。同commit内で実際に使われているProfileのDOM、CSS、QA画像を視覚的正本として扱う。
+- 根拠: commit境界を維持したまま、ヘッダー統計、3タブ、バッジ一覧＋詳細欄、完了一覧、Roadmap進捗という確定構造を復元できる。
+- 影響: 本番のSession単位完了とbadge alpha SVGは維持し、正本の情報配置へ接続する。正本インデックス自体は履歴として書き換えない。
+- 再検討する条件: Profileの正しい静的prototype pathまたは新しい固定commitが提示された場合。
+- 参照: `references/ui-canonical/screens.json`。
+
 ---
 
 ## 追記テンプレート
