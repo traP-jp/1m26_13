@@ -61,6 +61,7 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 - badge alphaは固定commit `574c7ec5`の生成器へ置き換え、PRNG呼び出し順、8配色、5ベゼル、5中間層、6コアを正本と一致させた。seedは`badge-alpha-v1:${lectureId}`のまま維持し、SVG文字列へユーザー入力を含めない。
 - Profileは最新正本の72pxアバター、2列バッジ一覧＋288px詳細欄、選択表示、モバイル1列へ合わせた。完了した講習会・開催・Roadmap内完了の3指標は明示指定どおり実データの横並びでヘッダーに残し、完了Session／Roadmapタブも維持した。4件の代表バッジで1440×900と390×844を確認し、全バッジが異なる正本SVG、横overflow 0、console warning/error 0件だった。
 - Flow追加は横タブ末尾の`＋ Flowを追加`からモーダルを開き、対象の3属性に一致する未適用FlowClassだけを選べる形へ変更した。非破壊のAPIモックを使い、1440×900と390×844の実ブラウザで、モーダル表示、適用後の同一URL、新しいFlowタブの選択、Flow本文の開始、横overflow 0、console warning/error 0件を確認した。Session追加は設定タブの開催一覧から独立して開く。
+- ホームの講習会・RoadmapカードとRoadmap一覧カードは、hover時の影と上方向への移動を削除し、枠色だけが変わるフラットな表示へ統一した。1440×900の実ブラウザで両画面を実際にhoverし、`box-shadow: none`、`transform: none`、カード上端不変を確認した。focus-visibleでは2pxのaccent outlineを維持し、console warning/errorは0件だった。
 
 ## 再現手順
 

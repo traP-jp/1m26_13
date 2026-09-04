@@ -121,16 +121,17 @@ onMounted(load);
 
   --basiq-color-card-background: var(--basiq-color-surface-container);
 
-  transition:
-    border-color 140ms ease,
-    box-shadow 140ms ease,
-    transform 140ms ease;
+  transition: border-color 140ms ease;
 }
 
 .card-link:hover .discovery-card {
   border-color: var(--basiq-color-accent-default);
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--basiq-color-content-default) 9%, transparent);
-  transform: translateY(-2px);
+}
+
+.card-link:focus-visible {
+  border-radius: var(--basiq-radius-sm);
+  outline: 2px solid var(--basiq-color-accent-default);
+  outline-offset: 3px;
 }
 
 .discovery-card-content {
@@ -196,11 +197,6 @@ onMounted(load);
 
   .discovery-card-content {
     min-height: 148px;
-  }
-
-  .card-link:hover .discovery-card {
-    transform: none;
-    box-shadow: none;
   }
 }
 
