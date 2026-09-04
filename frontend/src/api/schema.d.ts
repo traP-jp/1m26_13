@@ -406,6 +406,8 @@ export interface components {
         SessionCompletion: {
             userId: string;
             sessionId: components["schemas"]["SessionId"];
+            lectureId: components["schemas"]["LectureId"];
+            roundNumber: number;
             /** Format: date-time */
             completedAt: string;
         };

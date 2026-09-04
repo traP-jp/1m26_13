@@ -15,11 +15,6 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
         component: () => import("@/views/LectureDetailView.vue"),
       },
       {
-        path: "/sessions/:id",
-        name: "session-detail",
-        component: () => import("@/views/SessionDetailView.vue"),
-      },
-      {
         path: "/roadmaps",
         name: "roadmaps",
         component: () => import("@/views/RoadmapListView.vue"),

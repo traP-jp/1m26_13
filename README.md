@@ -121,7 +121,7 @@ APIは`/api/v1`以下で提供します。API schemaとendpoint pathのsource of
 
 - Lectureと、その下に独立したSessionを0件以上登録・編集
 - 公開Lectureのキーワード・学年度・分野検索と詳細表示
-- 再放送Sessionの直接URL表示と、通常導線・完了操作からの除外
+- `order`ごとの通常Session・再放送をまとめたLecture詳細と`#<round>`による回の直接表示
 - Session単位の完了、Lecture完了、バッジ、ロードマップ進捗の導出
 - `lecture_pre`、`session_main`、`lecture_post`のFlowClassと適用時スナップショットFlow
 - 段階を持つ一本道ロードマップ

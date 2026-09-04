@@ -331,7 +331,9 @@ function duplicateSession(session: Session, asReplay: boolean) {
   Object.assign(sessionForm, {
     name: asReplay ? `${session.name}（再放送）` : session.name,
     description: session.description || "",
-    order: Math.max(-1, ...sortedSessions.value.map((item) => item.order)) + 1,
+    order: asReplay
+      ? session.order
+      : Math.max(-1, ...sortedSessions.value.map((item) => item.order)) + 1,
     date: session.date || "",
     startTime: session.startTime || "",
     location: session.location || "",
@@ -353,14 +355,26 @@ function closeSessionEditor() {
 function setReplaySource(sessionId: string, selected: boolean) {
   const currentIds = sessionForm.replayOfSessionIds.filter((id) => id !== sessionId);
   sessionForm.replayOfSessionIds = selected ? [...currentIds, sessionId] : currentIds;
+  if (selected && currentIds.length === 0) {
+    const source = normalSessions.value.find((session) => session.id === sessionId);
+    if (source) sessionForm.order = source.order;
+  }
 }
 
 async function refreshFlows(lecture: Lecture) {
-  const lists = await Promise.all([
+  const [lectureFlows, ...sessionFlowLists] = await Promise.all([
     listFlows({ targetId: lecture.id }),
     ...lecture.sessions.map((session) => listFlows({ targetId: session.id })),
   ]);
-  appliedFlows.value = lists.flat();
+  const relevant = [
+    ...lectureFlows.filter((flow) => flow.type !== "session_main" && flow.targetId === lecture.id),
+    ...sessionFlowLists.flatMap((flows, index) =>
+      flows.filter(
+        (flow) => flow.type === "session_main" && flow.targetId === lecture.sessions[index]?.id,
+      ),
+    ),
+  ];
+  appliedFlows.value = [...new Map(relevant.map((flow) => [flow.id, flow])).values()];
 }
 async function load() {
   loading.value = true;

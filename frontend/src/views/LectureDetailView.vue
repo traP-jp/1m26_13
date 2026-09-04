@@ -1,29 +1,53 @@
 <script setup lang="ts">
 import { BasiqButton, BasiqCard, BasiqTabs } from "basiq-ui";
-import { computed, nextTick, onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import { getLecture, setCompletion, type Lecture } from "@/api/resources";
+import { getLecture, setCompletion, type Lecture, type Session } from "@/api/resources";
 import AppIcon from "@/components/AppIcon.vue";
 
 const route = useRoute();
 const router = useRouter();
 const lecture = ref<Lecture>();
-const selectedSessionId = ref("");
+type RoundGroup = {
+  round: number;
+  order: number;
+  sessions: Session[];
+  normal?: Session;
+};
+
+const selectedRound = ref("1");
 const loading = ref(true);
 const updating = ref(false);
 const error = ref("");
-const sessionTabs = computed(() =>
-  (lecture.value?.sessions ?? []).map((session, index) => ({
-    value: session.id,
-    label: `第${index + 1}回 ${session.name}`,
-  })),
+const rounds = computed<RoundGroup[]>(() => {
+  const byOrder = new Map<number, Session[]>();
+  for (const session of lecture.value?.sessions ?? []) {
+    const sessions = byOrder.get(session.order) ?? [];
+    sessions.push(session);
+    byOrder.set(session.order, sessions);
+  }
+  return [...byOrder.entries()]
+    .sort(([left], [right]) => left - right)
+    .map(([order, sessions], index) => {
+      const sorted = [...sessions].sort(
+        (left, right) => Number(left.isReplay) - Number(right.isReplay),
+      );
+      return {
+        round: index + 1,
+        order,
+        sessions: sorted,
+        normal: sorted.find((session) => !session.isReplay),
+      };
+    });
+});
+const roundTabs = computed(() =>
+  rounds.value.map((round) => ({ value: String(round.round), label: `第${round.round}回` })),
 );
-const activeSession = computed(
-  () =>
-    lecture.value?.sessions.find((session) => session.id === selectedSessionId.value) ??
-    lecture.value?.sessions[0],
+const activeRound = computed(() =>
+  rounds.value.find((round) => String(round.round) === selectedRound.value),
 );
+const activeNormalSession = computed(() => activeRound.value?.normal);
 const yearLabel = computed(() => {
   if (!lecture.value) return "";
   return lecture.value.academicYearStart === lecture.value.academicYearEnd
@@ -36,8 +60,8 @@ async function load() {
   error.value = "";
   try {
     lecture.value = await getLecture(String(route.params.id));
-    if (!lecture.value.sessions.some((session) => session.id === selectedSessionId.value))
-      selectedSessionId.value = lecture.value.sessions[0]?.id ?? "";
+    await nextTick();
+    syncRoundFromHash();
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : "読み込めませんでした";
   } finally {
@@ -45,9 +69,10 @@ async function load() {
   }
 }
 async function toggleCompletion() {
-  if (!activeSession.value || activeSession.value.isReplay) return;
-  const sessionId = activeSession.value.id;
-  const wasCompleted = activeSession.value.isCompleted;
+  const session = activeNormalSession.value;
+  if (!session) return;
+  const sessionId = session.id;
+  const wasCompleted = session.isCompleted;
   const scrollPosition = { left: window.scrollX, top: window.scrollY };
   updating.value = true;
   error.value = "";
@@ -82,6 +107,23 @@ async function toggleCompletion() {
 function formatDate(date?: string, time?: string) {
   return `${date || "日時未定"}${time ? ` ${time}` : ""}`;
 }
+
+function syncRoundFromHash() {
+  if (!rounds.value.length) return;
+  const match = /^#([1-9][0-9]*)$/.exec(route.hash);
+  const requested = match ? Number(match[1]) : 1;
+  const round = rounds.value.some((entry) => entry.round === requested) ? requested : 1;
+  selectedRound.value = String(round);
+  if (route.hash !== `#${round}`) void router.replace({ hash: `#${round}` });
+}
+
+function selectRound(value: string) {
+  selectedRound.value = value;
+  if (route.hash !== `#${value}`) void router.push({ hash: `#${value}` });
+}
+
+watch(() => route.hash, syncRoundFromHash);
+watch(() => route.params.id, load);
 onMounted(load);
 </script>
 
@@ -102,8 +144,7 @@ onMounted(load);
         <div>
           <div class="meta-tags">
             <span>{{ yearLabel }}</span
-            ><span v-if="lecture.isIntroductory">初心者向け</span
-            ><span>{{ lecture.sessions.length }}開催</span>
+            ><span v-if="lecture.isIntroductory">初心者向け</span><span>{{ rounds.length }}回</span>
           </div>
           <h1>{{ lecture.name }}</h1>
           <p>{{ lecture.description || "この講習会の説明はまだありません。" }}</p>
@@ -118,55 +159,68 @@ onMounted(load);
       <p v-if="error" class="notice error" role="alert">{{ error }}</p>
 
       <BasiqTabs
-        v-if="sessionTabs.length > 1"
-        v-model="selectedSessionId"
-        :items="sessionTabs"
-        aria-label="講習会の開催"
+        v-if="roundTabs.length"
+        :model-value="selectedRound"
+        :items="roundTabs"
+        aria-label="講習会の回"
         class="session-tabs"
+        @update:model-value="selectRound"
         ><template #content><span /></template
       ></BasiqTabs>
 
-      <div v-if="activeSession" class="detail-grid">
+      <div v-if="activeRound" class="detail-grid" :data-round="activeRound.round">
         <div class="detail-main">
           <section class="content-section">
-            <div class="content-heading"><h2>この回で学べること</h2></div>
-            <BasiqCard class="session-card">
-              <template #header>
-                <div class="session-heading">
-                  <h3>{{ activeSession.name }}</h3>
-                  <BasiqButton
-                    v-if="activeSession.resources.length"
-                    tone="neutral"
-                    variant="outline"
-                    @click="router.push(`/sessions/${activeSession.id}`)"
-                    ><AppIcon name="book" :size="17" />教材</BasiqButton
-                  >
-                </div>
-              </template>
-              <p class="session-description">
-                {{ activeSession.description || "この回の説明はまだありません。" }}
-              </p>
-              <dl class="session-facts">
-                <div>
-                  <dt><AppIcon name="calendar" :size="16" />日時</dt>
-                  <dd>{{ formatDate(activeSession.date, activeSession.startTime) }}</dd>
-                </div>
-                <div>
-                  <dt><AppIcon name="pin" :size="16" />場所</dt>
-                  <dd>{{ activeSession.location || "未定" }}</dd>
-                </div>
-                <div>
-                  <dt><AppIcon name="book" :size="16" />教材</dt>
-                  <dd>
-                    {{
-                      activeSession.resources.length
-                        ? `${activeSession.resources.length}件`
-                        : "準備中"
-                    }}
-                  </dd>
-                </div>
-              </dl>
-            </BasiqCard>
+            <div class="content-heading">
+              <p class="section-kicker">ROUND {{ activeRound.round }}</p>
+              <h2>第{{ activeRound.round }}回の開催</h2>
+            </div>
+            <div class="round-session-list">
+              <BasiqCard
+                v-for="session in activeRound.sessions"
+                :key="session.id"
+                class="session-card"
+              >
+                <template #header>
+                  <div class="session-heading">
+                    <h3>{{ session.name }}</h3>
+                    <span v-if="session.isReplay" class="replay-label">再放送</span>
+                  </div>
+                </template>
+                <p class="session-description">
+                  {{ session.description || "この開催の説明はまだありません。" }}
+                </p>
+                <dl class="session-facts">
+                  <div>
+                    <dt><AppIcon name="calendar" :size="16" />日時</dt>
+                    <dd>{{ formatDate(session.date, session.startTime) }}</dd>
+                  </div>
+                  <div>
+                    <dt><AppIcon name="pin" :size="16" />場所</dt>
+                    <dd>{{ session.location || "未定" }}</dd>
+                  </div>
+                  <div>
+                    <dt><AppIcon name="user" :size="16" />講師</dt>
+                    <dd>
+                      {{
+                        session.instructorIds.length
+                          ? `${session.instructorIds.length}人`
+                          : "未設定"
+                      }}
+                    </dd>
+                  </div>
+                </dl>
+                <ul v-if="session.resources.length" class="resource-links session-resources">
+                  <li v-for="resource in session.resources" :key="resource.url">
+                    <a :href="resource.url" target="_blank" rel="noopener noreferrer"
+                      ><span>{{ resource.title || resource.url }}</span
+                      ><span aria-hidden="true">↗</span></a
+                    >
+                  </li>
+                </ul>
+                <p v-else class="empty-copy">この開催の教材は準備中です。</p>
+              </BasiqCard>
+            </div>
           </section>
 
           <section class="content-section audience-grid">
@@ -219,16 +273,16 @@ onMounted(load);
         </div>
 
         <aside class="detail-rail">
-          <BasiqCard class="learning-card">
+          <BasiqCard v-if="activeNormalSession" class="learning-card">
             <template #header><h2>学習状況</h2></template>
-            <div :class="['status-block', { completed: activeSession.isCompleted }]">
+            <div :class="['status-block', { completed: activeNormalSession.isCompleted }]">
               <span class="status-mark"
-                ><AppIcon :name="activeSession.isCompleted ? 'check' : 'record'" :size="21"
+                ><AppIcon :name="activeNormalSession.isCompleted ? 'check' : 'record'" :size="21"
               /></span>
               <span
-                ><strong>{{ activeSession.isCompleted ? "完了済み" : "未完了" }}</strong
+                ><strong>{{ activeNormalSession.isCompleted ? "完了済み" : "未完了" }}</strong
                 ><small>{{
-                  activeSession.isCompleted
+                  activeNormalSession.isCompleted
                     ? "プロフィールに記録済みです"
                     : "受講後に完了を記録できます"
                 }}</small></span
@@ -236,45 +290,31 @@ onMounted(load);
             </div>
             <BasiqButton
               class="completion-button"
-              :tone="activeSession.isCompleted ? 'neutral' : 'accent'"
-              :variant="activeSession.isCompleted ? 'outline' : 'solid'"
+              :tone="activeNormalSession.isCompleted ? 'neutral' : 'accent'"
+              :variant="activeNormalSession.isCompleted ? 'outline' : 'solid'"
               :disabled="updating"
               @click="toggleCompletion"
-              >{{ activeSession.isCompleted ? "完了を取り消す" : "受講し終わった" }}</BasiqButton
+              >{{
+                activeNormalSession.isCompleted ? "完了を取り消す" : "受講し終わった"
+              }}</BasiqButton
             >
           </BasiqCard>
-          <BasiqCard>
-            <template #header><h2>今回の開催</h2></template>
-            <dl class="rail-facts">
-              <div>
-                <dt><AppIcon name="calendar" :size="16" />日時</dt>
-                <dd>{{ formatDate(activeSession.date, activeSession.startTime) }}</dd>
-              </div>
-              <div>
-                <dt><AppIcon name="pin" :size="16" />場所</dt>
-                <dd>{{ activeSession.location || "未定" }}</dd>
-              </div>
-              <div>
-                <dt><AppIcon name="user" :size="16" />講師</dt>
-                <dd>
-                  {{
-                    activeSession.instructorIds.length
-                      ? `${activeSession.instructorIds.length}人`
-                      : "未設定"
-                  }}
-                </dd>
-              </div>
-            </dl>
+          <BasiqCard v-else>
+            <template #header><h2>学習状況</h2></template>
+            <p class="empty-copy">この回には完了を記録できる通常開催がありません。</p>
           </BasiqCard>
-          <BasiqButton
-            tone="neutral"
-            variant="outline"
-            @click="router.push(`/sessions/${activeSession.id}`)"
-            >開催詳細を開く<AppIcon name="arrow" :size="17"
-          /></BasiqButton>
+          <BasiqCard>
+            <template #header
+              ><h2>第{{ activeRound.round }}回</h2></template
+            >
+            <p class="round-summary">
+              通常開催 {{ activeRound.normal ? 1 : 0 }}件 · 再放送
+              {{ activeRound.sessions.filter((session) => session.isReplay).length }}件
+            </p>
+          </BasiqCard>
         </aside>
       </div>
-      <div v-else class="empty-state">公開中の通常開催はありません。</div>
+      <div v-else class="empty-state">公開中の開催はありません。</div>
     </template>
   </div>
 </template>
@@ -323,7 +363,8 @@ onMounted(load);
   gap: 8px;
 }
 
-.meta-tags span {
+.meta-tags span,
+.replay-label {
   min-height: 24px;
   display: inline-flex;
   align-items: center;
@@ -366,6 +407,19 @@ onMounted(load);
   margin-bottom: 16px;
 }
 
+.section-kicker {
+  margin-bottom: 4px;
+  color: var(--basiq-color-content-accent);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.round-session-list {
+  display: grid;
+  gap: 16px;
+}
+
 .session-card {
   border: 1px solid var(--basiq-color-border-separator);
 
@@ -391,7 +445,7 @@ onMounted(load);
 .session-facts {
   margin-top: 16px;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   border-top: 1px solid var(--basiq-color-border-separator);
 }
 
@@ -399,12 +453,7 @@ onMounted(load);
   padding-top: 12px;
 }
 
-.session-facts div:last-child {
-  grid-column: 1 / -1;
-}
-
-.session-facts dt,
-.rail-facts dt {
+.session-facts dt {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -412,10 +461,23 @@ onMounted(load);
   font-size: 0.72rem;
 }
 
-.session-facts dd,
-.rail-facts dd {
+.session-facts dd {
   margin: 2px 0 0 24px;
   font-size: 0.82rem;
+}
+
+.session-resources {
+  margin-top: 16px;
+}
+
+.empty-copy,
+.round-summary {
+  color: var(--basiq-color-content-subtle);
+}
+
+.empty-copy {
+  margin-top: 14px;
+  font-size: 0.84rem;
 }
 
 .audience-grid {
@@ -443,11 +505,13 @@ onMounted(load);
 .resource-links a {
   display: flex;
   justify-content: space-between;
+  gap: 12px;
   padding: 12px 16px;
   border: 1px solid var(--basiq-color-border-separator);
   border-radius: var(--basiq-radius-sm);
   color: var(--basiq-color-content-accent);
   text-decoration: none;
+  overflow-wrap: anywhere;
 }
 
 .connection-grid {
@@ -526,11 +590,6 @@ onMounted(load);
 .completion-button {
   width: 100%;
   margin-top: 12px;
-}
-
-.rail-facts div {
-  padding-block: 8px;
-  border-top: 1px solid var(--basiq-color-border-separator);
 }
 
 @media (width <= 980px) {

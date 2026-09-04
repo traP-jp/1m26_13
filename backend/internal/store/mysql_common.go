@@ -122,8 +122,12 @@ func (store *MySQL) ListEvents(ctx context.Context, entityType, entityID string)
 
 func (store *MySQL) CompleteSession(ctx context.Context, sessionID, userID string) (domain.Completion, error) {
 	var status string
-	var replayCount int
-	err := store.db.QueryRowContext(ctx, "SELECT status, JSON_LENGTH(replay_of_session_ids) FROM sessions WHERE id = ?", sessionID).Scan(&status, &replayCount)
+	var replayCount, roundNumber int
+	var lectureID string
+	err := store.db.QueryRowContext(ctx, `SELECT s.status, JSON_LENGTH(s.replay_of_session_ids), s.lecture_id,
+		1 + (SELECT COUNT(DISTINCT prior.display_order) FROM sessions prior WHERE prior.lecture_id = s.lecture_id
+			AND prior.status = 'published' AND prior.display_order < s.display_order)
+		FROM sessions s WHERE s.id = ?`, sessionID).Scan(&status, &replayCount, &lectureID, &roundNumber)
 	if errors.Is(err, sql.ErrNoRows) {
 		return domain.Completion{}, ErrNotFound
 	}
@@ -143,7 +147,7 @@ func (store *MySQL) CompleteSession(ctx context.Context, sessionID, userID strin
 	if err := store.db.QueryRowContext(ctx, "SELECT completed_at FROM session_completions WHERE user_id = ? AND session_id = ?", userID, sessionID).Scan(&completedAt); err != nil {
 		return domain.Completion{}, fmt.Errorf("read completion: %w", err)
 	}
-	return domain.Completion{UserID: userID, SessionID: sessionID, CompletedAt: completedAt}, nil
+	return domain.Completion{UserID: userID, SessionID: sessionID, LectureID: lectureID, RoundNumber: roundNumber, CompletedAt: completedAt}, nil
 }
 
 func (store *MySQL) UncompleteSession(ctx context.Context, sessionID, userID string) error {
@@ -159,8 +163,11 @@ func (store *MySQL) UncompleteSession(ctx context.Context, sessionID, userID str
 }
 
 func (store *MySQL) ListCompletions(ctx context.Context, userID string) ([]domain.Completion, error) {
-	rows, err := store.db.QueryContext(ctx, `SELECT user_id, session_id, completed_at FROM session_completions
-		WHERE user_id = ? ORDER BY completed_at DESC, session_id`, userID)
+	rows, err := store.db.QueryContext(ctx, `SELECT sc.user_id, sc.session_id, s.lecture_id,
+		1 + (SELECT COUNT(DISTINCT prior.display_order) FROM sessions prior WHERE prior.lecture_id = s.lecture_id
+			AND prior.status = 'published' AND prior.display_order < s.display_order),
+		sc.completed_at FROM session_completions sc JOIN sessions s ON s.id = sc.session_id
+		WHERE sc.user_id = ? ORDER BY sc.completed_at DESC, sc.session_id`, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list completions: %w", err)
 	}
@@ -168,7 +175,7 @@ func (store *MySQL) ListCompletions(ctx context.Context, userID string) ([]domai
 	result := make([]domain.Completion, 0)
 	for rows.Next() {
 		var completion domain.Completion
-		if err := rows.Scan(&completion.UserID, &completion.SessionID, &completion.CompletedAt); err != nil {
+		if err := rows.Scan(&completion.UserID, &completion.SessionID, &completion.LectureID, &completion.RoundNumber, &completion.CompletedAt); err != nil {
 			return nil, err
 		}
 		result = append(result, completion)

@@ -3,8 +3,8 @@ import { computed } from "vue";
 
 import { buildBadgeSvg } from "@/components/badgeGenerator";
 
-const props = defineProps<{ lectureId: string; lectureName: string }>();
-const svgMarkup = computed(() => buildBadgeSvg(`badge-alpha-v1:${props.lectureId}`));
+const props = defineProps<{ lectureName: string }>();
+const svgMarkup = computed(() => buildBadgeSvg(`badge-alpha-v1:${props.lectureName}`));
 </script>
 
 <template>

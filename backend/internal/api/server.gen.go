@@ -450,6 +450,8 @@ type Session struct {
 // SessionCompletion defines model for SessionCompletion.
 type SessionCompletion struct {
 	CompletedAt time.Time `json:"completedAt"`
+	LectureId   LectureId `json:"lectureId"`
+	RoundNumber int       `json:"roundNumber"`
 	SessionId   SessionId `json:"sessionId"`
 	UserId      string    `json:"userId"`
 }

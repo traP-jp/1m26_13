@@ -311,7 +311,7 @@ func (server server) CompleteSession(ctx context.Context, request api.CompleteSe
 	if err != nil {
 		return nil, err
 	}
-	return api.CompleteSession200JSONResponse{UserId: completion.UserID, SessionId: completion.SessionID, CompletedAt: completion.CompletedAt}, nil
+	return api.CompleteSession200JSONResponse{UserId: completion.UserID, SessionId: completion.SessionID, LectureId: completion.LectureID, RoundNumber: completion.RoundNumber, CompletedAt: completion.CompletedAt}, nil
 }
 
 func (server server) UncompleteSession(ctx context.Context, request api.UncompleteSessionRequestObject) (api.UncompleteSessionResponseObject, error) {

@@ -38,6 +38,13 @@ request POST "/lectures/$lecture_id/sessions" "$session_body" "$work_dir/session
 session_id="$(jq -r .id "$work_dir/session.json")"
 [[ "$session_id" =~ ^[1-9][0-9]*$ ]]
 
+duplicate_normal_status="$(curl --silent --output "$work_dir/duplicate-normal.json" --write-out '%{http_code}' -X POST -H 'Content-Type: application/json' --data "$session_body" "$api_base/lectures/$lecture_id/sessions")"
+test "$duplicate_normal_status" = 400
+
+mismatched_replay_body="$(jq -cn --arg source "$session_id" '{name:"別の回の再放送",description:"",order:1,instructorIds:[],resources:[],replayOfSessionIds:[$source],status:"published",expectedRevision:0}')"
+mismatched_replay_status="$(curl --silent --output "$work_dir/mismatched-replay.json" --write-out '%{http_code}' -X POST -H 'Content-Type: application/json' --data "$mismatched_replay_body" "$api_base/lectures/$lecture_id/sessions")"
+test "$mismatched_replay_status" = 400
+
 replay_body="$(jq -cn --arg source "$session_id" '{name:"再放送",description:"",order:0,instructorIds:[],resources:[],replayOfSessionIds:[$source],status:"published",expectedRevision:0}')"
 request POST "/lectures/$lecture_id/sessions" "$replay_body" "$work_dir/replay.json"
 replay_id="$(jq -r .id "$work_dir/replay.json")"
@@ -87,6 +94,7 @@ jq -e '.progressPercent == 100 and .completedItemCount == 1' "$work_dir/roadmap.
 
 request GET "/profiles/$traq_id" '' "$work_dir/profile.json"
 jq -e --arg lecture "$lecture_id" 'any(.badges[]; .lectureId == $lecture)' "$work_dir/profile.json" >/dev/null
+jq -e --arg lecture "$lecture_id" --arg session "$session_id" 'any(.completions[]; .lectureId == $lecture and .sessionId == $session and .roundNumber == 1)' "$work_dir/profile.json" >/dev/null
 jq -e --arg roadmap "$roadmap_id" 'any(.roadmaps[]; .id == $roadmap and .progressPercent == 100)' "$work_dir/profile.json" >/dev/null
 
 request GET "/history/lecture/$lecture_id" '' "$work_dir/history.json"

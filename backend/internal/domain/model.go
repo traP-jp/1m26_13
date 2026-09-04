@@ -71,8 +71,9 @@ type Roadmap struct {
 	CreatedAt, UpdatedAt             time.Time
 }
 type Completion struct {
-	UserID, SessionID string
-	CompletedAt       time.Time
+	UserID, SessionID, LectureID string
+	RoundNumber                  int
+	CompletedAt                  time.Time
 }
 type AttributeUpdateEvent struct {
 	ID, EntityType, EntityID, AttributePath string

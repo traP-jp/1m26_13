@@ -152,9 +152,7 @@ onMounted(load);
                 :aria-pressed="badge.lectureId === selectedBadgeId"
                 @click="selectedBadgeId = badge.lectureId"
               >
-                <span class="badge-mark"
-                  ><BadgeAlpha :lecture-id="badge.lectureId" :lecture-name="badge.lectureName"
-                /></span>
+                <span class="badge-mark"><BadgeAlpha :lecture-name="badge.lectureName" /></span>
                 <span class="badge-tile-copy">
                   <strong>{{ badge.lectureName }}</strong>
                   <small
@@ -176,10 +174,7 @@ onMounted(load);
               </div></template
             >
             <div class="badge-detail-mark">
-              <BadgeAlpha
-                :lecture-id="selectedBadge.lectureId"
-                :lecture-name="selectedBadge.lectureName"
-              />
+              <BadgeAlpha :lecture-name="selectedBadge.lectureName" />
             </div>
             <div class="badge-detail-copy">
               <strong>{{ selectedBadge.lectureName }}</strong>
@@ -220,7 +215,7 @@ onMounted(load);
         <div v-if="!profile.completions.length" class="empty-state">完了した開催はありません。</div>
         <ul v-else class="completion-record-list">
           <li v-for="completion in profile.completions" :key="completion.sessionId">
-            <RouterLink :to="`/sessions/${completion.sessionId}`">
+            <RouterLink :to="`/lectures/${completion.lectureId}#${completion.roundNumber}`">
               <span class="completion-record-copy"
                 ><strong>開催の完了記録</strong
                 ><span>{{ formatDate(completion.completedAt) }}</span></span

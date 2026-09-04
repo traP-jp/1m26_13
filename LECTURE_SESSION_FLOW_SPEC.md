@@ -231,9 +231,9 @@ Discord #ctf-workshop / Qall
 replayOfSessionIds: string[]
 ```
 
-これにより、1つの Session の再放送だけでなく、複数の Session をまとめた再放送・総集編なども表現できる。
+`replayOfSessionIds`が1件以上あるSessionは再放送として扱う。初期実装では、元Sessionと同じLecture・同じ`order`を要求し、各Lecture・各`order`の通常Sessionは1件だけにする。再放送はLecture詳細の同じ回タブ内へ通常Sessionと並べて表示するが、受講完了操作は置かない。
 
-`replayOfSessionIds`が1件以上あるSessionは再放送として扱う。再放送はpublishedであればSessionを指定するURLから詳細を閲覧できるが、検索結果と通常のSession選択導線には表示せず、Lectureの受講完了操作も置かない。表示可否を流入元やRefererには依存させない。
+学習者向けのSession単独URLは設けない。Lecture詳細は`/lectures/<lectureId>#<round>`とし、fragmentの回番号を直接表示、再読込、ブラウザの戻る・進むで同期する。Session内部IDはAPIと運営編集だけで使う。
 
 例:
 
@@ -696,6 +696,8 @@ Flowは物理削除しない。途中のFlowは`active`、完了操作後は`com
 type SessionCompletion = {
   userId: string
   sessionId: string
+  lectureId: string
+  roundNumber: number
   completedAt: Date
 }
 ```

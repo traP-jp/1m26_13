@@ -184,7 +184,7 @@ func (server server) GetProfile(ctx context.Context, request api.GetProfileReque
 	profile := api.Profile{User: api.DirectoryUser{Id: user.ID, TraqId: user.Name, DisplayName: user.DisplayName},
 		Completions: make([]api.SessionCompletion, 0, len(completions)), Badges: make([]api.Badge, 0, len(completedLectures)), Roadmaps: make([]api.Roadmap, 0, len(roadmaps))}
 	for _, completion := range completions {
-		profile.Completions = append(profile.Completions, api.SessionCompletion{UserId: completion.UserID, SessionId: completion.SessionID, CompletedAt: completion.CompletedAt})
+		profile.Completions = append(profile.Completions, api.SessionCompletion{UserId: completion.UserID, SessionId: completion.SessionID, LectureId: completion.LectureID, RoundNumber: completion.RoundNumber, CompletedAt: completion.CompletedAt})
 	}
 	for lectureID, earnedAt := range completedLectures {
 		lecture, err := server.repository.GetLecture(ctx, lectureID, user.ID, true)

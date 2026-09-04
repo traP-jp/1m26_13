@@ -37,7 +37,7 @@ traP内で行われる講習会を一度きりの催しにせず、学習内容�
 - Sessionは自由な名前と明示的な`order`を持つ。名前、日時の重複を許容する。
 - Sessionは`draft`または`published`。Lectureの公開可否はpublished Sessionが1件以上あるかで導出する。
 - Resourceは`title?`と`url`を持ち、LectureとSessionが独立して保持する。自動継承しない。
-- 再放送は別Sessionとし、複数の元Sessionを`replayOfSessionIds`で参照できる。複製後の入力値は独立して編集する。
+- 再放送は別Sessionとし、同じLecture・同じ`order`の通常Sessionを`replayOfSessionIds`で参照する。複製後の入力値は独立して編集する。
 - LectureRelationは`prerequisite`、`previous_year`、`recommended_next`を片方向に保存する。
 - 場所はオンライン・オフラインを構造化せず`location`へ自由記述する。
 - knoQはイベントURLだけを保持し、同期しない。
@@ -68,7 +68,7 @@ traP内で行われる講習会を一度きりの催しにせず、学習内容�
 - 学年度と分野を絞り込み候補とする。旧「班」絞り込みは新モデルの運営グループまたは分野へ意味を分解する。
 - Lectureとロードマップは発見の二本柱である。一つの検索結果へ統合するか、明確な別入口にするかは画面設計で比較する。
 - 非公開Lectureを学習者の検索・ホーム・ロードマップへ表示しない。
-- 再放送Sessionは検索結果と通常のSession選択導線へ出さない。publishedな再放送Sessionは、そのSessionを指定するURLからだけ詳細を表示できる。流入元やRefererでは判定しない。
+- Session単独の学習者URLは設けない。Lecture詳細を`/lectures/<lectureId>#<round>`とし、同じ`order`の通常Sessionと再放送Sessionを同じ回タブに表示する。fragmentは直接表示、再読込、ブラウザの戻る・進むと同期する。
 - 0件、該当多数、失敗時から条件変更または別の探し方へ進める必要がある。
 
 ## Lecture・Sessionの登録と閲覧
@@ -85,12 +85,12 @@ traP内で行われる講習会を一度きりの催しにせず、学習内容�
 ## 完了・バッジ・プロフィール
 
 - 完了はSession単位の本人による自己申告で、参加と自習を同じ完了として扱う。
-- 通常Sessionの詳細からそのSessionの完了を記録できる。`replayOfSessionIds`が1件以上ある再放送Sessionには完了操作を置かず、完了記録を作らない。
+- Lecture詳細の各回から通常Sessionの完了を記録できる。`replayOfSessionIds`が1件以上ある再放送Sessionには完了操作を置かず、完了記録を作らない。
 - 完了前の確認画面は必須にせず、本人が取り消せる。取消履歴は保持しない。
 - 運営による一括完了と外部情報連携は初期範囲に含めない。
 - 同じ利用者・同じSessionの有効な完了は1件にまとめる。年度が異なるLectureに属するSessionは別の完了として扱う。
 - Lecture相当の完了は、その時点でpublishedな通常Sessionを1件以上持ち、そのすべてを完了した状態とする。後から通常Sessionを追加・公開すれば未完了へ戻り、すべてを完了すると再び完了する。バッジとロードマップ項目はこの条件から導出し、別状態として保存しない。
-- 講習会バッジは`BADGE_ALPHA_SPEC.md`のソリッド幾何学紋章を採用する。図形は`badge-alpha-v1:${lectureId}`から決定論的に生成し、同名Lectureの区別と改名後の安定性を保つ。
+- 講習会バッジは`BADGE_ALPHA_SPEC.md`のソリッド幾何学紋章を採用する。図形は`badge-alpha-v1:${lectureName}`から決定論的に生成し、同名Lectureは年度や内部IDが異なっても同じ図形にする。
 - バッジ詳細ではLecture名と対応Lectureへの導線を示す。獲得日は必要な通常Sessionの完了日時のうち最後の日時とする。
 - プロフィールは本人と他の部員へ同じ初期情報を表示し、記録ごとの公開範囲は設けない。
 - 完了数は表示できる。順位と学習時間は表示しない。
@@ -135,7 +135,7 @@ traP内で行われる講習会を一度きりの催しにせず、学習内容�
 - Go 1.26.4、Echo v4、oapi-codegen strict server
 - Vue 3.5、Vue Router、Pinia、openapi-fetch、BasiQ UI
 - MariaDB 11.8系、埋め込みmigration、`NS_MARIADB_*`接続設定
-- UUIDを全entityの不変IDとして使う
+- Lecture / SessionはMariaDBのAUTO_INCREMENT BIGINTを内部IDとして使い、APIでは10進文字列で表す。その他のentityはUUIDを使う
 - 更新対象は整数revisionによる楽観ロックを行う
 - 検索条件はURL queryへ保持し、複数キーワードはAND、年度はLectureの開始・終了年度との重なりで判定する
 

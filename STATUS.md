@@ -1,7 +1,7 @@
 # Status
 
 更新日: 2026-09-05
-フェーズ: Lecture / Sessionの連番IDとLecture詳細統合を実装中。
+フェーズ: Lecture / Sessionの連番ID、Lecture詳細統合、Flowタブの実体化を完了。
 
 ## 現在地
 
@@ -15,7 +15,7 @@
 
 `references/ui-canonical/screens.json`の固定commitを視覚的正本として、本番のAPI、router、認証、永続化、入力、エラー処理を保ったまま表示層を再統合している。共通シェルは正本の248pxサイドバー、82pxブランド領域、50pxナビ行、運営カード、58pxモバイルヘッダーへ合わせた。
 ホーム／探索は正本のフィルター、件数見出し、3列カードを維持し、ロードマップ一覧も同じカード構造とレスポンシブ列へ統一した。390×844と1440×900の両方で横overflowがないことを実寸計測した。
-Lecture／Session詳細は正本の最大1160px、左右40px余白、本文＋310px補助欄の配置へ合わせた。モバイルでは左右16px、補助欄と本文を縦に並べ、通常Sessionの完了操作と再放送の非表示条件を維持している。
+Lecture詳細は正本の最大1160px、左右40px余白、本文＋310px補助欄の配置へ合わせた。モバイルでは左右16px、補助欄と本文を縦に並べる。Session詳細はLectureへ統合し、同じ`order`の通常開催と再放送を同じ回タブへ表示する。
 Roadmap詳細は正本の42px左右余白、進捗＋現在地、学習順＋318px共有欄へ合わせ、完了済み項目間の接続線とメタ情報の区切りも復元した。390×844では進捗、現在地、学習順、共有欄の順に縦積みする。
 Profileは固定commit内で欠落していたprototype pathを同commitの実画面とCSSで補い、学習統計、独立した3タブ、2列バッジ一覧＋詳細欄、完了Session一覧、Roadmap進捗一覧を復元した。badge alphaの決定論的SVGは一覧と詳細の両方で使う。
 運営ホームは正本の最大1160px、最近編集した講習会の4列一覧、検索付きRoadmap管理へ合わせた。モバイルでは左右16pxと一覧の縦積みを適用し、公開・下書きの表記も統一した。
@@ -27,12 +27,12 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 - NeoShowcase `X-Forwarded-User`認証、開発用`DEV_USER`、traQ User/Groupのbackend cache。
 - Lecture/Sessionの登録・編集・公開、Resource、講師、運営、問い合わせ、分野、関係。
 - 公開Lectureのキーワード・年度・分野検索。検索条件はURL queryへ保持する。
-- 再放送を別Sessionとして保持し、通常検索・Lecture内選択・完了操作から除外。publishedな直接URLだけ表示する。
+- 再放送を別Sessionとして保持し、同じ`order`の通常開催とLecture詳細の同じ回に表示する。再放送には完了操作を置かない。
 - Session単位の自己申告完了。公開中の通常Session全件からLecture完了、badge alpha、Roadmap進捗を導出する。
 - StockのFlowClassと適用時スナップショットFlow。`lecture_pre`、`session_main`、`lecture_post`、formatVersion 1、安定task key、途中保存・再開・完了を実装した。
 - 段階名・説明と順序付きLectureを持つ一本道Roadmap。公開条件、次のLecture、進捗を実装した。
 - プロフィールのbadge、完了Session、Roadmapの3タブ。矢印/Home/End操作に対応した。
-- `badge-alpha-v1:${lectureId}`による決定論的なソリッド幾何学SVGとモーション低減。
+- `badge-alpha-v1:${lectureName}`による決定論的なソリッド幾何学SVGとモーション低減。同名Lectureは年度や内部IDが異なっても同じ図形になる。
 - Lecture、Session、FlowClass、Flow、Roadmapの削除API・画面は実装していない。
 - BasiQ UI beta.3のCard、Tabs、FormField、Input、Textarea、Switch、Checkboxを使い、確定した画面設計を全導線へ反映した。
 - デスクトップは固定サイドバー、モバイルは上部ヘッダーと下部ナビゲーションを共通化した。画面設計の削除操作だけは、確定済み製品仕様に従って除外した。
@@ -43,6 +43,9 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 ## 最終検証
 
 - Lecture / Sessionの連番化後、隔離した空のMariaDB 11.8へmigrationを適用し、Lecture ID `1`→`2`、Session ID `1`→`2`の自動採番、通常開催と再放送の同一order、公開Lectureへの両Session返却、再放送完了拒否をAPIスモークで確認した。バックエンド再起動後もmigration成功とデータ保持を確認した。
+- Lecture詳細を実ブラウザで確認し、第1回に通常開催と再放送が同時表示されること、第2回タブでURLが`#2`になり、戻る・進む・再読込後も選択回とURLが同期することを確認した。完了操作後も`#2`、選択回、`scrollY`を維持した。1280pxと390×844で横overflow 0、console warning/error 0件だった。
+- 学習者向け`/sessions/1`は404へ解決する。講習会編集はLecture / Sessionの連番が衝突する場合もFlow IDで重複排除し、横タブ1つにFlow 1つ、その内容にFlow本文・進捗・入力・task・完了操作が直接表示されることを実ブラウザで確認した。
+- badge alphaのseedをLecture名へ変更し、同名なら同じSVG、異なる名前なら異なるSVGになるテストを追加した。固定済みの生成アルゴリズムは変更していない。
 
 - frontend: API型生成check、oxfmt、oxlint、ESLint、stylelint、Vue型検査、Vitest 6/6、Vite build成功。
 - backend: gofmt差分0、go vet、全Go test、全package build成功。
@@ -82,4 +85,4 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 
 ## 次のチェックポイント
 
-正本インデックス8画面の本番表示層への再統合は完了した。ローカル確認環境を維持し、最終のfrontend/backend回帰と作業ツリー確認を行う。
+ローカル確認環境を使って内部試用を行い、実利用で見つかった仕様差だけを次の判断として記録する。

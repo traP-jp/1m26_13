@@ -16,7 +16,7 @@
 
 ## 解決したP1
 
-- IDは環境間で保持するUUIDとし、バッジseedを`badge-alpha-v1:${lectureId}`へ固定した。
+- Lecture / Sessionの内部IDはAUTO_INCREMENT BIGINT、API表現は10進文字列とした。その他のentityはUUIDを維持し、バッジseedは`badge-alpha-v1:${lectureName}`へ固定した。
 - FlowはLecture用FKとSession用FKを別カラムに持ち、FlowClass typeに応じて片方だけを設定する。
 - 再放送元は同じLectureの通常Sessionだけに限定し、自己参照、重複、replayからreplayを拒否する。
 - Sessionの`order`重複は許容し、同順位はIDで安定化する。日付は日付文字列として保持し、表示時刻は利用者環境へ委ねる。
@@ -33,7 +33,7 @@
 - 更新前後、actor、時刻、changeSetを属性単位で残し、履歴なしの上書きを避ける。
 - Flow本文とformatVersionを適用時にコピーし、Stockの更新から過去の実行を隔離する。
 - 主要entityを物理削除しないため、参照と履歴を失わない。
-- 再放送の「URLだけで表示」はアクセス制御ではなく、認証済み部員向けの発見制御として実装する。
+- 学習者向けSession単独URLは設けず、再放送はLecture詳細の同じ回タブ内へ通常Sessionと並べる。
 
 ## 意図的に初期範囲外へ送るもの
 

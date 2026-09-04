@@ -338,10 +338,12 @@ components:
             updatedAt: { type: string, format: date-time }
     SessionCompletion:
       type: object
-      required: [userId, sessionId, completedAt]
+      required: [userId, sessionId, lectureId, roundNumber, completedAt]
       properties:
         userId: { type: string }
         sessionId: { $ref: "#/components/schemas/SessionId" }
+        lectureId: { $ref: "#/components/schemas/LectureId" }
+        roundNumber: { type: integer, minimum: 1 }
         completedAt: { type: string, format: date-time }
     FlowType: { type: string, enum: [lecture_pre, session_main, lecture_post] }
     FlowClassWrite:

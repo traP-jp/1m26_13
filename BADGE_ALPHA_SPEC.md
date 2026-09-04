@@ -25,7 +25,7 @@ type BadgeAlphaInput = {
 };
 ```
 
-- 図形を決めるseedは`badge-alpha-v1:${lectureId}`とする。
+- 図形を決めるseedは`badge-alpha-v1:${lectureName}`とする。同じ講習会名なら年度や内部IDが異なっても同じ図形になる。
 - `lectureName`は表示名として使い、図形のseedには使わない。同名Lectureを許容し、Lecture名を変更しても獲得済みバッジの外観を変えないためである。
 - 同じ`lectureId`と生成器バージョンからは、端末、再読込、表示場所にかかわらず同じSVGを生成する。
 - ハッシュ値は乱数初期化の内部値であり、本人確認、署名、権限判定には使わない。
