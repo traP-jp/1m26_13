@@ -492,11 +492,7 @@ onMounted(load);
       ><span>{{ isNew ? "講習会を作成" : "講習会を編集" }}</span>
     </div>
     <header class="editor-header">
-      <div>
-        <p class="eyebrow">LECTURE EDITOR</p>
-        <h1>{{ isNew ? "講習会を作成" : "講習会を編集" }}</h1>
-        <p>横タブ1つが、適用されたFlow 1つに対応します。</p>
-      </div>
+      <h1>{{ isNew ? "講習会を作成" : "講習会を編集" }}</h1>
       <div v-if="current" class="header-actions">
         <span :class="['derived-status', { published: current.isPublished }]">
           <span></span>{{ current.isPublished ? "公開対象" : "非公開" }}
@@ -573,23 +569,6 @@ onMounted(load);
       </BasiqCard>
 
       <template v-else>
-        <section class="model-guide" aria-label="Flowの並び">
-          <div>
-            <span class="model-label">PRE</span><strong>講習会の事前</strong
-            ><small>Lectureに適用</small>
-          </div>
-          <AppIcon name="chevron" :size="18" />
-          <div>
-            <span class="model-label">MAIN</span><strong>各開催</strong
-            ><small>Sessionごとに適用</small>
-          </div>
-          <AppIcon name="chevron" :size="18" />
-          <div>
-            <span class="model-label post">POST</span><strong>講習会の事後</strong
-            ><small>Lectureに適用</small>
-          </div>
-        </section>
-
         <BasiqTabs
           :model-value="activeTab"
           class="editor-tabs"
@@ -598,6 +577,13 @@ onMounted(load);
           list-width="100%"
           @update:model-value="selectEditorTab"
         >
+          <template #trigger="{ item: triggerItem }">
+            <span v-if="triggerItem.value === 'add-session'" class="add-tab-control">
+              <AppIcon name="plus" :size="16" />
+              <span class="add-tab-text">開催を追加</span>
+            </span>
+            <template v-else>{{ triggerItem.label }}</template>
+          </template>
           <template #content="{ item }">
             <div v-for="tab in [editorTab(item.value)]" :key="tab.value">
               <div class="tab-content">
@@ -1092,6 +1078,7 @@ onMounted(load);
 /* stylelint-disable no-descending-specificity */
 .lecture-editor-page {
   width: min(1160px, 100%);
+  padding: 30px 36px 96px;
 }
 
 .editor-header {
@@ -1105,11 +1092,6 @@ onMounted(load);
 .editor-header h1 {
   font-size: 30px;
   letter-spacing: -0.025em;
-}
-
-.editor-header > div:first-child > p:last-child {
-  margin-top: 4px;
-  color: var(--basiq-color-content-subtle);
 }
 
 .header-actions,
@@ -1161,61 +1143,33 @@ onMounted(load);
   margin: 36px auto;
 }
 
-.model-guide {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr auto 1fr;
+.editor-tabs :deep([role="tabpanel"]) {
+  background: var(--basiq-color-surface-base);
+}
+
+.add-tab-control {
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-  padding: 10px 14px;
-  border: 1px solid var(--basiq-color-border-separator);
-  border-radius: var(--basiq-radius-sm);
-  background: var(--basiq-color-surface-container);
-}
-
-.model-guide > div {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0 9px;
-}
-
-.model-guide strong {
-  font-size: 12px;
-}
-
-.model-guide small {
-  grid-column: 2;
-  color: var(--basiq-color-content-subtle);
-  font-size: 10px;
-}
-
-.model-label {
-  grid-row: 1/3;
-  align-self: center;
-  padding: 3px 7px;
-  border-radius: 999px;
+  gap: 6px;
   color: var(--basiq-color-content-accent);
-  background: var(--app-accent-soft);
-  font-size: 9px;
-  font-weight: 800;
-}
-
-.model-label.post {
-  color: var(--app-success);
-  background: var(--app-success-soft);
+  font-weight: 700;
 }
 
 .tab-content {
-  min-height: 620px;
+  min-height: 680px;
   padding-top: 20px;
 }
 
 .lecture-form,
-.session-form,
-.flow-tab-panel {
-  width: min(940px, 100%);
+.session-form {
+  width: min(900px, 100%);
   display: grid;
   gap: 16px;
+  margin: 0 auto;
+}
+
+.flow-tab-panel {
+  width: min(800px, 100%);
   margin: 0 auto;
 }
 
@@ -1562,6 +1516,10 @@ onMounted(load);
 }
 
 @media (width <= 760px) {
+  .lecture-editor-page {
+    padding: 18px 16px 122px;
+  }
+
   .editor-header,
   .flow-tab-header,
   .card-heading,
@@ -1569,15 +1527,6 @@ onMounted(load);
   .sticky-actions {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .model-guide {
-    grid-template-columns: 1fr;
-  }
-
-  .model-guide > svg {
-    transform: rotate(90deg);
-    justify-self: center;
   }
 
   .field-grid,
@@ -1604,6 +1553,21 @@ onMounted(load);
 
   .editor-header h1 {
     font-size: 23px;
+  }
+}
+
+@media (width <= 390px) {
+  .lecture-editor-page {
+    padding-inline: 14px;
+  }
+
+  .add-tab-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }
 </style>
