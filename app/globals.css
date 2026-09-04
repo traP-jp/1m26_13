@@ -77,6 +77,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-
   display: block;
   flex: 0 0 auto;
   border-radius: var(--basiq-radius-sm);
+  color: var(--basiq-color-accent-default);
 }
 .brand strong { display: block; font-size: .95rem; }
 .brand small { display: block; color: var(--basiq-color-content-subtle); font-size: .75rem; }

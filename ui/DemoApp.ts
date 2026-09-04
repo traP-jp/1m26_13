@@ -774,7 +774,11 @@ export default defineComponent({
       <div class="app-shell">
         <aside class="sidebar">
           <a class="brand" href="#/" aria-label="LeQtures ホーム">
-            <img class="brand-mark" src="/favicon.svg" alt="" />
+            <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="1" y="1" width="22" height="22" rx="5" fill="currentColor" />
+              <circle cx="11.5" cy="11" r="5" fill="none" stroke="white" stroke-width="2.5" />
+              <path d="M15 14.5 19 18.5" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" />
+            </svg>
             <span><strong>LeQtures</strong><small>traP 講習会</small></span>
           </a>
           <nav aria-label="メインナビゲーション">
@@ -798,7 +802,7 @@ export default defineComponent({
 
         <div class="workspace">
           <header class="mobile-header">
-            <a class="mobile-brand" href="#/" aria-label="LeQtures ホーム"><img class="brand-mark" src="/favicon.svg" alt="" /><strong>LeQtures</strong></a>
+            <a class="mobile-brand" href="#/" aria-label="LeQtures ホーム"><svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="5" fill="currentColor" /><circle cx="11.5" cy="11" r="5" fill="none" stroke="white" stroke-width="2.5" /><path d="M15 14.5 19 18.5" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" /></svg><strong>LeQtures</strong></a>
           </header>
           <nav class="mobile-nav" aria-label="モバイルナビゲーション">
             <a :class="{ active: route.name === 'home' }" :aria-current="route.name === 'home' ? 'page' : undefined" href="#/"><BasiqIcon class="mobile-nav-icon" :icon="HomeIcon" /><small>ホーム</small></a>
