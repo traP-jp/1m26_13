@@ -4,9 +4,11 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import {
+  getDirectory,
   listFields,
   listLectures,
   listRoadmaps,
+  type Directory,
   type Field,
   type Lecture,
   type Roadmap,
@@ -21,6 +23,7 @@ const fieldId = ref(String(route.query.field ?? ""));
 const lectures = ref<Lecture[]>([]);
 const roadmaps = ref<Roadmap[]>([]);
 const fields = ref<Field[]>([]);
+const directory = ref<Directory>({ users: [], groups: [] });
 const loading = ref(true);
 const error = ref("");
 
@@ -38,12 +41,23 @@ function academicYear(lecture: Lecture) {
     : `${lecture.academicYearStart}–${lecture.academicYearEnd}年度`;
 }
 
+function sessionCountLabel(lecture: Lecture) {
+  const count = lecture.sessions.filter((session) => !session.isReplay).length;
+  if (count === 0) return "開催準備中";
+  return count === 1 ? "1回完結" : `全${count}回`;
+}
+
+function organizerLabel(lecture: Lecture) {
+  const group = directory.value.groups.find((item) => lecture.organizerGroupIds.includes(item.id));
+  return group?.name ?? "運営未設定";
+}
+
 async function load() {
   loading.value = true;
   error.value = "";
   try {
     const queryYear = Number(year.value);
-    [lectures.value, roadmaps.value, fields.value] = await Promise.all([
+    [lectures.value, roadmaps.value, fields.value, directory.value] = await Promise.all([
       listLectures({
         q: q.value || undefined,
         year: Number.isFinite(queryYear) && queryYear > 0 ? queryYear : undefined,
@@ -51,6 +65,7 @@ async function load() {
       }),
       listRoadmaps(),
       listFields(),
+      getDirectory(),
     ]);
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : "読み込めませんでした";
@@ -149,14 +164,14 @@ onMounted(load);
             <RouterLink :to="`/lectures/${lecture.id}`" class="card-link">
               <BasiqCard class="discovery-card">
                 <article class="discovery-card-content">
-                  <div class="card-tags"><span v-if="lecture.isIntroductory">初心者向け</span></div>
                   <h3>{{ lecture.name }}</h3>
                   <div class="card-description">
                     <p>{{ lecture.description || "説明はまだありません。" }}</p>
                     <AppIcon name="chevron" :size="19" />
                   </div>
                   <p class="card-meta">
-                    {{ lecture.sessions.length }}開催 · {{ academicYear(lecture) }}
+                    {{ sessionCountLabel(lecture) }} · {{ organizerLabel(lecture) }} ·
+                    {{ academicYear(lecture) }}
                   </p>
                 </article>
               </BasiqCard>
@@ -369,17 +384,6 @@ onMounted(load);
   min-height: 170px;
   display: flex;
   flex-direction: column;
-}
-
-.card-tags {
-  min-height: 18px;
-  margin-bottom: 4px;
-}
-
-.card-tags span {
-  color: var(--app-success);
-  font-size: 0.68rem;
-  font-weight: 700;
 }
 
 .discovery-card-content h3 {

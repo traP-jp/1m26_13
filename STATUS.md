@@ -55,6 +55,7 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 - Lecture編集を正本の30px上余白、横幅1160px、横タブ、中央800pxの実行領域へ合わせた。各タブは引き続き1 Flowに対応し、適用済みFlowはタブ内runner、未適用枠は同じ位置のFlowClass選択を表示する。1440×900と390×844の両方で横overflow 0、開催タブへ切替後も別画面へ遷移しないことを確認した。
 - Roadmap編集は確定仕様の段階付き一本道を保ったまま、正本の最大1060pxと28/36/72pxのページ余白へ合わせた。タブレットは左右24px、390px幅では左右14pxと固定保存バーを適用し、1440×900と390×844で横overflow 0を確認した。
 - 正本8画面の再統合完了後、frontendのAPI型生成check、formatter、全lint、Vue型検査、Vitest 6/6、Vite buildとbackend全Go testを再実行して成功した。運営ホーム、Lecture編集、Roadmap編集は1440×900と390×844で横overflow 0、console warning/error 0件を確認した。
+- 追加目視レビューに従い、ホームの講習会カードから初心者ラベルを除去した。通常Sessionだけを数え、`1回完結`／`全N回`／`開催準備中`、運営班、年度の順で正本どおり表示する。
 
 ## 再現手順
 
