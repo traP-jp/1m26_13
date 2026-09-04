@@ -8,6 +8,9 @@ import {
   BasiqInput,
   BasiqRadioGroup,
   BasiqSwitch,
+  BasiqTabsList,
+  BasiqTabsRoot,
+  BasiqTabsTrigger,
   BasiqTag,
   BasiqTextarea,
   BasiqThemeProvider,
@@ -101,10 +104,10 @@ const TRAQ_DIRECTORY: TraqDirectoryCandidate[] = [
   { kind: "group", id: "f86db5ec-dc02-4885-aa0a-732bb229a1b5", name: "SysAd", label: "SysAd", detail: "SysAd班" },
 ];
 
-const RELATION_SECTIONS: Array<{ kind: RelationKind; label: string; description: string }> = [
-  { kind: "previous", label: "昨年度までの対応する講習会", description: "同じ講習会の過去年度版をつなぎます" },
-  { kind: "prerequisite", label: "前提とする講習会", description: "先に受けてほしい講習会があれば登録します" },
-  { kind: "recommended", label: "次におすすめの講習会", description: "この講習会の次に受けやすいものを登録します" },
+const RELATION_SECTIONS: Array<{ kind: RelationKind; label: string }> = [
+  { kind: "previous", label: "昨年度までの対応する講習会" },
+  { kind: "prerequisite", label: "前提とする講習会" },
+  { kind: "recommended", label: "次におすすめの講習会" },
 ];
 
 const parseRoute = (hash: string): Route => {
@@ -173,6 +176,9 @@ export default defineComponent({
     BasiqInput,
     BasiqRadioGroup,
     BasiqSwitch,
+    BasiqTabsList,
+    BasiqTabsRoot,
+    BasiqTabsTrigger,
     BasiqTag,
     BasiqTextarea,
     BasiqThemeProvider,
@@ -342,11 +348,11 @@ export default defineComponent({
       const draft = editorDraft.value;
       const firstOccurrence = draft.occurrences[0];
       return [
-        { label: "基本情報", detail: "何を、誰に伝えるか", done: Boolean(draft.title && draft.summary && draft.audience) },
-        { label: "開催", detail: "回数、日時、形式", done: Boolean(firstOccurrence?.title && firstOccurrence?.date && firstOccurrence?.mode !== "undecided") },
-        { label: "参加・受講方法", detail: "準備、参加先、後からの受け方", done: Boolean(draft.preparation && draft.howToLearn && draft.contact) },
-        { label: "資料・動画", detail: "開催時と開催後に使うもの", done: hasLearningResource(draft) },
-        { label: "告知・公開", detail: "文章を生成して公開", done: false },
+        { label: "基本情報", done: Boolean(draft.title && draft.summary && draft.audience) },
+        { label: "", done: Boolean(firstOccurrence?.title && firstOccurrence?.date && firstOccurrence?.mode !== "undecided") },
+        { label: "", done: Boolean(draft.preparation && draft.howToLearn && draft.contact) },
+        { label: "", done: hasLearningResource(draft) },
+        { label: "", done: false },
       ];
     });
 
@@ -1262,56 +1268,55 @@ export default defineComponent({
             </template>
 
             <template v-else-if="route.name === 'edit'">
-              <header class="editor-header"><div><button class="back-button" type="button" @click="navigate(editorDraft.status === 'public' ? '/workshops/' + editorDraft.id : '/drafts')">← {{ editorDraft.status === 'public' ? '講習会へ' : '下書きへ' }}</button><div class="heading-tags"><BasiqTag :label="editorDraft.status === 'draft' ? '下書き' : '公開中'" /><span>入力の目安 {{ editorProgress }}%</span></div><h1>{{ editorDraft.title || '名称未定の講習会' }}</h1><p v-if="sourceWorkshop">{{ sourceWorkshop.title }}を引き継いで作成中</p><p v-else-if="editorDraft.status === 'draft'">白紙から作成中</p></div><div class="header-actions"><BasiqButton type="button" tone="neutral" variant="outline" @click="saveDraft">{{ editorDraft.status === 'public' ? '変更を保存' : '下書きを保存' }}</BasiqButton><BasiqButton v-if="editorDraft.status === 'draft'" type="button" @click="publishDraft">今の内容で公開</BasiqButton></div></header>
-              <div class="publish-note">講習会名以外は未入力でも公開できます。公開後は全員が閲覧・編集でき、変更は履歴に残ります。</div>
+              <header class="editor-header"><div><button class="back-button" type="button" @click="navigate(editorDraft.status === 'public' ? '/workshops/' + editorDraft.id : '/drafts')">← {{ editorDraft.status === 'public' ? '講習会へ' : '下書きへ' }}</button><div class="heading-tags"><BasiqTag :label="editorDraft.status === 'draft' ? '下書き' : '公開中'" /></div><h1>{{ editorDraft.title || '名称未定の講習会' }}</h1></div><div class="header-actions"><BasiqButton type="button" tone="neutral" variant="outline" @click="saveDraft">{{ editorDraft.status === 'public' ? '変更を保存' : '下書きを保存' }}</BasiqButton><BasiqButton v-if="editorDraft.status === 'draft'" type="button" @click="publishDraft">今の内容で公開</BasiqButton></div></header>
+              <div class="editor-step-tabs-wrap">
+                <BasiqTabsRoot class="editor-step-tabs" :model-value="String(editorStep)" orientation="horizontal" @update:model-value="setEditorStep(Number($event))">
+                  <BasiqTabsList aria-label="Step" width="100%">
+                    <BasiqTabsTrigger v-for="(section, index) in editorSections" :key="index" :value="String(index)">
+                      <span>Step {{ index + 1 }}</span>
+                      <strong v-if="section.label">{{ section.label }}</strong>
+                    </BasiqTabsTrigger>
+                  </BasiqTabsList>
+                </BasiqTabsRoot>
+              </div>
               <div class="editor-layout">
                 <aside class="editor-navigation">
-                  <div class="editor-step-overview">
-                    <span>Step {{ editorStep + 1 }} / 5</span>
-                    <strong>{{ editorSections[editorStep].label }}</strong>
-                    <small>{{ editorSections[editorStep].detail }}</small>
-                  </div>
-                  <div class="editor-step-switcher" aria-label="作成ステップ">
-                    <button v-for="(section, index) in editorSections" :key="section.label" type="button" :class="{ active: editorStep === index, done: section.done }" :aria-label="'Step ' + (index + 1) + ' ' + section.label" :aria-current="editorStep === index ? 'step' : undefined" @click="setEditorStep(index)">{{ index + 1 }}</button>
-                  </div>
-                  <progress class="progress-line" :value="editorProgress" max="100" :aria-label="'入力の目安 ' + editorProgress + '%'">{{ editorProgress }}%</progress>
-                  <nav v-if="editorStep === 0" class="editor-toc" aria-label="Step 1 基本情報の目次">
-                    <p>このStepの項目</p>
-                    <button v-for="(section, index) in basicInfoSections" :key="section.id" type="button" :class="{ active: activeBasicInfoSection === section.id }" @click="scrollToEditorSection(section.id)">
-                      <span>{{ index + 1 }}</span>
-                      <strong>{{ section.label }}</strong>
-                      <em v-if="section.done" aria-label="入力済み">✓</em>
-                    </button>
+                  <nav class="editor-toc" aria-label="目次">
+                    <p>目次</p>
+                    <template v-if="editorStep === 0">
+                      <button v-for="(section, index) in basicInfoSections" :key="section.id" type="button" :class="{ active: activeBasicInfoSection === section.id }" @click="scrollToEditorSection(section.id)">
+                        <span>{{ index + 1 }}</span>
+                        <strong>{{ section.label }}</strong>
+                        <em v-if="section.done" aria-label="入力済み">✓</em>
+                      </button>
+                    </template>
                   </nav>
-                  <div v-else class="editor-toc-note"><strong>入力する内容</strong><p>{{ editorSections[editorStep].detail }}</p></div>
                 </aside>
                 <section class="editor-form">
                   <template v-if="editorStep === 0">
-                    <header><span>Step 1</span><h2>基本情報</h2><p>公開前に決まっている範囲だけ入力できます。必須なのは講習会名だけです。</p></header>
-
                     <section id="basic-name" class="editor-subsection">
-                      <div class="subsection-heading"><span>1</span><div><h3>講習会の名称を決めよう</h3><p>年度は次の項目で登録するため、名称だけを入力します。</p></div></div>
-                      <BasiqFormField class="full" label="講習会名" description="公開に必要です" required>
-                        <BasiqInput id="workshop-title" v-model="editorDraft.title" placeholder="例：Git講習会" />
+                      <div class="subsection-heading"><h3>① 講習会の名称を決めよう</h3></div>
+                      <BasiqFormField class="full" label="講習会名" required>
+                        <BasiqInput id="workshop-title" v-model="editorDraft.title" />
                       </BasiqFormField>
                     </section>
 
                     <section id="basic-overview" class="editor-subsection">
-                      <div class="subsection-heading"><span>2</span><div><h3>講習会の概要を決めよう</h3><p>参加前にも、開催後に資料を探すときにも使われます。</p></div></div>
+                      <div class="subsection-heading"><h3>② 講習会の概要を決めよう</h3></div>
                       <div class="form-grid">
-                        <BasiqFormField label="年度" description="年ではなく、4月始まりの年度です" control-id="workshop-year"><input id="workshop-year" v-model.number="editorDraft.year" type="number" min="2000" max="2100"></BasiqFormField>
-                        <BasiqFormField class="full" label="説明" description="この講習会は何について学べる講習会ですか？"><BasiqTextarea v-model="editorDraft.summary" :rows="4" placeholder="講習会の内容を簡潔に説明します" /></BasiqFormField>
+                        <BasiqFormField label="年度" description="年ではなく年度" control-id="workshop-year"><input id="workshop-year" v-model.number="editorDraft.year" type="number" min="2000" max="2100"></BasiqFormField>
+                        <BasiqFormField class="full" label="説明" description="この講習会は何について学べる講習会ですか？"><BasiqTextarea v-model="editorDraft.summary" :rows="4" /></BasiqFormField>
                       </div>
                     </section>
 
                     <section id="basic-operations" class="editor-subsection">
-                      <div class="subsection-heading"><span>3</span><div><h3>運営を決めよう</h3><p>運営元と、実際に担当するtraQユーザー・グループを分けて登録します。</p></div></div>
+                      <div class="subsection-heading"><h3>③ 運営を決めよう</h3></div>
                       <BasiqFormField class="full" label="運営元">
                         <BasiqRadioGroup v-model="editorDraft.team" class="compact-radio-group" name="organizer-source" orientation="horizontal" :items="organizerSources" />
                       </BasiqFormField>
-                      <BasiqFormField class="full" label="運営" description="traQ IDまたはtraQのユーザーグループを複数選べます">
+                      <BasiqFormField class="full" label="運営" description="traQ ID・グループから複数選択">
                         <div class="operator-picker">
-                          <BasiqInput v-model="operatorQuery" type="search" placeholder="@rurun、SysAd、git-lecture など" />
+                          <BasiqInput v-model="operatorQuery" type="search" placeholder="traQ ID・グループ" />
                           <div v-if="operatorQuery.trim()" class="suggestion-list" role="listbox" aria-label="運営候補">
                             <button v-for="candidate in operatorSuggestions" :key="candidate.kind + candidate.id" type="button" role="option" @click="addOperator(candidate)">
                               <img v-if="candidate.kind === 'user'" :src="operatorAvatar(candidate)" alt="">
@@ -1329,28 +1334,28 @@ export default defineComponent({
                     </section>
 
                     <section id="basic-target" class="editor-subsection">
-                      <div class="subsection-heading"><span>4</span><div><h3>対象を決めよう</h3><p>誰に向けた講習会か、文章と班の両方で表せます。</p></div></div>
+                      <div class="subsection-heading"><h3>④ 対象を決めよう</h3></div>
                       <div class="form-grid">
-                        <BasiqFormField class="full" label="対象者" description="例：プログラミング未経験者・初心者 / ゲームの作り方を学びたい人"><BasiqInput v-model="editorDraft.audience" placeholder="この講習会をおすすめしたい人" /></BasiqFormField>
+                        <BasiqFormField class="full" label="対象者" description="例：プログラミング未経験者・初心者 / ゲームの作り方を学びたい人"><BasiqInput v-model="editorDraft.audience" /></BasiqFormField>
                         <fieldset class="compact-checkbox-field">
-                          <legend>対象班</legend><p>複数選択できます</p>
+                          <legend>対象班</legend>
                           <div class="basiq-check-grid"><BasiqCheckbox v-for="(team, index) in trapTeams" :id="'target-team-' + index" :key="team" :model-value="editorDraft.targetTeams.includes(team)" name="target-teams" @update:model-value="setTargetTeam(team, $event)">{{ team }}</BasiqCheckbox></div>
                         </fieldset>
                       </div>
                     </section>
 
                     <section id="basic-attributes" class="editor-subsection">
-                      <div class="subsection-heading"><span>5</span><div><h3>属性を決めよう</h3><p>検索や講習会の整理に使う項目です。属性は今後追加できます。</p></div></div>
-                      <BasiqFormField class="full" label="0→1講習会ですか？" description="未経験の状態から、その分野の最初の一歩を踏み出すための講習会">
+                      <div class="subsection-heading"><h3>⑤ 属性を決めよう</h3></div>
+                      <BasiqFormField class="full" label="0→1講習会ですか？">
                         <BasiqRadioGroup v-model="zeroToOneValue" name="zero-to-one" orientation="horizontal" :items="[{ label: 'はい', value: 'true' }, { label: 'いいえ', value: 'false' }]" />
                       </BasiqFormField>
                     </section>
 
                     <section id="basic-relations" class="editor-subsection">
-                      <div class="subsection-heading"><span>6</span><div><h3>関連する講習会を登録しよう</h3><p>登録済みの講習会を選ぶか、まだ登録されていない名称を自由テキストで残せます。</p></div></div>
+                      <div class="subsection-heading"><h3>⑥ 関連する講習会を登録しよう</h3></div>
                       <div class="relation-editors">
                         <section v-for="relation in relationSections" :key="relation.kind" class="relation-editor">
-                          <header><h4>{{ relation.label }}</h4><p>{{ relation.description }}</p></header>
+                          <header><h4>{{ relation.label }}</h4></header>
                           <div class="relation-picker">
                             <BasiqInput :model-value="relationQuery[relation.kind]" type="search" placeholder="講習会名を入力" @update:model-value="setRelationQuery(relation.kind, $event)" />
                             <div v-if="relationQuery[relation.kind].trim()" class="suggestion-list relation-suggestions">
@@ -1369,7 +1374,6 @@ export default defineComponent({
                   <template v-else-if="editorStep === 2"><header><span>3 / 5</span><h2>参加する人・後から受講する人に何を伝えますか</h2><p>開催前後で同じ項目を同じ順番で表示します。</p></header><div class="form-grid"><BasiqFormField class="full" label="事前準備" description="必要なアプリ、アカウント、持ち物など"><BasiqTextarea v-model="editorDraft.preparation" :rows="4" /></BasiqFormField><BasiqFormField class="full" label="後から受講する方法" description="資料や動画をどの順番で使うか"><BasiqTextarea v-model="editorDraft.howToLearn" :rows="4" /></BasiqFormField><BasiqFormField class="full" label="質問・連絡先" description="traQチャンネルや担当者"><BasiqInput v-model="editorDraft.contact" placeholder="#event/workshop、@担当者 など" /></BasiqFormField></div></template>
                   <template v-else-if="editorStep === 3"><header><span>4 / 5</span><h2>資料・動画を登録します</h2><p>まだできていなければ空のまま進められます。開催後に追加しても同じ場所へ表示されます。</p></header><div v-if="sourceWorkshop" class="reference-resources"><strong>前年度の参考資料</strong><p>今回の資料としては登録されません。必要なら内容を確認して新しいURLを入力してください。</p><a v-for="resource in sourceWorkshop.resources.filter(resource => resource.url)" :key="resource.id" :href="resource.url" target="_blank" rel="noreferrer"><span>{{ typeLabel[resource.type] }}</span>{{ resource.title }} ↗</a></div><div class="form-grid"><BasiqFormField class="full" label="全開催で共通の資料URL"><BasiqInput v-model="materialUrl" type="url" placeholder="https://..." /></BasiqFormField><BasiqFormField class="full" label="全開催で共通の動画URL"><BasiqInput v-model="videoUrl" type="url" placeholder="https://..." /></BasiqFormField></div><div v-if="editorDraft.occurrences.length > 1" class="occurrence-resources"><h3>開催ごとの資料・動画</h3><p>回ごとに内容が違う場合だけ入力します。</p><details v-for="occurrence in editorDraft.occurrences" :key="occurrence.id"><summary>{{ occurrence.title }}</summary><div class="form-grid"><BasiqFormField label="資料URL"><BasiqInput :model-value="occurrenceResourceUrl(occurrence.id, 'material')" type="url" placeholder="https://..." @update:model-value="setOccurrenceResourceUrl(occurrence.id, 'material', $event)" /></BasiqFormField><BasiqFormField label="動画URL"><BasiqInput :model-value="occurrenceResourceUrl(occurrence.id, 'video')" type="url" placeholder="https://..." @update:model-value="setOccurrenceResourceUrl(occurrence.id, 'video', $event)" /></BasiqFormField></div></details></div></template>
                   <template v-else><header><span>5 / 5</span><h2>告知文を確認して公開します</h2><p>入力済みの情報を再利用します。knoQやtraQへの投稿は自動では行いません。</p></header><BasiqFormField class="collaborator-field" label="共同編集者" description="下書きを見られるtraQ IDを、読点で区切って入力します"><BasiqInput v-model="collaboratorText" placeholder="例：alice、bob" /></BasiqFormField><div class="notice-tabs" aria-label="生成する文章"><button type="button" :class="{ active: noticeKind === 'traq' }" :aria-pressed="noticeKind === 'traq'" @click="noticeKind = 'traq'">traQ告知文</button><button type="button" :class="{ active: noticeKind === 'knoq' }" :aria-pressed="noticeKind === 'knoq'" @click="noticeKind = 'knoq'">knoQ説明文</button></div><BasiqTextarea aria-label="生成された告知文" :model-value="activeNotice" :rows="12" readonly /><div class="notice-actions"><BasiqButton type="button" tone="neutral" variant="outline" @click="copyText(activeNotice, '告知文をコピーしました')">文章をコピー</BasiqButton><BasiqButton v-if="editorDraft.status === 'draft'" type="button" @click="publishDraft">今の内容で公開</BasiqButton><BasiqButton v-else type="button" @click="saveDraft">変更を保存</BasiqButton></div></template>
-                  <footer class="step-actions"><BasiqButton v-if="editorStep > 0" type="button" tone="neutral" variant="outline" @click="setEditorStep(editorStep - 1)">前へ</BasiqButton><span></span><BasiqButton v-if="editorStep < 4" type="button" @click="setEditorStep(editorStep + 1)">次へ</BasiqButton></footer>
                 </section>
               </div>
             </template>
