@@ -53,11 +53,10 @@ onMounted(load);
     </div>
     <template v-else-if="session">
       <div class="breadcrumb">
-        <RouterLink to="/">ホーム</RouterLink><b>/</b
-        ><RouterLink :to="`/lectures/${session.lectureId}`">{{
-          lecture?.name || "講習会"
-        }}</RouterLink
-        ><b>/</b><span>{{ session.name }}</span>
+        <RouterLink to="/">ホーム</RouterLink><AppIcon name="chevron" :size="14" /><RouterLink
+          :to="`/lectures/${session.lectureId}`"
+          >{{ lecture?.name || "講習会" }}</RouterLink
+        ><AppIcon name="chevron" :size="14" /><strong>{{ session.name }}</strong>
       </div>
       <header class="session-header">
         <div>
@@ -78,7 +77,7 @@ onMounted(load);
       <p v-if="notice" class="notice" role="status">{{ notice }}</p>
       <p v-if="error" class="notice error" role="alert">{{ error }}</p>
       <div class="detail-grid">
-        <main class="detail-main">
+        <div class="detail-main">
           <BasiqCard class="detail-card"
             ><template #header><h2>この開催について</h2></template>
             <p class="prose">{{ session.description || "説明はまだありません。" }}</p></BasiqCard
@@ -96,7 +95,7 @@ onMounted(load);
             </ul>
             <p v-else class="muted">登録された教材はありません。</p></BasiqCard
           >
-        </main>
+        </div>
         <aside class="detail-rail">
           <BasiqCard class="meta-card"
             ><template #header><h2>開催情報</h2></template>
@@ -148,7 +147,12 @@ onMounted(load);
 
 <style scoped>
 .session-page {
-  width: min(1060px, 100%);
+  width: min(1160px, calc(100% - 80px));
+  padding: 32px 0 72px;
+}
+
+.breadcrumb strong {
+  color: var(--basiq-color-content-default);
 }
 
 .session-header {
@@ -157,6 +161,8 @@ onMounted(load);
   justify-content: space-between;
   gap: 24px;
   margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--basiq-color-border-separator);
 }
 
 .session-header h1 {
@@ -181,9 +187,9 @@ onMounted(load);
 
 .detail-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.65fr);
+  grid-template-columns: minmax(0, 1fr) 310px;
   align-items: start;
-  gap: 16px;
+  gap: 40px;
 }
 
 .detail-main,
@@ -258,7 +264,24 @@ onMounted(load);
   width: 100%;
 }
 
+@media (width <= 980px) and (width >= 761px) {
+  .session-page {
+    width: calc(100% - 48px);
+  }
+
+  .detail-grid {
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 24px;
+  }
+}
+
 @media (width <= 760px) {
+  .session-page {
+    width: auto;
+    margin-inline: 16px;
+    padding: 24px 0 32px;
+  }
+
   .session-header {
     gap: 12px;
   }

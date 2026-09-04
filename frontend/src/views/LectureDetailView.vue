@@ -259,8 +259,8 @@ onMounted(load);
 <style scoped>
 /* stylelint-disable no-descending-specificity */
 .lecture-detail-page {
-  width: min(1160px, 100%);
-  padding-top: 32px;
+  width: min(1160px, calc(100% - 80px));
+  padding: 32px 0 72px;
 }
 
 .breadcrumb strong {
@@ -511,6 +511,10 @@ onMounted(load);
 }
 
 @media (width <= 980px) {
+  .lecture-detail-page {
+    width: calc(100% - 48px);
+  }
+
   .detail-grid {
     grid-template-columns: minmax(0, 1fr) 280px;
     gap: 24px;
@@ -519,7 +523,9 @@ onMounted(load);
 
 @media (width <= 760px) {
   .lecture-detail-page {
-    padding-top: 20px;
+    width: auto;
+    margin-inline: 16px;
+    padding: 24px 0 32px;
   }
 
   .lecture-heading {
