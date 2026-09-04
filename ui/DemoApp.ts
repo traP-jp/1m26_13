@@ -103,11 +103,13 @@ export default defineComponent({
     const activeTeam = ref("all");
     const showAllYears = ref(false);
     const randomWorkshopIds = ref<string[]>([]);
+    const detailReturnPath = ref("/search");
     const editorDraft = ref<Workshop>(makeBlankWorkshop());
     const editorStep = ref(0);
     const noticeKind = ref<"traq" | "knoq">("traq");
     const toast = ref("");
     let toastTimer: ReturnType<typeof setTimeout> | undefined;
+    let hasUpdatedRoute = false;
 
     const selectedWorkshop = computed(() => {
       const currentRoute = route.value;
@@ -151,7 +153,9 @@ export default defineComponent({
 
     const teamSummaries = computed(() => teams.value.map((name) => ({
       name,
-      count: latestPublicWorkshops.value.filter((workshop) => workshop.team === name).length,
+      count: new Set(workshops.value
+        .filter((workshop) => workshop.status === "public" && workshop.team === name)
+        .map((workshop) => workshop.lineageId)).size,
     })));
 
     const workshopLatestDate = (workshop: Workshop) => workshop.occurrences
@@ -462,8 +466,14 @@ export default defineComponent({
     }
 
     async function updateRoute() {
+      const previousRoute = route.value;
       const currentRoute = parseRoute(location.hash);
+      if (hasUpdatedRoute && currentRoute.name === "detail") {
+        if (previousRoute.name === "home") detailReturnPath.value = "/";
+        if (previousRoute.name === "search") detailReturnPath.value = "/search";
+      }
       route.value = currentRoute;
+      hasUpdatedRoute = true;
       if (currentRoute.name === "edit") {
         const existing = workshops.value.find((workshop) => workshop.id === currentRoute.id);
         if (existing) editorDraft.value = cloneWorkshop(existing);
@@ -476,6 +486,10 @@ export default defineComponent({
 
     function openWorkshop(id: string) {
       navigate(`/workshops/${encodeURIComponent(id)}`);
+    }
+
+    function returnFromDetail() {
+      navigate(detailReturnPath.value);
     }
 
     function persistWorkshops() {
@@ -698,6 +712,7 @@ export default defineComponent({
       relationLabel,
       removeOccurrence,
       resetDemo,
+      returnFromDetail,
       route,
       saveDraft,
       searchResults,
@@ -857,7 +872,7 @@ export default defineComponent({
             <template v-else-if="route.name === 'detail' && selectedWorkshop">
               <header class="page-header detail-heading">
                 <div>
-                  <button class="back-button" type="button" @click="navigate('/search')">← 講習会を探す</button>
+                  <button class="back-button" type="button" @click="returnFromDetail">← 戻る</button>
                   <div class="heading-tags"><BasiqTag :label="selectedWorkshop.year + '年度'" /><BasiqTag :label="selectedWorkshop.status === 'draft' ? '下書き' : '公開中'" /></div>
                   <h1>{{ selectedWorkshop.title || '名称未定の講習会' }}</h1>
                   <p>{{ selectedWorkshop.summary || '概要はまだ登録されていません。' }}</p>
