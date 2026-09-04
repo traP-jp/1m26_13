@@ -371,10 +371,6 @@ const ScenarioDetail = defineComponent({
         </div>
         <BasiqTabs v-model="selectedRound" :items="roundTabs" aria-label="シリーズの回" class="round-tabs">
           <template #content>
-            <div class="round-tab-summary" :class="{ done: activeRound.state === '完了' }">
-              <span class="round-status-icon"><AppIcon :name="activeRound.state === '完了' ? 'check' : 'record'" :size="18" /></span>
-              <span><strong>{{ activeRound.label }}</strong><small>{{ activeRound.state }}</small></span>
-            </div>
             <RoundDetails
               :scenario="scenario"
               :round="activeRound"
