@@ -443,11 +443,11 @@ const seedWorkshopRecords: WorkshopWithOptionalStepOneFields[] = [
     previousIds: [],
     occurrences: [
       { id: "algo25-1", title: "第1回", description: "開催記録（日時は出典で確認済み、その他の詳細は未確認）", date: "2025-05-12", time: "", mode: "undecided", place: "", instructor: "", relation: "sequence", status: "held", knoqUrl: "" },
-      { id: "algo25-2", title: "第2回", description: "開催回（日時・形式・個別内容は未確認）", date: "", time: "", mode: "undecided", place: "", instructor: "", relation: "sequence", status: "held", knoqUrl: "" },
-      { id: "algo25-3", title: "第3回", description: "開催回（日時・形式・個別内容は未確認）", date: "", time: "", mode: "undecided", place: "", instructor: "", relation: "sequence", status: "held", knoqUrl: "" },
-      { id: "algo25-4", title: "第4回", description: "開催回（日時・形式・個別内容は未確認）", date: "", time: "", mode: "undecided", place: "", instructor: "", relation: "sequence", status: "held", knoqUrl: "" },
-      { id: "algo25-5", title: "第5回", description: "開催回（日時・形式・個別内容は未確認）", date: "", time: "", mode: "undecided", place: "", instructor: "", relation: "sequence", status: "held", knoqUrl: "" },
-      { id: "algo25-6", title: "第6回", description: "開催回（日時・形式・個別内容は未確認）", date: "", time: "", mode: "undecided", place: "", instructor: "", relation: "sequence", status: "held", knoqUrl: "" },
+      { id: "algo25-2", title: "第2回", description: "開催枠（日時・形式・個別内容は未確認）", date: "", time: "", mode: "undecided", place: "", instructor: "", relation: "sequence", status: "held", knoqUrl: "" },
+      { id: "algo25-3", title: "第3回", description: "開催枠（日時・形式・個別内容は未確認）", date: "", time: "", mode: "undecided", place: "", instructor: "", relation: "sequence", status: "held", knoqUrl: "" },
+      { id: "algo25-4", title: "第4回", description: "開催枠（日時・形式・個別内容は未確認）", date: "", time: "", mode: "undecided", place: "", instructor: "", relation: "sequence", status: "held", knoqUrl: "" },
+      { id: "algo25-5", title: "第5回", description: "開催枠（日時・形式・個別内容は未確認）", date: "", time: "", mode: "undecided", place: "", instructor: "", relation: "sequence", status: "held", knoqUrl: "" },
+      { id: "algo25-6", title: "第6回", description: "開催枠（日時・形式・個別内容は未確認）", date: "", time: "", mode: "undecided", place: "", instructor: "", relation: "sequence", status: "held", knoqUrl: "" },
     ],
     resources: [
       { id: "algo25-record", type: "source", title: "第1回の開催記録（出典）", url: "https://wiki.trap.jp/teams/algorithm/events/2025/0512-アルゴリズム基礎講習会-1", note: "このデモでは第1回の出典のみ確認済み。資料・動画の有無は未確認です" },

@@ -87,7 +87,7 @@ async function getTraqDirectory(env: Env) {
           label: group.name as string,
           detail: typeof group.description === "string" && group.description.trim()
             ? group.description
-            : "traQグループ",
+            : "",
         })),
     ];
 
