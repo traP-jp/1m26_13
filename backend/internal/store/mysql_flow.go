@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/traP-jp/1m26_13/backend/internal/domain"
+	flowparser "github.com/traP-jp/1m26_13/backend/internal/flow"
 )
 
 const flowClassColumns = `id, name, flow_type, text, format_version, listed, revision, created_at, updated_at`
@@ -123,80 +124,18 @@ func (store *MySQL) UpdateFlowClass(ctx context.Context, flowClass domain.FlowCl
 	return store.GetFlowClass(ctx, flowClass.ID)
 }
 
-const flowColumns = `f.id, f.flow_class_id, COALESCE(f.lecture_id, f.session_id), fc.flow_type, f.text,
-	f.format_version, f.answers, f.tasks, f.current_page, f.status, f.revision, f.created_at, f.updated_at`
+const flowColumns = `f.id, f.flow_class_id, COALESCE(f.lecture_id, f.session_id), f.flow_type, f.text,
+	f.format_version, f.current_page, f.revision, f.created_at, f.updated_at`
 
 func scanFlow(row scanner) (domain.Flow, error) {
 	var flow domain.Flow
-	var answers, tasks []byte
 	err := row.Scan(&flow.ID, &flow.FlowClassID, &flow.TargetID, &flow.Type, &flow.Text, &flow.FormatVersion,
-		&answers, &tasks, &flow.CurrentPage, &flow.Status, &flow.Revision, &flow.CreatedAt, &flow.UpdatedAt)
-	if err != nil {
-		return domain.Flow{}, err
-	}
-	var decodeErr error
-	if flow.Answers, decodeErr = decodeJSON(answers, map[string]string{}); decodeErr != nil {
-		return domain.Flow{}, decodeErr
-	}
-	if flow.Tasks, decodeErr = decodeJSON(tasks, map[string]bool{}); decodeErr != nil {
-		return domain.Flow{}, decodeErr
-	}
-	return flow, nil
-}
-
-func flowProgressSnapshot(flow domain.Flow) map[string]any {
-	return map[string]any{
-		"answers": flow.Answers, "tasks": flow.Tasks,
-		"currentPage": flow.CurrentPage, "status": flow.Status,
-	}
-}
-
-func (store *MySQL) CreateFlow(ctx context.Context, flowClassID, targetID, actorID string) (domain.Flow, error) {
-	flowClass, err := store.GetFlowClass(ctx, flowClassID)
-	if err != nil {
-		return domain.Flow{}, err
-	}
-	var lectureID, sessionID any
-	if flowClass.Type == "session_main" {
-		if _, err := store.GetSession(ctx, targetID, actorID, true); err != nil {
-			return domain.Flow{}, err
-		}
-		sessionID = targetID
-	} else {
-		if _, err := store.GetLecture(ctx, targetID, actorID, true); err != nil {
-			return domain.Flow{}, err
-		}
-		lectureID = targetID
-	}
-	flow := domain.Flow{ID: newID(), FlowClassID: flowClassID, TargetID: targetID, Type: flowClass.Type,
-		Text: flowClass.Text, FormatVersion: flowClass.FormatVersion, Answers: map[string]string{}, Tasks: map[string]bool{},
-		CurrentPage: 0, Status: "active", Revision: 1, CreatedAt: store.now(), UpdatedAt: store.now()}
-	answers, _ := encodeJSON(flow.Answers)
-	tasks, _ := encodeJSON(flow.Tasks)
-	tx, err := store.db.BeginTx(ctx, nil)
-	if err != nil {
-		return domain.Flow{}, err
-	}
-	defer tx.Rollback()
-	_, err = tx.ExecContext(ctx, `INSERT INTO flows (id, flow_class_id, lecture_id, session_id, text, format_version,
-		answers, tasks, current_page, status, revision, created_by, updated_by, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, flow.ID, flow.FlowClassID, lectureID, sessionID,
-		flow.Text, flow.FormatVersion, answers, tasks, flow.CurrentPage, flow.Status, flow.Revision, actorID, actorID, flow.CreatedAt, flow.UpdatedAt)
-	if err != nil {
-		return domain.Flow{}, fmt.Errorf("create flow: %w", err)
-	}
-	if err := recordEvents(ctx, tx, "flow", flow.ID, actorID, map[string]any{}, map[string]any{
-		"flowClassId": flow.FlowClassID, "targetId": flow.TargetID, "text": flow.Text, "formatVersion": flow.FormatVersion}, flow.CreatedAt); err != nil {
-		return domain.Flow{}, err
-	}
-	if err := tx.Commit(); err != nil {
-		return domain.Flow{}, err
-	}
-	return store.GetFlow(ctx, flow.ID)
+		&flow.CurrentPage, &flow.Revision, &flow.CreatedAt, &flow.UpdatedAt)
+	return flow, err
 }
 
 func (store *MySQL) GetFlow(ctx context.Context, id string) (domain.Flow, error) {
-	flow, err := scanFlow(store.db.QueryRowContext(ctx, "SELECT "+flowColumns+" FROM flows f JOIN flow_classes fc ON fc.id=f.flow_class_id WHERE f.id=?", id))
+	flow, err := scanFlow(store.db.QueryRowContext(ctx, "SELECT "+flowColumns+" FROM flows f WHERE f.id=?", id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return domain.Flow{}, ErrNotFound
 	}
@@ -206,18 +145,16 @@ func (store *MySQL) GetFlow(ctx context.Context, id string) (domain.Flow, error)
 	return flow, nil
 }
 
-func (store *MySQL) ListFlows(ctx context.Context, targetID, status string) ([]domain.Flow, error) {
-	query := "SELECT " + flowColumns + " FROM flows f JOIN flow_classes fc ON fc.id=f.flow_class_id WHERE 1=1"
-	args := make([]any, 0, 2)
-	if targetID != "" {
-		query += " AND COALESCE(f.lecture_id, f.session_id)=?"
-		args = append(args, targetID)
+func (store *MySQL) ListFlows(ctx context.Context, targetType, targetID string) ([]domain.Flow, error) {
+	column := "f.lecture_id"
+	if targetType == "session" {
+		column = "f.session_id"
+	} else if targetType != "lecture" {
+		return nil, ErrInvalid
 	}
-	if status != "" {
-		query += " AND f.status=?"
-		args = append(args, status)
-	}
-	query += " ORDER BY f.updated_at DESC, f.id"
+	query := "SELECT " + flowColumns + " FROM flows f WHERE " + column + "=?"
+	args := []any{targetID}
+	query += " ORDER BY FIELD(f.flow_type, 'lecture_pre', 'session_main', 'lecture_post'), f.id"
 	rows, err := store.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list flows: %w", err)
@@ -234,40 +171,116 @@ func (store *MySQL) ListFlows(ctx context.Context, targetID, status string) ([]d
 	return flows, rows.Err()
 }
 
-func (store *MySQL) UpdateFlow(ctx context.Context, flow domain.Flow, expectedRevision int, actorID string) (domain.Flow, error) {
-	before, err := store.GetFlow(ctx, flow.ID)
-	if err != nil {
-		return domain.Flow{}, err
+func scanFlowForUpdate(ctx context.Context, tx *sql.Tx, id string) (domain.Flow, error) {
+	flow, err := scanFlow(tx.QueryRowContext(ctx, "SELECT "+flowColumns+" FROM flows f WHERE f.id=? FOR UPDATE", id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return domain.Flow{}, ErrNotFound
 	}
-	answers, err := encodeJSON(flow.Answers)
-	if err != nil {
-		return domain.Flow{}, err
-	}
-	tasks, err := encodeJSON(flow.Tasks)
-	if err != nil {
-		return domain.Flow{}, err
-	}
-	now := store.now()
+	return flow, err
+}
+
+func (store *MySQL) ReplaceFlowClass(ctx context.Context, flowID, flowClassID, actorID string) (domain.Flow, error) {
 	tx, err := store.db.BeginTx(ctx, nil)
 	if err != nil {
 		return domain.Flow{}, err
 	}
 	defer tx.Rollback()
-	result, err := tx.ExecContext(ctx, `UPDATE flows SET answers=?, tasks=?, current_page=?, status=?,
-		revision=revision+1, updated_by=?, updated_at=? WHERE id=? AND revision=?`, answers, tasks, flow.CurrentPage,
-		flow.Status, actorID, now, flow.ID, expectedRevision)
+	before, err := scanFlowForUpdate(ctx, tx, flowID)
 	if err != nil {
-		return domain.Flow{}, fmt.Errorf("update flow: %w", err)
+		return domain.Flow{}, err
 	}
-	affected, _ := result.RowsAffected()
-	if affected == 0 {
-		return domain.Flow{}, ErrConflict
+	var flowClass domain.FlowClass
+	err = tx.QueryRowContext(ctx, "SELECT "+flowClassColumns+" FROM flow_classes WHERE id=?", flowClassID).Scan(
+		&flowClass.ID, &flowClass.Name, &flowClass.Type, &flowClass.Text, &flowClass.FormatVersion,
+		&flowClass.Listed, &flowClass.Revision, &flowClass.CreatedAt, &flowClass.UpdatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return domain.Flow{}, ErrNotFound
 	}
-	if err := recordEvents(ctx, tx, "flow", flow.ID, actorID, flowProgressSnapshot(before), flowProgressSnapshot(flow), now); err != nil {
+	if err != nil {
+		return domain.Flow{}, err
+	}
+	if before.Type != flowClass.Type {
+		return domain.Flow{}, fmt.Errorf("%w: flow class type does not match target", ErrInvalid)
+	}
+	now := store.now()
+	_, err = tx.ExecContext(ctx, `UPDATE flows SET flow_class_id=?, text=?, format_version=?, current_page=0,
+		revision=revision+1, updated_by=?, updated_at=? WHERE id=?`, flowClass.ID, flowClass.Text,
+		flowClass.FormatVersion, actorID, now, flowID)
+	if err != nil {
+		return domain.Flow{}, err
+	}
+	after := before
+	after.FlowClassID, after.Text, after.FormatVersion, after.CurrentPage = flowClass.ID, flowClass.Text, flowClass.FormatVersion, 0
+	if err := recordEvents(ctx, tx, "flow", flowID, actorID,
+		map[string]any{"flowClassId": before.FlowClassID, "text": before.Text, "currentPage": before.CurrentPage},
+		map[string]any{"flowClassId": after.FlowClassID, "text": after.Text, "currentPage": after.CurrentPage}, now); err != nil {
 		return domain.Flow{}, err
 	}
 	if err := tx.Commit(); err != nil {
 		return domain.Flow{}, err
 	}
-	return store.GetFlow(ctx, flow.ID)
+	return store.GetFlow(ctx, flowID)
+}
+
+func (store *MySQL) PatchFlowCheck(ctx context.Context, flowID string, pageIndex, checkboxIndex int, checked bool, expectedText, actorID string) (domain.Flow, error) {
+	tx, err := store.db.BeginTx(ctx, nil)
+	if err != nil {
+		return domain.Flow{}, err
+	}
+	defer tx.Rollback()
+	before, err := scanFlowForUpdate(ctx, tx, flowID)
+	if err != nil {
+		return domain.Flow{}, err
+	}
+	nextText, err := flowparser.SetCheckbox(before.Text, before.Type, pageIndex, checkboxIndex, checked, expectedText)
+	if err != nil {
+		return domain.Flow{}, fmt.Errorf("%w: %v", ErrInvalid, err)
+	}
+	if nextText == before.Text {
+		return before, tx.Commit()
+	}
+	now := store.now()
+	_, err = tx.ExecContext(ctx, `UPDATE flows SET text=?, revision=revision+1, updated_by=?, updated_at=? WHERE id=?`, nextText, actorID, now, flowID)
+	if err != nil {
+		return domain.Flow{}, err
+	}
+	path := fmt.Sprintf("checks.%d.%d", pageIndex, checkboxIndex)
+	if err := recordEvents(ctx, tx, "flow", flowID, actorID, map[string]any{path: !checked}, map[string]any{path: checked}, now); err != nil {
+		return domain.Flow{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return domain.Flow{}, err
+	}
+	return store.GetFlow(ctx, flowID)
+}
+
+func (store *MySQL) UpdateFlowPage(ctx context.Context, flowID string, currentPage int, actorID string) (domain.Flow, error) {
+	tx, err := store.db.BeginTx(ctx, nil)
+	if err != nil {
+		return domain.Flow{}, err
+	}
+	defer tx.Rollback()
+	before, err := scanFlowForUpdate(ctx, tx, flowID)
+	if err != nil {
+		return domain.Flow{}, err
+	}
+	document, err := flowparser.Parse(before.Text, before.Type)
+	if err != nil || currentPage < 0 || currentPage >= document.PageCount {
+		return domain.Flow{}, fmt.Errorf("%w: current page is out of range", ErrInvalid)
+	}
+	if currentPage == before.CurrentPage {
+		return before, tx.Commit()
+	}
+	now := store.now()
+	_, err = tx.ExecContext(ctx, `UPDATE flows SET current_page=?, revision=revision+1, updated_by=?, updated_at=? WHERE id=?`, currentPage, actorID, now, flowID)
+	if err != nil {
+		return domain.Flow{}, err
+	}
+	if err := recordEvents(ctx, tx, "flow", flowID, actorID, map[string]any{"currentPage": before.CurrentPage}, map[string]any{"currentPage": currentPage}, now); err != nil {
+		return domain.Flow{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return domain.Flow{}, err
+	}
+	return store.GetFlow(ctx, flowID)
 }

@@ -2,13 +2,14 @@ import { apiClient } from "@/api/client";
 import type { components } from "@/api/schema";
 
 export type Lecture = components["schemas"]["Lecture"];
-export type LectureWrite = components["schemas"]["LectureWrite"];
+export type LectureCreate = components["schemas"]["LectureCreate"];
+export type LectureWorkspace = components["schemas"]["LectureWorkspace"];
+export type AttributePatch = components["schemas"]["AttributePatch"];
 export type Session = components["schemas"]["Session"];
-export type SessionWrite = components["schemas"]["SessionWrite"];
+export type SessionCreate = components["schemas"]["SessionCreate"];
 export type FlowClass = components["schemas"]["FlowClass"];
 export type FlowClassWrite = components["schemas"]["FlowClassWrite"];
 export type Flow = components["schemas"]["Flow"];
-export type FlowWrite = components["schemas"]["FlowWrite"];
 export type Roadmap = components["schemas"]["Roadmap"];
 export type RoadmapWrite = components["schemas"]["RoadmapWrite"];
 export type Profile = components["schemas"]["Profile"];
@@ -40,12 +41,18 @@ export async function getLecture(id: string, includeDraft = false) {
   });
   return result(response, data, "講習会を取得できませんでした");
 }
-export async function createLecture(body: LectureWrite) {
+export async function createLecture(body: LectureCreate) {
   const { data, response } = await apiClient.POST("/lectures", { body });
   return result(response, data, "講習会を保存できませんでした");
 }
-export async function updateLecture(id: string, body: LectureWrite) {
-  const { data, response } = await apiClient.PUT("/lectures/{lectureId}", {
+export async function getLectureWorkspace(id: string) {
+  const { data, response } = await apiClient.GET("/lectures/{lectureId}/workspace", {
+    params: { path: { lectureId: id } },
+  });
+  return result(response, data, "講習会編集情報を取得できませんでした");
+}
+export async function patchLectureAttribute(id: string, body: AttributePatch) {
+  const { data, response } = await apiClient.PATCH("/lectures/{lectureId}/attributes", {
     params: { path: { lectureId: id } },
     body,
   });
@@ -57,15 +64,15 @@ export async function getSession(id: string, includeDraft = false) {
   });
   return result(response, data, "開催を取得できませんでした");
 }
-export async function createSession(lectureId: string, body: SessionWrite) {
+export async function createSession(lectureId: string, body: SessionCreate) {
   const { data, response } = await apiClient.POST("/lectures/{lectureId}/sessions", {
     params: { path: { lectureId } },
     body,
   });
   return result(response, data, "開催を保存できませんでした");
 }
-export async function updateSession(id: string, body: SessionWrite) {
-  const { data, response } = await apiClient.PUT("/sessions/{sessionId}", {
+export async function patchSessionAttribute(id: string, body: AttributePatch) {
+  const { data, response } = await apiClient.PATCH("/sessions/{sessionId}/attributes", {
     params: { path: { sessionId: id } },
     body,
   });
@@ -96,11 +103,7 @@ export async function updateFlowClass(id: string, body: FlowClassWrite) {
   });
   return result(response, data, "FlowClassを更新できませんでした");
 }
-export async function applyFlow(flowClassId: string, targetId: string) {
-  const { data, response } = await apiClient.POST("/flows", { body: { flowClassId, targetId } });
-  return result(response, data, "Flowを適用できませんでした");
-}
-export async function listFlows(query: { targetId?: string; status?: Flow["status"] } = {}) {
+export async function listFlows(query: { targetType: "lecture" | "session"; targetId: string }) {
   const { data, response } = await apiClient.GET("/flows", { params: { query } });
   return result(response, data, "適用済みFlowを取得できませんでした");
 }
@@ -110,12 +113,48 @@ export async function getFlow(id: string) {
   });
   return result(response, data, "Flowを取得できませんでした");
 }
-export async function updateFlow(id: string, body: FlowWrite) {
-  const { data, response } = await apiClient.PUT("/flows/{flowId}", {
+export async function replaceFlowClass(id: string, flowClassId: string) {
+  const { data, response } = await apiClient.PUT("/flows/{flowId}/flow-class", {
+    params: { path: { flowId: id } },
+    body: { flowClassId },
+  });
+  return result(response, data, "使用Flowを変更できませんでした");
+}
+export async function patchFlowCheck(id: string, body: components["schemas"]["FlowCheckPatch"]) {
+  const { data, response } = await apiClient.PATCH("/flows/{flowId}/checks", {
     params: { path: { flowId: id } },
     body,
   });
-  return result(response, data, "Flowを保存できませんでした");
+  return result(response, data, "チェックを更新できませんでした");
+}
+export async function updateFlowPage(id: string, currentPage: number) {
+  const { data, response } = await apiClient.PATCH("/flows/{flowId}/page", {
+    params: { path: { flowId: id } },
+    body: { currentPage },
+  });
+  return result(response, data, "ページ位置を保存できませんでした");
+}
+export async function reorderSessions(
+  lectureId: string,
+  items: components["schemas"]["SessionOrderItem"][],
+) {
+  const { data, response } = await apiClient.PUT("/lectures/{lectureId}/session-order", {
+    params: { path: { lectureId } },
+    body: { items },
+  });
+  return result(response, data, "開催順を保存できませんでした");
+}
+export async function getLectureHistory(lectureId: string, category: "data" | "flow") {
+  const { data, response } = await apiClient.GET("/lectures/{lectureId}/history", {
+    params: { path: { lectureId }, query: { category } },
+  });
+  return result(response, data, "変更履歴を取得できませんでした");
+}
+export async function exportLecture(lectureId: string) {
+  const { data, response } = await apiClient.GET("/lectures/{lectureId}/export", {
+    params: { path: { lectureId } },
+  });
+  return result(response, data, "講習会を書き出せませんでした");
 }
 export async function listRoadmaps(includeDraft = false) {
   const { data, response } = await apiClient.GET("/roadmaps", {

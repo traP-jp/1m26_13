@@ -2,8 +2,8 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"net/url"
 	"strings"
 	"time"
 
@@ -19,6 +19,7 @@ func text(pointer *string) string {
 	}
 	return strings.TrimSpace(*pointer)
 }
+
 func stringPointer(value string) *string {
 	if value == "" {
 		return nil
@@ -26,67 +27,21 @@ func stringPointer(value string) *string {
 	return &value
 }
 
-func validateURL(value string) bool {
-	if value == "" {
-		return true
+func resourceToAPI(resource *domain.Resource) *api.Resource {
+	if resource == nil {
+		return nil
 	}
-	parsed, err := url.ParseRequestURI(value)
-	return err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != ""
-}
-
-func lectureFromWrite(input api.LectureWrite) (domain.Lecture, error) {
-	lecture := domain.Lecture{Name: strings.TrimSpace(input.Name), Description: text(input.Description), AcademicYearStart: input.AcademicYearStart,
-		AcademicYearEnd: input.AcademicYearEnd, FieldID: text(input.FieldId), OrganizerGroupIDs: input.OrganizerGroupIds,
-		OrganizerUserIDs: input.OrganizerUserIds, ContactGroupIDs: input.ContactGroupIds, ContactUserIDs: input.ContactUserIds,
-		TargetAudience: text(input.TargetAudience), IsIntroductory: input.IsIntroductory, TraQChannelID: text(input.TraqChannelId),
-		Resources: make([]domain.Resource, 0, len(input.Resources)), Relations: make([]domain.Relation, 0, len(input.Relations))}
-	if lecture.Name == "" || lecture.AcademicYearStart > lecture.AcademicYearEnd {
-		return domain.Lecture{}, store.ErrInvalid
-	}
-	for _, resource := range input.Resources {
-		if !validateURL(resource.Url) {
-			return domain.Lecture{}, store.ErrInvalid
-		}
-		lecture.Resources = append(lecture.Resources, domain.Resource{Title: text(resource.Title), URL: resource.Url})
-	}
-	seenRelations := make(map[string]bool)
-	for _, relation := range input.Relations {
-		key := relation.ToLectureId + ":" + string(relation.Type)
-		if relation.ToLectureId == "" || seenRelations[key] {
-			return domain.Lecture{}, store.ErrInvalid
-		}
-		seenRelations[key] = true
-		lecture.Relations = append(lecture.Relations, domain.Relation{ToLectureID: relation.ToLectureId, Type: string(relation.Type)})
-	}
-	return lecture, nil
-}
-
-func sessionFromWrite(input api.SessionWrite) (domain.Session, error) {
-	session := domain.Session{Name: strings.TrimSpace(input.Name), Description: text(input.Description), Order: input.Order,
-		StartTime: text(input.StartTime), Location: text(input.Location), KnoQURL: text(input.KnoqUrl),
-		InstructorIDs: input.InstructorIds, ReplayOfSessionIDs: input.ReplayOfSessionIds, Status: string(input.Status),
-		Resources: make([]domain.Resource, 0, len(input.Resources))}
-	if input.Date != nil {
-		session.Date = input.Date.Format("2006-01-02")
-	}
-	if session.Name == "" || session.Order < 0 || (session.Date == "" && session.StartTime != "") || !validateURL(session.KnoQURL) {
-		return domain.Session{}, store.ErrInvalid
-	}
-	for _, resource := range input.Resources {
-		if !validateURL(resource.Url) {
-			return domain.Session{}, store.ErrInvalid
-		}
-		session.Resources = append(session.Resources, domain.Resource{Title: text(resource.Title), URL: resource.Url})
-	}
-	return session, nil
+	return &api.Resource{Title: stringPointer(resource.Title), Url: resource.URL}
 }
 
 func sessionToAPI(session domain.Session) api.Session {
-	result := api.Session{Id: session.ID, LectureId: session.LectureID, Name: session.Name, Description: stringPointer(session.Description),
-		Order: session.Order, StartTime: stringPointer(session.StartTime), Location: stringPointer(session.Location), KnoqUrl: stringPointer(session.KnoQURL),
-		InstructorIds: session.InstructorIDs, ReplayOfSessionIds: session.ReplayOfSessionIDs, Status: api.SessionStatus(session.Status),
+	result := api.Session{Id: session.ID, LectureId: session.LectureID, Name: session.Name,
+		Description: stringPointer(session.Description), Order: session.Order, StartTime: stringPointer(session.StartTime),
+		Location: stringPointer(session.Location), KnoqUrl: stringPointer(session.KnoQURL),
+		InstructorId: stringPointer(session.InstructorID), Material: resourceToAPI(session.Material),
+		ReplayOfSessionIds: session.ReplayOfSessionIDs, Status: api.SessionStatus(session.Status),
 		IsReplay: len(session.ReplayOfSessionIDs) > 0, IsCompleted: session.IsCompleted, Revision: session.Revision,
-		ExpectedRevision: session.Revision, CreatedAt: session.CreatedAt, UpdatedAt: session.UpdatedAt, Resources: make([]api.Resource, 0, len(session.Resources))}
+		CreatedAt: session.CreatedAt, UpdatedAt: session.UpdatedAt, Resources: make([]api.Resource, 0, len(session.Resources))}
 	if session.Date != "" {
 		if parsed, err := time.Parse("2006-01-02", session.Date); err == nil {
 			date := openapi_types.Date{Time: parsed}
@@ -94,31 +49,32 @@ func sessionToAPI(session domain.Session) api.Session {
 		}
 	}
 	for _, resource := range session.Resources {
-		result.Resources = append(result.Resources, api.Resource{Title: stringPointer(resource.Title), Url: resource.URL})
+		result.Resources = append(result.Resources, *resourceToAPI(&resource))
 	}
 	return result
 }
 
 func lectureToAPI(lecture domain.Lecture) api.Lecture {
-	result := api.Lecture{Id: lecture.ID, Name: lecture.Name, Description: stringPointer(lecture.Description), AcademicYearStart: lecture.AcademicYearStart,
-		AcademicYearEnd: lecture.AcademicYearEnd, FieldId: stringPointer(lecture.FieldID), OrganizerGroupIds: lecture.OrganizerGroupIDs,
-		OrganizerUserIds: lecture.OrganizerUserIDs, ContactGroupIds: lecture.ContactGroupIDs, ContactUserIds: lecture.ContactUserIDs,
-		TargetAudience: stringPointer(lecture.TargetAudience), IsIntroductory: lecture.IsIntroductory, TraqChannelId: stringPointer(lecture.TraQChannelID),
-		Revision: lecture.Revision, ExpectedRevision: lecture.Revision, CreatedAt: lecture.CreatedAt, UpdatedAt: lecture.UpdatedAt,
+	result := api.Lecture{Id: lecture.ID, Name: lecture.Name, Description: stringPointer(lecture.Description),
+		AcademicYearStart: lecture.AcademicYearStart, AcademicYearEnd: lecture.AcademicYearEnd, FieldId: stringPointer(lecture.FieldID),
+		TargetAudience: stringPointer(lecture.TargetAudience), IsIntroductory: lecture.IsIntroductory,
+		TraqChannelId: stringPointer(lecture.TraQChannelID), Material: resourceToAPI(lecture.Material),
+		Revision: lecture.Revision, CreatedAt: lecture.CreatedAt, UpdatedAt: lecture.UpdatedAt,
 		Resources: make([]api.Resource, 0, len(lecture.Resources)), Relations: make([]api.LectureRelation, 0, len(lecture.Relations)),
 		Sessions: make([]api.Session, 0, len(lecture.Sessions))}
+	if lecture.Organizer != nil {
+		result.Organizer = &api.Organizer{Kind: api.OrganizerKind(lecture.Organizer.Kind), Id: lecture.Organizer.ID, GroupName: stringPointer(lecture.Organizer.GroupName)}
+	}
 	for _, resource := range lecture.Resources {
-		result.Resources = append(result.Resources, api.Resource{Title: stringPointer(resource.Title), Url: resource.URL})
+		result.Resources = append(result.Resources, *resourceToAPI(&resource))
 	}
 	for _, relation := range lecture.Relations {
 		result.Relations = append(result.Relations, api.LectureRelation{ToLectureId: relation.ToLectureID, Type: api.RelationType(relation.Type)})
 	}
 	for _, session := range lecture.Sessions {
 		result.Sessions = append(result.Sessions, sessionToAPI(session))
-		if session.Status == "published" {
-			result.IsPublished = true
-		}
 		if session.Status == "published" && len(session.ReplayOfSessionIDs) == 0 {
+			result.IsPublished = true
 			result.RequiredSessionCount++
 			if session.IsCompleted {
 				result.CompletedSessionCount++
@@ -127,6 +83,14 @@ func lectureToAPI(lecture domain.Lecture) api.Lecture {
 	}
 	result.IsCompleted = result.RequiredSessionCount > 0 && result.CompletedSessionCount == result.RequiredSessionCount
 	return result
+}
+
+func workspaceToAPI(workspace domain.LectureWorkspace) api.LectureWorkspace {
+	flows := make([]api.Flow, 0, len(workspace.Flows))
+	for _, flow := range workspace.Flows {
+		flows = append(flows, flowToAPI(flow))
+	}
+	return api.LectureWorkspace{Lecture: lectureToAPI(workspace.Lecture), Flows: flows}
 }
 
 func (server server) ListLectures(ctx context.Context, request api.ListLecturesRequestObject) (api.ListLecturesResponseObject, error) {
@@ -166,18 +130,36 @@ func (server server) CreateLecture(ctx context.Context, request api.CreateLectur
 	if err != nil {
 		return nil, err
 	}
-	lecture, err := lectureFromWrite(*request.Body)
-	if err != nil {
-		return api.CreateLecture400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_lecture", Message: "講習会の入力を確認してください"}}, nil
+	year := time.Now().Year()
+	start, end := year, year
+	if request.Body.AcademicYearStart != nil && request.Body.AcademicYearEnd == nil {
+		start = *request.Body.AcademicYearStart
+		end = start
 	}
-	created, err := server.repository.CreateLecture(ctx, lecture, user.ID)
+	if request.Body.AcademicYearEnd != nil && request.Body.AcademicYearStart == nil {
+		end = *request.Body.AcademicYearEnd
+		start = end
+	}
+	if request.Body.AcademicYearStart != nil && request.Body.AcademicYearEnd != nil {
+		start = *request.Body.AcademicYearStart
+		end = *request.Body.AcademicYearEnd
+	}
+	if start < 2000 || start > 2200 || end < 2000 || end > 2200 || start > end {
+		return api.CreateLecture400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_year", Message: "年度を確認してください"}}, nil
+	}
+	workspace, err := server.repository.CreateLectureWorkspace(ctx, store.LectureCreate{Name: request.Body.Name,
+		AcademicYearStart: start, AcademicYearEnd: end, LecturePreFlowClassID: request.Body.LecturePreFlowClassId,
+		SessionMainFlowClassID: request.Body.SessionMainFlowClassId, LecturePostFlowClassID: request.Body.LecturePostFlowClassId}, user.ID)
+	if errors.Is(err, store.ErrNotFound) {
+		return api.CreateLecture404JSONResponse{Code: "flow_class_not_found", Message: "FlowClassが見つかりません"}, nil
+	}
+	if errors.Is(err, store.ErrInvalid) {
+		return api.CreateLecture400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_lecture", Message: err.Error()}}, nil
+	}
 	if err != nil {
-		if errors.Is(err, store.ErrInvalid) {
-			return api.CreateLecture400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_lecture", Message: err.Error()}}, nil
-		}
 		return nil, err
 	}
-	return api.CreateLecture201JSONResponse(lectureToAPI(created)), nil
+	return api.CreateLecture201JSONResponse(workspaceToAPI(workspace)), nil
 }
 
 func (server server) GetLecture(ctx context.Context, request api.GetLectureRequestObject) (api.GetLectureResponseObject, error) {
@@ -185,8 +167,8 @@ func (server server) GetLecture(ctx context.Context, request api.GetLectureReque
 	if err != nil {
 		return nil, err
 	}
-	includeDraft := request.Params.IncludeDraft != nil && *request.Params.IncludeDraft
-	lecture, err := server.repository.GetLecture(ctx, request.LectureId, user.ID, includeDraft)
+	include := request.Params.IncludeDraft != nil && *request.Params.IncludeDraft
+	lecture, err := server.repository.GetLecture(ctx, request.LectureId, user.ID, include)
 	if errors.Is(err, store.ErrNotFound) {
 		return api.GetLecture404JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "lecture_not_found", Message: "講習会が見つかりません"}}, nil
 	}
@@ -196,33 +178,66 @@ func (server server) GetLecture(ctx context.Context, request api.GetLectureReque
 	return api.GetLecture200JSONResponse(lectureToAPI(lecture)), nil
 }
 
-func (server server) UpdateLecture(ctx context.Context, request api.UpdateLectureRequestObject) (api.UpdateLectureResponseObject, error) {
+func (server server) GetLectureWorkspace(ctx context.Context, request api.GetLectureWorkspaceRequestObject) (api.GetLectureWorkspaceResponseObject, error) {
+	user, err := server.currentUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	workspace, err := server.repository.GetLectureWorkspace(ctx, request.LectureId, user.ID)
+	if errors.Is(err, store.ErrNotFound) {
+		return api.GetLectureWorkspace404JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "lecture_not_found", Message: "講習会が見つかりません"}}, nil
+	}
+	if errors.Is(err, store.ErrIncompleteWorkspace) {
+		return api.GetLectureWorkspace409JSONResponse{Code: "incomplete_workspace", Message: "必須Flowが不足しています"}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return api.GetLectureWorkspace200JSONResponse(workspaceToAPI(workspace)), nil
+}
+
+func (server server) PatchLectureAttribute(ctx context.Context, request api.PatchLectureAttributeRequestObject) (api.PatchLectureAttributeResponseObject, error) {
 	if request.Body == nil {
-		return api.UpdateLecture400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_body", Message: "request body is required"}}, nil
+		return api.PatchLectureAttribute400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_body", Message: "request body is required"}}, nil
 	}
 	user, err := server.currentUser(ctx)
 	if err != nil {
 		return nil, err
 	}
-	lecture, err := lectureFromWrite(*request.Body)
-	if err != nil {
-		return api.UpdateLecture400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_lecture", Message: "講習会の入力を確認してください"}}, nil
+	if request.Body.AttributePath == "organizer" && request.Body.NextValue != nil {
+		raw, _ := json.Marshal(request.Body.NextValue)
+		var organizer domain.Organizer
+		if json.Unmarshal(raw, &organizer) != nil || organizer.ID == "" {
+			return api.PatchLectureAttribute400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_organizer", Message: "運営担当を確認してください"}}, nil
+		}
+		if organizer.Kind == "group" {
+			group, found, lookupErr := server.directory.GroupByID(organizer.ID)
+			if lookupErr != nil || !found {
+				return api.PatchLectureAttribute400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_organizer", Message: "運営担当グループが見つかりません"}}, nil
+			}
+			organizer.GroupName = group.Name
+		} else if organizer.Kind == "user" {
+			_, found, lookupErr := server.directory.UserByID(organizer.ID)
+			if lookupErr != nil || !found {
+				return api.PatchLectureAttribute400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_organizer", Message: "運営担当者が見つかりません"}}, nil
+			}
+			organizer.GroupName = ""
+		} else {
+			return api.PatchLectureAttribute400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_organizer", Message: "運営担当を確認してください"}}, nil
+		}
+		request.Body.NextValue = organizer
 	}
-	lecture.ID = request.LectureId
-	updated, err := server.repository.UpdateLecture(ctx, lecture, request.Body.ExpectedRevision, user.ID)
+	lecture, conflict, err := server.repository.PatchLectureAttribute(ctx, request.LectureId, request.Body.AttributePath, request.Body.BaseValue, request.Body.NextValue, true, user.ID)
 	if errors.Is(err, store.ErrNotFound) {
-		return api.UpdateLecture404JSONResponse{Code: "lecture_not_found", Message: "講習会が見つかりません"}, nil
-	}
-	if errors.Is(err, store.ErrConflict) {
-		return api.UpdateLecture409JSONResponse{Code: "revision_conflict", Message: "別の利用者が先に更新しました。再読込してください"}, nil
+		return api.PatchLectureAttribute404JSONResponse{Code: "lecture_not_found", Message: "講習会が見つかりません"}, nil
 	}
 	if errors.Is(err, store.ErrInvalid) {
-		return api.UpdateLecture400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_lecture", Message: err.Error()}}, nil
+		return api.PatchLectureAttribute400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_attribute", Message: "属性値を確認してください"}}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return api.UpdateLecture200JSONResponse(lectureToAPI(updated)), nil
+	return api.PatchLectureAttribute200JSONResponse{Lecture: lectureToAPI(lecture), ConflictDetected: conflict}, nil
 }
 
 func (server server) CreateSession(ctx context.Context, request api.CreateSessionRequestObject) (api.CreateSessionResponseObject, error) {
@@ -233,22 +248,50 @@ func (server server) CreateSession(ctx context.Context, request api.CreateSessio
 	if err != nil {
 		return nil, err
 	}
-	session, err := sessionFromWrite(*request.Body)
-	if err != nil {
-		return api.CreateSession400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_session", Message: "開催の入力を確認してください"}}, nil
+	input := store.SessionCreate{Mode: string(request.Body.Mode), FlowClassID: request.Body.FlowClassId}
+	if request.Body.SourceSessionId != nil {
+		input.SourceSessionID = *request.Body.SourceSessionId
 	}
-	session.LectureID = request.LectureId
-	created, err := server.repository.CreateSession(ctx, session, user.ID)
+	if request.Body.ReplayOfSessionIds != nil {
+		input.ReplayOfSessionIDs = *request.Body.ReplayOfSessionIds
+	}
+	created, err := server.repository.CreateSessionWorkspace(ctx, request.LectureId, input, user.ID)
 	if errors.Is(err, store.ErrNotFound) {
-		return api.CreateSession404JSONResponse{Code: "lecture_not_found", Message: "講習会が見つかりません"}, nil
+		return api.CreateSession404JSONResponse{Code: "target_not_found", Message: "講習会、複製元、またはFlowClassが見つかりません"}, nil
 	}
 	if errors.Is(err, store.ErrInvalid) {
-		return api.CreateSession400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_session", Message: err.Error()}}, nil
+		return api.CreateSession400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_session", Message: "開催の入力を確認してください"}}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return api.CreateSession201JSONResponse(sessionToAPI(created)), nil
+	return api.CreateSession201JSONResponse{Workspace: workspaceToAPI(created.Workspace), Session: sessionToAPI(created.Session), Flow: flowToAPI(created.Flow)}, nil
+}
+
+func (server server) ReorderSessions(ctx context.Context, request api.ReorderSessionsRequestObject) (api.ReorderSessionsResponseObject, error) {
+	if request.Body == nil {
+		return api.ReorderSessions400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_body", Message: "request body is required"}}, nil
+	}
+	user, err := server.currentUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]store.SessionOrderItem, 0, len(request.Body.Items))
+	for _, item := range request.Body.Items {
+		items = append(items, store.SessionOrderItem{SessionID: item.SessionId, Order: item.Order})
+	}
+	sessions, err := server.repository.ReorderSessions(ctx, request.LectureId, items, user.ID)
+	if errors.Is(err, store.ErrInvalid) {
+		return api.ReorderSessions400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_order", Message: "開催順を確認してください"}}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	result := make(api.ReorderSessions200JSONResponse, 0, len(sessions))
+	for _, session := range sessions {
+		result = append(result, sessionToAPI(session))
+	}
+	return result, nil
 }
 
 func (server server) GetSession(ctx context.Context, request api.GetSessionRequestObject) (api.GetSessionResponseObject, error) {
@@ -256,8 +299,8 @@ func (server server) GetSession(ctx context.Context, request api.GetSessionReque
 	if err != nil {
 		return nil, err
 	}
-	includeDraft := request.Params.IncludeDraft != nil && *request.Params.IncludeDraft
-	session, err := server.repository.GetSession(ctx, request.SessionId, user.ID, includeDraft)
+	include := request.Params.IncludeDraft != nil && *request.Params.IncludeDraft
+	session, err := server.repository.GetSession(ctx, request.SessionId, user.ID, include)
 	if errors.Is(err, store.ErrNotFound) {
 		return api.GetSession404JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "session_not_found", Message: "開催が見つかりません"}}, nil
 	}
@@ -267,33 +310,64 @@ func (server server) GetSession(ctx context.Context, request api.GetSessionReque
 	return api.GetSession200JSONResponse(sessionToAPI(session)), nil
 }
 
-func (server server) UpdateSession(ctx context.Context, request api.UpdateSessionRequestObject) (api.UpdateSessionResponseObject, error) {
+func (server server) PatchSessionAttribute(ctx context.Context, request api.PatchSessionAttributeRequestObject) (api.PatchSessionAttributeResponseObject, error) {
 	if request.Body == nil {
-		return api.UpdateSession400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_body", Message: "request body is required"}}, nil
+		return api.PatchSessionAttribute400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_body", Message: "request body is required"}}, nil
 	}
 	user, err := server.currentUser(ctx)
 	if err != nil {
 		return nil, err
 	}
-	session, err := sessionFromWrite(*request.Body)
-	if err != nil {
-		return api.UpdateSession400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_session", Message: "開催の入力を確認してください"}}, nil
+	if request.Body.AttributePath == "instructorId" {
+		value, ok := request.Body.NextValue.(string)
+		if !ok {
+			return api.PatchSessionAttribute400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_instructor", Message: "講師を確認してください"}}, nil
+		}
+		if value != "" {
+			_, found, lookupErr := server.directory.UserByID(value)
+			if lookupErr != nil || !found {
+				return api.PatchSessionAttribute400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_instructor", Message: "講師が見つかりません"}}, nil
+			}
+		}
 	}
-	session.ID = request.SessionId
-	updated, err := server.repository.UpdateSession(ctx, session, request.Body.ExpectedRevision, user.ID)
+	session, conflict, err := server.repository.PatchSessionAttribute(ctx, request.SessionId, request.Body.AttributePath, request.Body.BaseValue, request.Body.NextValue, true, user.ID)
 	if errors.Is(err, store.ErrNotFound) {
-		return api.UpdateSession404JSONResponse{Code: "session_not_found", Message: "開催が見つかりません"}, nil
-	}
-	if errors.Is(err, store.ErrConflict) {
-		return api.UpdateSession409JSONResponse{Code: "revision_conflict", Message: "別の利用者が先に更新しました。再読込してください"}, nil
+		return api.PatchSessionAttribute404JSONResponse{Code: "session_not_found", Message: "開催が見つかりません"}, nil
 	}
 	if errors.Is(err, store.ErrInvalid) {
-		return api.UpdateSession400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_session", Message: err.Error()}}, nil
+		return api.PatchSessionAttribute400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_attribute", Message: "属性値を確認してください"}}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return api.UpdateSession200JSONResponse(sessionToAPI(updated)), nil
+	return api.PatchSessionAttribute200JSONResponse{Session: sessionToAPI(session), ConflictDetected: conflict}, nil
+}
+
+func (server server) GetLectureHistory(ctx context.Context, request api.GetLectureHistoryRequestObject) (api.GetLectureHistoryResponseObject, error) {
+	events, err := server.repository.ListLectureEvents(ctx, request.LectureId, string(request.Params.Category))
+	if err != nil {
+		return nil, err
+	}
+	result := make(api.GetLectureHistory200JSONResponse, 0, len(events))
+	for _, event := range events {
+		result = append(result, eventToAPI(event))
+	}
+	return result, nil
+}
+
+func (server server) ExportLecture(ctx context.Context, request api.ExportLectureRequestObject) (api.ExportLectureResponseObject, error) {
+	user, err := server.currentUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	lecture, err := server.repository.GetLecture(ctx, request.LectureId, user.ID, true)
+	if errors.Is(err, store.ErrNotFound) {
+		return api.ExportLecture404JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "lecture_not_found", Message: "講習会が見つかりません"}}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return api.ExportLecture200JSONResponse{SchemaVersion: 1, Lecture: lectureToAPI(lecture)}, nil
 }
 
 func (server server) CompleteSession(ctx context.Context, request api.CompleteSessionRequestObject) (api.CompleteSessionResponseObject, error) {

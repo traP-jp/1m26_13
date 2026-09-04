@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -15,21 +16,26 @@ import (
 type scanner interface{ Scan(...any) error }
 
 const lectureColumns = `id, name, description, academic_year_start, academic_year_end, field_id,
-	organizer_group_ids, organizer_user_ids, contact_group_ids, contact_user_ids, target_audience,
-	is_introductory, traq_channel_id, resources, revision, created_at, updated_at`
+	organizer_type, organizer_id, organizer_group_name, organizer_group_ids, organizer_user_ids,
+	contact_group_ids, contact_user_ids, target_audience, is_introductory, traq_channel_id, material,
+	resources, revision, created_at, updated_at`
 
 func scanLecture(row scanner) (domain.Lecture, error) {
 	var lecture domain.Lecture
-	var fieldID, channelID sql.NullString
-	var organizerGroups, organizerUsers, contactGroups, contactUsers, resources []byte
+	var fieldID, channelID, organizerType, organizerID, organizerGroupName sql.NullString
+	var organizerGroups, organizerUsers, contactGroups, contactUsers, material, resources []byte
 	err := row.Scan(&lecture.ID, &lecture.Name, &lecture.Description, &lecture.AcademicYearStart,
-		&lecture.AcademicYearEnd, &fieldID, &organizerGroups, &organizerUsers, &contactGroups,
-		&contactUsers, &lecture.TargetAudience, &lecture.IsIntroductory, &channelID, &resources,
+		&lecture.AcademicYearEnd, &fieldID, &organizerType, &organizerID, &organizerGroupName,
+		&organizerGroups, &organizerUsers, &contactGroups, &contactUsers, &lecture.TargetAudience,
+		&lecture.IsIntroductory, &channelID, &material, &resources,
 		&lecture.Revision, &lecture.CreatedAt, &lecture.UpdatedAt)
 	if err != nil {
 		return domain.Lecture{}, err
 	}
 	lecture.FieldID, lecture.TraQChannelID = fieldID.String, channelID.String
+	if organizerType.Valid && organizerID.Valid {
+		lecture.Organizer = &domain.Organizer{Kind: organizerType.String, ID: organizerID.String, GroupName: organizerGroupName.String}
+	}
 	var decodeErr error
 	if lecture.OrganizerGroupIDs, decodeErr = decodeJSON(organizerGroups, []string{}); decodeErr != nil {
 		return domain.Lecture{}, decodeErr
@@ -46,6 +52,13 @@ func scanLecture(row scanner) (domain.Lecture, error) {
 	if lecture.Resources, decodeErr = decodeJSON(resources, []domain.Resource{}); decodeErr != nil {
 		return domain.Lecture{}, decodeErr
 	}
+	if len(material) > 0 {
+		var value domain.Resource
+		if err := json.Unmarshal(material, &value); err != nil {
+			return domain.Lecture{}, fmt.Errorf("decode material: %w", err)
+		}
+		lecture.Material = &value
+	}
 	return lecture, nil
 }
 
@@ -53,11 +66,9 @@ func lectureSnapshot(lecture domain.Lecture) map[string]any {
 	return map[string]any{
 		"name": lecture.Name, "description": lecture.Description,
 		"academicYearStart": lecture.AcademicYearStart, "academicYearEnd": lecture.AcademicYearEnd,
-		"fieldId": lecture.FieldID, "organizerGroupIds": lecture.OrganizerGroupIDs,
-		"organizerUserIds": lecture.OrganizerUserIDs, "contactGroupIds": lecture.ContactGroupIDs,
-		"contactUserIds": lecture.ContactUserIDs, "targetAudience": lecture.TargetAudience,
+		"fieldId": lecture.FieldID, "organizer": lecture.Organizer, "targetAudience": lecture.TargetAudience,
 		"isIntroductory": lecture.IsIntroductory, "traqChannelId": lecture.TraQChannelID,
-		"resources": lecture.Resources, "relations": lecture.Relations,
+		"material": lecture.Material, "resources": lecture.Resources, "relations": lecture.Relations,
 	}
 }
 
@@ -141,7 +152,7 @@ func (store *MySQL) GetLecture(ctx context.Context, id, userID string, includeDr
 
 	query := `SELECT id, lecture_id, name, description, display_order,
 		COALESCE(DATE_FORMAT(session_date, '%Y-%m-%d'), ''), COALESCE(TIME_FORMAT(start_time, '%H:%i'), ''),
-		location, COALESCE(knoq_url, ''), instructor_ids, resources, replay_of_session_ids, status,
+		location, COALESCE(knoq_url, ''), instructor_id, instructor_ids, material, resources, replay_of_session_ids, status,
 		revision, created_at, updated_at FROM sessions WHERE lecture_id = ?`
 	if !includeDraft {
 		query += " AND status = 'published'"
@@ -286,9 +297,10 @@ func (store *MySQL) UpdateLecture(ctx context.Context, lecture domain.Lecture, e
 
 func scanSession(row scanner) (domain.Session, error) {
 	var session domain.Session
-	var instructors, resources, replay []byte
+	var instructorID sql.NullString
+	var instructors, material, resources, replay []byte
 	err := row.Scan(&session.ID, &session.LectureID, &session.Name, &session.Description, &session.Order,
-		&session.Date, &session.StartTime, &session.Location, &session.KnoQURL, &instructors, &resources,
+		&session.Date, &session.StartTime, &session.Location, &session.KnoQURL, &instructorID, &instructors, &material, &resources,
 		&replay, &session.Status, &session.Revision, &session.CreatedAt, &session.UpdatedAt)
 	if err != nil {
 		return domain.Session{}, err
@@ -296,6 +308,14 @@ func scanSession(row scanner) (domain.Session, error) {
 	var decodeErr error
 	if session.InstructorIDs, decodeErr = decodeJSON(instructors, []string{}); decodeErr != nil {
 		return domain.Session{}, decodeErr
+	}
+	session.InstructorID = instructorID.String
+	if len(material) > 0 {
+		var value domain.Resource
+		if err := json.Unmarshal(material, &value); err != nil {
+			return domain.Session{}, fmt.Errorf("decode material: %w", err)
+		}
+		session.Material = &value
 	}
 	if session.Resources, decodeErr = decodeJSON(resources, []domain.Resource{}); decodeErr != nil {
 		return domain.Session{}, decodeErr
@@ -309,14 +329,14 @@ func scanSession(row scanner) (domain.Session, error) {
 func sessionSnapshot(session domain.Session) map[string]any {
 	return map[string]any{"name": session.Name, "description": session.Description, "order": session.Order,
 		"date": session.Date, "startTime": session.StartTime, "location": session.Location, "knoqUrl": session.KnoQURL,
-		"instructorIds": session.InstructorIDs, "resources": session.Resources,
+		"instructorId": session.InstructorID, "material": session.Material, "resources": session.Resources,
 		"replayOfSessionIds": session.ReplayOfSessionIDs, "status": session.Status}
 }
 
 func (store *MySQL) GetSession(ctx context.Context, id, userID string, includeDraft bool) (domain.Session, error) {
 	query := `SELECT id, lecture_id, name, description, display_order,
 		COALESCE(DATE_FORMAT(session_date, '%Y-%m-%d'), ''), COALESCE(TIME_FORMAT(start_time, '%H:%i'), ''),
-		location, COALESCE(knoq_url, ''), instructor_ids, resources, replay_of_session_ids, status,
+		location, COALESCE(knoq_url, ''), instructor_id, instructor_ids, material, resources, replay_of_session_ids, status,
 		revision, created_at, updated_at FROM sessions WHERE id = ?`
 	if !includeDraft {
 		query += " AND status = 'published'"

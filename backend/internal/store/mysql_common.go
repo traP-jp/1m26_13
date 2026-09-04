@@ -68,7 +68,10 @@ func (store *MySQL) ListFields(ctx context.Context) ([]domain.Field, error) {
 }
 
 func recordEvents(ctx context.Context, tx *sql.Tx, entityType, entityID, actorID string, before, after map[string]any, now time.Time) error {
-	changeSetID := newID()
+	return recordEventsInChangeSet(ctx, tx, entityType, entityID, actorID, before, after, now, newID())
+}
+
+func recordEventsInChangeSet(ctx context.Context, tx *sql.Tx, entityType, entityID, actorID string, before, after map[string]any, now time.Time, changeSetID string) error {
 	for attribute, nextValue := range after {
 		previousValue := before[attribute]
 		if reflect.DeepEqual(previousValue, nextValue) {
@@ -91,6 +94,41 @@ func recordEvents(ctx context.Context, tx *sql.Tx, entityType, entityID, actorID
 		}
 	}
 	return nil
+}
+
+func (store *MySQL) ListLectureEvents(ctx context.Context, lectureID, category string) ([]domain.AttributeUpdateEvent, error) {
+	condition := `(entity_type = 'lecture' AND entity_id = ?)
+		OR (entity_type = 'session' AND entity_id IN (SELECT CAST(id AS CHAR) FROM sessions WHERE lecture_id = ?))`
+	args := []any{lectureID, lectureID}
+	if category == "flow" {
+		condition = `entity_type = 'flow' AND entity_id IN (
+			SELECT id FROM flows WHERE lecture_id = ? OR session_id IN (SELECT id FROM sessions WHERE lecture_id = ?))`
+	} else if category != "data" {
+		return nil, ErrInvalid
+	}
+	rows, err := store.db.QueryContext(ctx, `SELECT id, entity_type, entity_id, attribute_path,
+		previous_value, next_value, actor_id, occurred_at, change_set_id
+		FROM attribute_update_events WHERE `+condition+` ORDER BY occurred_at DESC, id`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list lecture events: %w", err)
+	}
+	defer rows.Close()
+	result := make([]domain.AttributeUpdateEvent, 0)
+	for rows.Next() {
+		var event domain.AttributeUpdateEvent
+		var previous, next []byte
+		if err := rows.Scan(&event.ID, &event.EntityType, &event.EntityID, &event.AttributePath, &previous, &next, &event.ActorID, &event.OccurredAt, &event.ChangeSetID); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(previous, &event.PreviousValue); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(next, &event.NextValue); err != nil {
+			return nil, err
+		}
+		result = append(result, event)
+	}
+	return result, rows.Err()
 }
 
 func (store *MySQL) ListEvents(ctx context.Context, entityType, entityID string) ([]domain.AttributeUpdateEvent, error) {

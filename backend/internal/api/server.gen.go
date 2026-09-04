@@ -43,51 +43,18 @@ func (e AttributeUpdateEventEntityType) Valid() bool {
 	}
 }
 
-// Defines values for FlowFormatVersion.
+// Defines values for FlowTargetType.
 const (
-	FlowFormatVersionN1 FlowFormatVersion = 1
+	FlowTargetTypeLecture FlowTargetType = "lecture"
+	FlowTargetTypeSession FlowTargetType = "session"
 )
 
-// Valid indicates whether the value is a known member of the FlowFormatVersion enum.
-func (e FlowFormatVersion) Valid() bool {
+// Valid indicates whether the value is a known member of the FlowTargetType enum.
+func (e FlowTargetType) Valid() bool {
 	switch e {
-	case FlowFormatVersionN1:
+	case FlowTargetTypeLecture:
 		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for FlowClassFormatVersion.
-const (
-	FlowClassFormatVersionN1 FlowClassFormatVersion = 1
-)
-
-// Valid indicates whether the value is a known member of the FlowClassFormatVersion enum.
-func (e FlowClassFormatVersion) Valid() bool {
-	switch e {
-	case FlowClassFormatVersionN1:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for FlowStatus.
-const (
-	Active    FlowStatus = "active"
-	Cancelled FlowStatus = "cancelled"
-	Completed FlowStatus = "completed"
-)
-
-// Valid indicates whether the value is a known member of the FlowStatus enum.
-func (e FlowStatus) Valid() bool {
-	switch e {
-	case Active:
-		return true
-	case Cancelled:
-		return true
-	case Completed:
+	case FlowTargetTypeSession:
 		return true
 	default:
 		return false
@@ -130,6 +97,57 @@ func (e HealthResponseStatus) Valid() bool {
 	}
 }
 
+// Defines values for HistoryCategory.
+const (
+	HistoryCategoryData HistoryCategory = "data"
+	HistoryCategoryFlow HistoryCategory = "flow"
+)
+
+// Valid indicates whether the value is a known member of the HistoryCategory enum.
+func (e HistoryCategory) Valid() bool {
+	switch e {
+	case HistoryCategoryData:
+		return true
+	case HistoryCategoryFlow:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LectureExportSchemaVersion.
+const (
+	N1 LectureExportSchemaVersion = 1
+)
+
+// Valid indicates whether the value is a known member of the LectureExportSchemaVersion enum.
+func (e LectureExportSchemaVersion) Valid() bool {
+	switch e {
+	case N1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OrganizerKind.
+const (
+	Group OrganizerKind = "group"
+	User  OrganizerKind = "user"
+)
+
+// Valid indicates whether the value is a known member of the OrganizerKind enum.
+func (e OrganizerKind) Valid() bool {
+	switch e {
+	case Group:
+		return true
+	case User:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RelationType.
 const (
 	Prerequisite    RelationType = "prerequisite"
@@ -145,6 +163,24 @@ func (e RelationType) Valid() bool {
 	case PreviousYear:
 		return true
 	case RecommendedNext:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SessionCreateMode.
+const (
+	Duplicate SessionCreateMode = "duplicate"
+	Empty     SessionCreateMode = "empty"
+)
+
+// Valid indicates whether the value is a known member of the SessionCreateMode enum.
+func (e SessionCreateMode) Valid() bool {
+	switch e {
+	case Duplicate:
+		return true
+	case Empty:
 		return true
 	default:
 		return false
@@ -167,6 +203,13 @@ func (e SessionStatus) Valid() bool {
 	default:
 		return false
 	}
+}
+
+// AttributePatch defines model for AttributePatch.
+type AttributePatch struct {
+	AttributePath string      `json:"attributePath"`
+	BaseValue     interface{} `json:"baseValue"`
+	NextValue     interface{} `json:"nextValue"`
 }
 
 // AttributeUpdateEvent defines model for AttributeUpdateEvent.
@@ -234,41 +277,44 @@ type Field struct {
 
 // Flow defines model for Flow.
 type Flow struct {
-	Answers          map[string]string `json:"answers"`
-	CreatedAt        time.Time         `json:"createdAt"`
-	CurrentPage      int               `json:"currentPage"`
-	ExpectedRevision int               `json:"expectedRevision"`
-	FlowClassId      string            `json:"flowClassId"`
-	FormatVersion    FlowFormatVersion `json:"formatVersion"`
-	Id               string            `json:"id"`
-	Revision         int               `json:"revision"`
-	Status           FlowStatus        `json:"status"`
-	TargetId         string            `json:"targetId"`
-	Tasks            map[string]bool   `json:"tasks"`
-	Text             string            `json:"text"`
-	Type             FlowType          `json:"type"`
-	UpdatedAt        time.Time         `json:"updatedAt"`
+	CreatedAt     time.Time `json:"createdAt"`
+	CurrentPage   int       `json:"currentPage"`
+	FlowClassId   string    `json:"flowClassId"`
+	FormatVersion int       `json:"formatVersion"`
+	Id            string    `json:"id"`
+	Revision      int       `json:"revision"`
+	TargetId      string    `json:"targetId"`
+	Text          string    `json:"text"`
+	Type          FlowType  `json:"type"`
+	UpdatedAt     time.Time `json:"updatedAt"`
 }
 
-// FlowFormatVersion defines model for Flow.FormatVersion.
-type FlowFormatVersion int
+// FlowCheckPatch defines model for FlowCheckPatch.
+type FlowCheckPatch struct {
+	CheckboxIndex int     `json:"checkboxIndex"`
+	Checked       bool    `json:"checked"`
+	ExpectedText  *string `json:"expectedText,omitempty"`
+	PageIndex     int     `json:"pageIndex"`
+}
 
 // FlowClass defines model for FlowClass.
 type FlowClass struct {
-	CreatedAt        time.Time              `json:"createdAt"`
-	ExpectedRevision int                    `json:"expectedRevision"`
-	FormatVersion    FlowClassFormatVersion `json:"formatVersion"`
-	Id               string                 `json:"id"`
-	Listed           bool                   `json:"listed"`
-	Name             string                 `json:"name"`
-	Revision         int                    `json:"revision"`
-	Text             string                 `json:"text"`
-	Type             FlowType               `json:"type"`
-	UpdatedAt        time.Time              `json:"updatedAt"`
+	CreatedAt        time.Time `json:"createdAt"`
+	ExpectedRevision int       `json:"expectedRevision"`
+	FormatVersion    int       `json:"formatVersion"`
+	Id               string    `json:"id"`
+	Listed           bool      `json:"listed"`
+	Name             string    `json:"name"`
+	Revision         int       `json:"revision"`
+	Text             string    `json:"text"`
+	Type             FlowType  `json:"type"`
+	UpdatedAt        time.Time `json:"updatedAt"`
 }
 
-// FlowClassFormatVersion defines model for FlowClass.FormatVersion.
-type FlowClassFormatVersion int
+// FlowClassReplace defines model for FlowClassReplace.
+type FlowClassReplace struct {
+	FlowClassId string `json:"flowClassId"`
+}
 
 // FlowClassWrite defines model for FlowClassWrite.
 type FlowClassWrite struct {
@@ -279,26 +325,21 @@ type FlowClassWrite struct {
 	Type             FlowType `json:"type"`
 }
 
-// FlowCreate defines model for FlowCreate.
-type FlowCreate struct {
-	FlowClassId string `json:"flowClassId"`
-	TargetId    string `json:"targetId"`
+// FlowOperationResult defines model for FlowOperationResult.
+type FlowOperationResult struct {
+	Flow Flow `json:"flow"`
 }
 
-// FlowStatus defines model for FlowStatus.
-type FlowStatus string
+// FlowPagePatch defines model for FlowPagePatch.
+type FlowPagePatch struct {
+	CurrentPage int `json:"currentPage"`
+}
+
+// FlowTargetType defines model for FlowTargetType.
+type FlowTargetType string
 
 // FlowType defines model for FlowType.
 type FlowType string
-
-// FlowWrite defines model for FlowWrite.
-type FlowWrite struct {
-	Answers          map[string]string `json:"answers"`
-	CurrentPage      int               `json:"currentPage"`
-	ExpectedRevision int               `json:"expectedRevision"`
-	Status           FlowStatus        `json:"status"`
-	Tasks            map[string]bool   `json:"tasks"`
-}
 
 // HealthResponse defines model for HealthResponse.
 type HealthResponse struct {
@@ -308,24 +349,24 @@ type HealthResponse struct {
 // HealthResponseStatus defines model for HealthResponse.Status.
 type HealthResponseStatus string
 
+// HistoryCategory defines model for HistoryCategory.
+type HistoryCategory string
+
 // Lecture defines model for Lecture.
 type Lecture struct {
 	AcademicYearEnd       int               `json:"academicYearEnd"`
 	AcademicYearStart     int               `json:"academicYearStart"`
 	CompletedSessionCount int               `json:"completedSessionCount"`
-	ContactGroupIds       []string          `json:"contactGroupIds"`
-	ContactUserIds        []string          `json:"contactUserIds"`
 	CreatedAt             time.Time         `json:"createdAt"`
 	Description           *string           `json:"description,omitempty"`
-	ExpectedRevision      int               `json:"expectedRevision"`
 	FieldId               *string           `json:"fieldId,omitempty"`
 	Id                    LectureId         `json:"id"`
 	IsCompleted           bool              `json:"isCompleted"`
 	IsIntroductory        bool              `json:"isIntroductory"`
 	IsPublished           bool              `json:"isPublished"`
+	Material              *Resource         `json:"material,omitempty"`
 	Name                  string            `json:"name"`
-	OrganizerGroupIds     []string          `json:"organizerGroupIds"`
-	OrganizerUserIds      []string          `json:"organizerUserIds"`
+	Organizer             *Organizer        `json:"organizer,omitempty"`
 	Relations             []LectureRelation `json:"relations"`
 	RequiredSessionCount  int               `json:"requiredSessionCount"`
 	Resources             []Resource        `json:"resources"`
@@ -336,8 +377,33 @@ type Lecture struct {
 	UpdatedAt             time.Time         `json:"updatedAt"`
 }
 
+// LectureCreate defines model for LectureCreate.
+type LectureCreate struct {
+	AcademicYearEnd        *int   `json:"academicYearEnd,omitempty"`
+	AcademicYearStart      *int   `json:"academicYearStart,omitempty"`
+	LecturePostFlowClassId string `json:"lecturePostFlowClassId"`
+	LecturePreFlowClassId  string `json:"lecturePreFlowClassId"`
+	Name                   string `json:"name"`
+	SessionMainFlowClassId string `json:"sessionMainFlowClassId"`
+}
+
+// LectureExport defines model for LectureExport.
+type LectureExport struct {
+	Lecture       Lecture                    `json:"lecture"`
+	SchemaVersion LectureExportSchemaVersion `json:"schemaVersion"`
+}
+
+// LectureExportSchemaVersion defines model for LectureExport.SchemaVersion.
+type LectureExportSchemaVersion int
+
 // LectureId defines model for LectureId.
 type LectureId = string
+
+// LecturePatchResult defines model for LecturePatchResult.
+type LecturePatchResult struct {
+	ConflictDetected bool    `json:"conflictDetected"`
+	Lecture          Lecture `json:"lecture"`
+}
 
 // LectureRelation defines model for LectureRelation.
 type LectureRelation struct {
@@ -345,24 +411,21 @@ type LectureRelation struct {
 	Type        RelationType `json:"type"`
 }
 
-// LectureWrite defines model for LectureWrite.
-type LectureWrite struct {
-	AcademicYearEnd   int               `json:"academicYearEnd"`
-	AcademicYearStart int               `json:"academicYearStart"`
-	ContactGroupIds   []string          `json:"contactGroupIds"`
-	ContactUserIds    []string          `json:"contactUserIds"`
-	Description       *string           `json:"description,omitempty"`
-	ExpectedRevision  int               `json:"expectedRevision"`
-	FieldId           *string           `json:"fieldId,omitempty"`
-	IsIntroductory    bool              `json:"isIntroductory"`
-	Name              string            `json:"name"`
-	OrganizerGroupIds []string          `json:"organizerGroupIds"`
-	OrganizerUserIds  []string          `json:"organizerUserIds"`
-	Relations         []LectureRelation `json:"relations"`
-	Resources         []Resource        `json:"resources"`
-	TargetAudience    *string           `json:"targetAudience,omitempty"`
-	TraqChannelId     *string           `json:"traqChannelId,omitempty"`
+// LectureWorkspace defines model for LectureWorkspace.
+type LectureWorkspace struct {
+	Flows   []Flow  `json:"flows"`
+	Lecture Lecture `json:"lecture"`
 }
+
+// Organizer defines model for Organizer.
+type Organizer struct {
+	GroupName *string       `json:"groupName,omitempty"`
+	Id        string        `json:"id"`
+	Kind      OrganizerKind `json:"kind"`
+}
+
+// OrganizerKind defines model for OrganizerKind.
+type OrganizerKind string
 
 // Profile defines model for Profile.
 type Profile struct {
@@ -429,14 +492,14 @@ type Session struct {
 	CreatedAt          time.Time           `json:"createdAt"`
 	Date               *openapi_types.Date `json:"date,omitempty"`
 	Description        *string             `json:"description,omitempty"`
-	ExpectedRevision   int                 `json:"expectedRevision"`
 	Id                 SessionId           `json:"id"`
-	InstructorIds      []string            `json:"instructorIds"`
+	InstructorId       *string             `json:"instructorId,omitempty"`
 	IsCompleted        bool                `json:"isCompleted"`
 	IsReplay           bool                `json:"isReplay"`
 	KnoqUrl            *string             `json:"knoqUrl,omitempty"`
 	LectureId          LectureId           `json:"lectureId"`
 	Location           *string             `json:"location,omitempty"`
+	Material           *Resource           `json:"material,omitempty"`
 	Name               string              `json:"name"`
 	Order              int                 `json:"order"`
 	ReplayOfSessionIds []SessionId         `json:"replayOfSessionIds"`
@@ -456,27 +519,46 @@ type SessionCompletion struct {
 	UserId      string    `json:"userId"`
 }
 
+// SessionCreate defines model for SessionCreate.
+type SessionCreate struct {
+	FlowClassId        string            `json:"flowClassId"`
+	Mode               SessionCreateMode `json:"mode"`
+	ReplayOfSessionIds *[]SessionId      `json:"replayOfSessionIds,omitempty"`
+	SourceSessionId    *SessionId        `json:"sourceSessionId,omitempty"`
+}
+
+// SessionCreateMode defines model for SessionCreateMode.
+type SessionCreateMode string
+
+// SessionCreateResult defines model for SessionCreateResult.
+type SessionCreateResult struct {
+	Flow      Flow             `json:"flow"`
+	Session   Session          `json:"session"`
+	Workspace LectureWorkspace `json:"workspace"`
+}
+
 // SessionId defines model for SessionId.
 type SessionId = string
 
+// SessionOrderItem defines model for SessionOrderItem.
+type SessionOrderItem struct {
+	Order     int       `json:"order"`
+	SessionId SessionId `json:"sessionId"`
+}
+
+// SessionOrderWrite defines model for SessionOrderWrite.
+type SessionOrderWrite struct {
+	Items []SessionOrderItem `json:"items"`
+}
+
+// SessionPatchResult defines model for SessionPatchResult.
+type SessionPatchResult struct {
+	ConflictDetected bool    `json:"conflictDetected"`
+	Session          Session `json:"session"`
+}
+
 // SessionStatus defines model for SessionStatus.
 type SessionStatus string
-
-// SessionWrite defines model for SessionWrite.
-type SessionWrite struct {
-	Date               *openapi_types.Date `json:"date,omitempty"`
-	Description        *string             `json:"description,omitempty"`
-	ExpectedRevision   int                 `json:"expectedRevision"`
-	InstructorIds      []string            `json:"instructorIds"`
-	KnoqUrl            *string             `json:"knoqUrl,omitempty"`
-	Location           *string             `json:"location,omitempty"`
-	Name               string              `json:"name"`
-	Order              int                 `json:"order"`
-	ReplayOfSessionIds []SessionId         `json:"replayOfSessionIds"`
-	Resources          []Resource          `json:"resources"`
-	StartTime          *string             `json:"startTime,omitempty"`
-	Status             SessionStatus       `json:"status"`
-}
 
 // Error defines model for Error.
 type Error = ErrorResponse
@@ -489,8 +571,8 @@ type ListFlowClassesParams struct {
 
 // ListFlowsParams defines parameters for ListFlows.
 type ListFlowsParams struct {
-	TargetId *string     `form:"targetId,omitempty" json:"targetId,omitempty"`
-	Status   *FlowStatus `form:"status,omitempty" json:"status,omitempty"`
+	TargetType FlowTargetType `form:"targetType" json:"targetType"`
+	TargetId   string         `form:"targetId" json:"targetId"`
 }
 
 // ListLecturesParams defines parameters for ListLectures.
@@ -504,6 +586,11 @@ type ListLecturesParams struct {
 // GetLectureParams defines parameters for GetLecture.
 type GetLectureParams struct {
 	IncludeDraft *bool `form:"includeDraft,omitempty" json:"includeDraft,omitempty"`
+}
+
+// GetLectureHistoryParams defines parameters for GetLectureHistory.
+type GetLectureHistoryParams struct {
+	Category HistoryCategory `form:"category" json:"category"`
 }
 
 // ListRoadmapsParams defines parameters for ListRoadmaps.
@@ -527,20 +614,26 @@ type CreateFlowClassJSONRequestBody = FlowClassWrite
 // UpdateFlowClassJSONRequestBody defines body for UpdateFlowClass for application/json ContentType.
 type UpdateFlowClassJSONRequestBody = FlowClassWrite
 
-// CreateFlowJSONRequestBody defines body for CreateFlow for application/json ContentType.
-type CreateFlowJSONRequestBody = FlowCreate
+// PatchFlowCheckJSONRequestBody defines body for PatchFlowCheck for application/json ContentType.
+type PatchFlowCheckJSONRequestBody = FlowCheckPatch
 
-// UpdateFlowJSONRequestBody defines body for UpdateFlow for application/json ContentType.
-type UpdateFlowJSONRequestBody = FlowWrite
+// ReplaceFlowClassJSONRequestBody defines body for ReplaceFlowClass for application/json ContentType.
+type ReplaceFlowClassJSONRequestBody = FlowClassReplace
+
+// UpdateFlowPageJSONRequestBody defines body for UpdateFlowPage for application/json ContentType.
+type UpdateFlowPageJSONRequestBody = FlowPagePatch
 
 // CreateLectureJSONRequestBody defines body for CreateLecture for application/json ContentType.
-type CreateLectureJSONRequestBody = LectureWrite
+type CreateLectureJSONRequestBody = LectureCreate
 
-// UpdateLectureJSONRequestBody defines body for UpdateLecture for application/json ContentType.
-type UpdateLectureJSONRequestBody = LectureWrite
+// PatchLectureAttributeJSONRequestBody defines body for PatchLectureAttribute for application/json ContentType.
+type PatchLectureAttributeJSONRequestBody = AttributePatch
+
+// ReorderSessionsJSONRequestBody defines body for ReorderSessions for application/json ContentType.
+type ReorderSessionsJSONRequestBody = SessionOrderWrite
 
 // CreateSessionJSONRequestBody defines body for CreateSession for application/json ContentType.
-type CreateSessionJSONRequestBody = SessionWrite
+type CreateSessionJSONRequestBody = SessionCreate
 
 // CreateRoadmapJSONRequestBody defines body for CreateRoadmap for application/json ContentType.
 type CreateRoadmapJSONRequestBody = RoadmapWrite
@@ -548,8 +641,8 @@ type CreateRoadmapJSONRequestBody = RoadmapWrite
 // UpdateRoadmapJSONRequestBody defines body for UpdateRoadmap for application/json ContentType.
 type UpdateRoadmapJSONRequestBody = RoadmapWrite
 
-// UpdateSessionJSONRequestBody defines body for UpdateSession for application/json ContentType.
-type UpdateSessionJSONRequestBody = SessionWrite
+// PatchSessionAttributeJSONRequestBody defines body for PatchSessionAttribute for application/json ContentType.
+type PatchSessionAttributeJSONRequestBody = AttributePatch
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -575,14 +668,17 @@ type ServerInterface interface {
 	// (GET /flows)
 	ListFlows(ctx echo.Context, params ListFlowsParams) error
 
-	// (POST /flows)
-	CreateFlow(ctx echo.Context) error
-
 	// (GET /flows/{flowId})
 	GetFlow(ctx echo.Context, flowId string) error
 
-	// (PUT /flows/{flowId})
-	UpdateFlow(ctx echo.Context, flowId string) error
+	// (PATCH /flows/{flowId}/checks)
+	PatchFlowCheck(ctx echo.Context, flowId string) error
+
+	// (PUT /flows/{flowId}/flow-class)
+	ReplaceFlowClass(ctx echo.Context, flowId string) error
+
+	// (PATCH /flows/{flowId}/page)
+	UpdateFlowPage(ctx echo.Context, flowId string) error
 
 	// (GET /health)
 	GetHealth(ctx echo.Context) error
@@ -599,11 +695,23 @@ type ServerInterface interface {
 	// (GET /lectures/{lectureId})
 	GetLecture(ctx echo.Context, lectureId LectureId, params GetLectureParams) error
 
-	// (PUT /lectures/{lectureId})
-	UpdateLecture(ctx echo.Context, lectureId LectureId) error
+	// (PATCH /lectures/{lectureId}/attributes)
+	PatchLectureAttribute(ctx echo.Context, lectureId LectureId) error
+
+	// (GET /lectures/{lectureId}/export)
+	ExportLecture(ctx echo.Context, lectureId LectureId) error
+
+	// (GET /lectures/{lectureId}/history)
+	GetLectureHistory(ctx echo.Context, lectureId LectureId, params GetLectureHistoryParams) error
+
+	// (PUT /lectures/{lectureId}/session-order)
+	ReorderSessions(ctx echo.Context, lectureId LectureId) error
 
 	// (POST /lectures/{lectureId}/sessions)
 	CreateSession(ctx echo.Context, lectureId LectureId) error
+
+	// (GET /lectures/{lectureId}/workspace)
+	GetLectureWorkspace(ctx echo.Context, lectureId LectureId) error
 
 	// (GET /profiles/{traqId})
 	GetProfile(ctx echo.Context, traqId string) error
@@ -623,8 +731,8 @@ type ServerInterface interface {
 	// (GET /sessions/{sessionId})
 	GetSession(ctx echo.Context, sessionId SessionId, params GetSessionParams) error
 
-	// (PUT /sessions/{sessionId})
-	UpdateSession(ctx echo.Context, sessionId SessionId) error
+	// (PATCH /sessions/{sessionId}/attributes)
+	PatchSessionAttribute(ctx echo.Context, sessionId SessionId) error
 
 	// (DELETE /sessions/{sessionId}/completion)
 	UncompleteSession(ctx echo.Context, sessionId SessionId) error
@@ -731,31 +839,22 @@ func (w *ServerInterfaceWrapper) ListFlows(ctx echo.Context) error {
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params ListFlowsParams
-	// ------------- Optional query parameter "targetId" -------------
+	// ------------- Required query parameter "targetType" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "targetId", ctx.QueryParams(), &params.TargetId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "targetType", ctx.QueryParams(), &params.TargetType, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter targetType: %s", err))
+	}
+
+	// ------------- Required query parameter "targetId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "targetId", ctx.QueryParams(), &params.TargetId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter targetId: %s", err))
 	}
 
-	// ------------- Optional query parameter "status" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", ctx.QueryParams(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter status: %s", err))
-	}
-
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.ListFlows(ctx, params)
-	return err
-}
-
-// CreateFlow converts echo context to params.
-func (w *ServerInterfaceWrapper) CreateFlow(ctx echo.Context) error {
-	var err error
-
-	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.CreateFlow(ctx)
 	return err
 }
 
@@ -775,8 +874,8 @@ func (w *ServerInterfaceWrapper) GetFlow(ctx echo.Context) error {
 	return err
 }
 
-// UpdateFlow converts echo context to params.
-func (w *ServerInterfaceWrapper) UpdateFlow(ctx echo.Context) error {
+// PatchFlowCheck converts echo context to params.
+func (w *ServerInterfaceWrapper) PatchFlowCheck(ctx echo.Context) error {
 	var err error
 	// ------------- Path parameter "flowId" -------------
 	var flowId string
@@ -787,7 +886,39 @@ func (w *ServerInterfaceWrapper) UpdateFlow(ctx echo.Context) error {
 	}
 
 	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.UpdateFlow(ctx, flowId)
+	err = w.Handler.PatchFlowCheck(ctx, flowId)
+	return err
+}
+
+// ReplaceFlowClass converts echo context to params.
+func (w *ServerInterfaceWrapper) ReplaceFlowClass(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "flowId" -------------
+	var flowId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "flowId", ctx.Param("flowId"), &flowId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter flowId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ReplaceFlowClass(ctx, flowId)
+	return err
+}
+
+// UpdateFlowPage converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateFlowPage(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "flowId" -------------
+	var flowId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "flowId", ctx.Param("flowId"), &flowId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter flowId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateFlowPage(ctx, flowId)
 	return err
 }
 
@@ -897,8 +1028,8 @@ func (w *ServerInterfaceWrapper) GetLecture(ctx echo.Context) error {
 	return err
 }
 
-// UpdateLecture converts echo context to params.
-func (w *ServerInterfaceWrapper) UpdateLecture(ctx echo.Context) error {
+// PatchLectureAttribute converts echo context to params.
+func (w *ServerInterfaceWrapper) PatchLectureAttribute(ctx echo.Context) error {
 	var err error
 	// ------------- Path parameter "lectureId" -------------
 	var lectureId LectureId
@@ -909,7 +1040,64 @@ func (w *ServerInterfaceWrapper) UpdateLecture(ctx echo.Context) error {
 	}
 
 	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.UpdateLecture(ctx, lectureId)
+	err = w.Handler.PatchLectureAttribute(ctx, lectureId)
+	return err
+}
+
+// ExportLecture converts echo context to params.
+func (w *ServerInterfaceWrapper) ExportLecture(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "lectureId" -------------
+	var lectureId LectureId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "lectureId", ctx.Param("lectureId"), &lectureId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter lectureId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ExportLecture(ctx, lectureId)
+	return err
+}
+
+// GetLectureHistory converts echo context to params.
+func (w *ServerInterfaceWrapper) GetLectureHistory(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "lectureId" -------------
+	var lectureId LectureId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "lectureId", ctx.Param("lectureId"), &lectureId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter lectureId: %s", err))
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetLectureHistoryParams
+	// ------------- Required query parameter "category" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "category", ctx.QueryParams(), &params.Category, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter category: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetLectureHistory(ctx, lectureId, params)
+	return err
+}
+
+// ReorderSessions converts echo context to params.
+func (w *ServerInterfaceWrapper) ReorderSessions(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "lectureId" -------------
+	var lectureId LectureId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "lectureId", ctx.Param("lectureId"), &lectureId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter lectureId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ReorderSessions(ctx, lectureId)
 	return err
 }
 
@@ -926,6 +1114,22 @@ func (w *ServerInterfaceWrapper) CreateSession(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.CreateSession(ctx, lectureId)
+	return err
+}
+
+// GetLectureWorkspace converts echo context to params.
+func (w *ServerInterfaceWrapper) GetLectureWorkspace(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "lectureId" -------------
+	var lectureId LectureId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "lectureId", ctx.Param("lectureId"), &lectureId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter lectureId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetLectureWorkspace(ctx, lectureId)
 	return err
 }
 
@@ -1038,8 +1242,8 @@ func (w *ServerInterfaceWrapper) GetSession(ctx echo.Context) error {
 	return err
 }
 
-// UpdateSession converts echo context to params.
-func (w *ServerInterfaceWrapper) UpdateSession(ctx echo.Context) error {
+// PatchSessionAttribute converts echo context to params.
+func (w *ServerInterfaceWrapper) PatchSessionAttribute(ctx echo.Context) error {
 	var err error
 	// ------------- Path parameter "sessionId" -------------
 	var sessionId SessionId
@@ -1050,7 +1254,7 @@ func (w *ServerInterfaceWrapper) UpdateSession(ctx echo.Context) error {
 	}
 
 	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.UpdateSession(ctx, sessionId)
+	err = w.Handler.PatchSessionAttribute(ctx, sessionId)
 	return err
 }
 
@@ -1149,10 +1353,14 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 	router.GET(options.BaseURL+"/lectures", wrapper.ListLectures, options.OperationMiddlewares["listLectures"]...)
 	router.POST(options.BaseURL+"/lectures", wrapper.CreateLecture, options.OperationMiddlewares["createLecture"]...)
 	router.GET(options.BaseURL+"/lectures/:lectureId", wrapper.GetLecture, options.OperationMiddlewares["getLecture"]...)
-	router.PUT(options.BaseURL+"/lectures/:lectureId", wrapper.UpdateLecture, options.OperationMiddlewares["updateLecture"]...)
+	router.GET(options.BaseURL+"/lectures/:lectureId/workspace", wrapper.GetLectureWorkspace, options.OperationMiddlewares["getLectureWorkspace"]...)
+	router.PATCH(options.BaseURL+"/lectures/:lectureId/attributes", wrapper.PatchLectureAttribute, options.OperationMiddlewares["patchLectureAttribute"]...)
 	router.POST(options.BaseURL+"/lectures/:lectureId/sessions", wrapper.CreateSession, options.OperationMiddlewares["createSession"]...)
+	router.PUT(options.BaseURL+"/lectures/:lectureId/session-order", wrapper.ReorderSessions, options.OperationMiddlewares["reorderSessions"]...)
+	router.GET(options.BaseURL+"/lectures/:lectureId/history", wrapper.GetLectureHistory, options.OperationMiddlewares["getLectureHistory"]...)
+	router.GET(options.BaseURL+"/lectures/:lectureId/export", wrapper.ExportLecture, options.OperationMiddlewares["exportLecture"]...)
 	router.GET(options.BaseURL+"/sessions/:sessionId", wrapper.GetSession, options.OperationMiddlewares["getSession"]...)
-	router.PUT(options.BaseURL+"/sessions/:sessionId", wrapper.UpdateSession, options.OperationMiddlewares["updateSession"]...)
+	router.PATCH(options.BaseURL+"/sessions/:sessionId/attributes", wrapper.PatchSessionAttribute, options.OperationMiddlewares["patchSessionAttribute"]...)
 	router.DELETE(options.BaseURL+"/sessions/:sessionId/completion", wrapper.UncompleteSession, options.OperationMiddlewares["uncompleteSession"]...)
 	router.PUT(options.BaseURL+"/sessions/:sessionId/completion", wrapper.CompleteSession, options.OperationMiddlewares["completeSession"]...)
 	router.GET(options.BaseURL+"/flow-classes", wrapper.ListFlowClasses, options.OperationMiddlewares["listFlowClasses"]...)
@@ -1160,9 +1368,10 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 	router.GET(options.BaseURL+"/flow-classes/:flowClassId", wrapper.GetFlowClass, options.OperationMiddlewares["getFlowClass"]...)
 	router.PUT(options.BaseURL+"/flow-classes/:flowClassId", wrapper.UpdateFlowClass, options.OperationMiddlewares["updateFlowClass"]...)
 	router.GET(options.BaseURL+"/flows", wrapper.ListFlows, options.OperationMiddlewares["listFlows"]...)
-	router.POST(options.BaseURL+"/flows", wrapper.CreateFlow, options.OperationMiddlewares["createFlow"]...)
 	router.GET(options.BaseURL+"/flows/:flowId", wrapper.GetFlow, options.OperationMiddlewares["getFlow"]...)
-	router.PUT(options.BaseURL+"/flows/:flowId", wrapper.UpdateFlow, options.OperationMiddlewares["updateFlow"]...)
+	router.PUT(options.BaseURL+"/flows/:flowId/flow-class", wrapper.ReplaceFlowClass, options.OperationMiddlewares["replaceFlowClass"]...)
+	router.PATCH(options.BaseURL+"/flows/:flowId/checks", wrapper.PatchFlowCheck, options.OperationMiddlewares["patchFlowCheck"]...)
+	router.PATCH(options.BaseURL+"/flows/:flowId/page", wrapper.UpdateFlowPage, options.OperationMiddlewares["updateFlowPage"]...)
 	router.GET(options.BaseURL+"/roadmaps", wrapper.ListRoadmaps, options.OperationMiddlewares["listRoadmaps"]...)
 	router.POST(options.BaseURL+"/roadmaps", wrapper.CreateRoadmap, options.OperationMiddlewares["createRoadmap"]...)
 	router.GET(options.BaseURL+"/roadmaps/:roadmapId", wrapper.GetRoadmap, options.OperationMiddlewares["getRoadmap"]...)
@@ -1411,31 +1620,9 @@ func (response ListFlows200JSONResponse) VisitListFlowsResponse(w http.ResponseW
 	return err
 }
 
-type CreateFlowRequestObject struct {
-	Body *CreateFlowJSONRequestBody
-}
+type ListFlows400JSONResponse struct{ ErrorJSONResponse }
 
-type CreateFlowResponseObject interface {
-	VisitCreateFlowResponse(w http.ResponseWriter) error
-}
-
-type CreateFlow201JSONResponse Flow
-
-func (response CreateFlow201JSONResponse) VisitCreateFlowResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type CreateFlow400JSONResponse struct{ ErrorJSONResponse }
-
-func (response CreateFlow400JSONResponse) VisitCreateFlowResponse(w http.ResponseWriter) error {
+func (response ListFlows400JSONResponse) VisitListFlowsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -1443,20 +1630,6 @@ func (response CreateFlow400JSONResponse) VisitCreateFlowResponse(w http.Respons
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type CreateFlow404JSONResponse ErrorResponse
-
-func (response CreateFlow404JSONResponse) VisitCreateFlowResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1497,18 +1670,18 @@ func (response GetFlow404JSONResponse) VisitGetFlowResponse(w http.ResponseWrite
 	return err
 }
 
-type UpdateFlowRequestObject struct {
+type PatchFlowCheckRequestObject struct {
 	FlowId string `json:"flowId"`
-	Body   *UpdateFlowJSONRequestBody
+	Body   *PatchFlowCheckJSONRequestBody
 }
 
-type UpdateFlowResponseObject interface {
-	VisitUpdateFlowResponse(w http.ResponseWriter) error
+type PatchFlowCheckResponseObject interface {
+	VisitPatchFlowCheckResponse(w http.ResponseWriter) error
 }
 
-type UpdateFlow200JSONResponse Flow
+type PatchFlowCheck200JSONResponse FlowOperationResult
 
-func (response UpdateFlow200JSONResponse) VisitUpdateFlowResponse(w http.ResponseWriter) error {
+func (response PatchFlowCheck200JSONResponse) VisitPatchFlowCheckResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -1520,9 +1693,9 @@ func (response UpdateFlow200JSONResponse) VisitUpdateFlowResponse(w http.Respons
 	return err
 }
 
-type UpdateFlow400JSONResponse struct{ ErrorJSONResponse }
+type PatchFlowCheck400JSONResponse struct{ ErrorJSONResponse }
 
-func (response UpdateFlow400JSONResponse) VisitUpdateFlowResponse(w http.ResponseWriter) error {
+func (response PatchFlowCheck400JSONResponse) VisitPatchFlowCheckResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -1534,9 +1707,9 @@ func (response UpdateFlow400JSONResponse) VisitUpdateFlowResponse(w http.Respons
 	return err
 }
 
-type UpdateFlow404JSONResponse ErrorResponse
+type PatchFlowCheck404JSONResponse ErrorResponse
 
-func (response UpdateFlow404JSONResponse) VisitUpdateFlowResponse(w http.ResponseWriter) error {
+func (response PatchFlowCheck404JSONResponse) VisitPatchFlowCheckResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -1548,9 +1721,9 @@ func (response UpdateFlow404JSONResponse) VisitUpdateFlowResponse(w http.Respons
 	return err
 }
 
-type UpdateFlow409JSONResponse ErrorResponse
+type PatchFlowCheck409JSONResponse ErrorResponse
 
-func (response UpdateFlow409JSONResponse) VisitUpdateFlowResponse(w http.ResponseWriter) error {
+func (response PatchFlowCheck409JSONResponse) VisitPatchFlowCheckResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -1558,6 +1731,108 @@ func (response UpdateFlow409JSONResponse) VisitUpdateFlowResponse(w http.Respons
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplaceFlowClassRequestObject struct {
+	FlowId string `json:"flowId"`
+	Body   *ReplaceFlowClassJSONRequestBody
+}
+
+type ReplaceFlowClassResponseObject interface {
+	VisitReplaceFlowClassResponse(w http.ResponseWriter) error
+}
+
+type ReplaceFlowClass200JSONResponse FlowOperationResult
+
+func (response ReplaceFlowClass200JSONResponse) VisitReplaceFlowClassResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplaceFlowClass400JSONResponse struct{ ErrorJSONResponse }
+
+func (response ReplaceFlowClass400JSONResponse) VisitReplaceFlowClassResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReplaceFlowClass404JSONResponse ErrorResponse
+
+func (response ReplaceFlowClass404JSONResponse) VisitReplaceFlowClassResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateFlowPageRequestObject struct {
+	FlowId string `json:"flowId"`
+	Body   *UpdateFlowPageJSONRequestBody
+}
+
+type UpdateFlowPageResponseObject interface {
+	VisitUpdateFlowPageResponse(w http.ResponseWriter) error
+}
+
+type UpdateFlowPage200JSONResponse FlowOperationResult
+
+func (response UpdateFlowPage200JSONResponse) VisitUpdateFlowPageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateFlowPage400JSONResponse struct{ ErrorJSONResponse }
+
+func (response UpdateFlowPage400JSONResponse) VisitUpdateFlowPageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateFlowPage404JSONResponse ErrorResponse
+
+func (response UpdateFlowPage404JSONResponse) VisitUpdateFlowPageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1650,7 +1925,7 @@ type CreateLectureResponseObject interface {
 	VisitCreateLectureResponse(w http.ResponseWriter) error
 }
 
-type CreateLecture201JSONResponse Lecture
+type CreateLecture201JSONResponse LectureWorkspace
 
 func (response CreateLecture201JSONResponse) VisitCreateLectureResponse(w http.ResponseWriter) error {
 
@@ -1674,6 +1949,20 @@ func (response CreateLecture400JSONResponse) VisitCreateLectureResponse(w http.R
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateLecture404JSONResponse ErrorResponse
+
+func (response CreateLecture404JSONResponse) VisitCreateLectureResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1715,18 +2004,18 @@ func (response GetLecture404JSONResponse) VisitGetLectureResponse(w http.Respons
 	return err
 }
 
-type UpdateLectureRequestObject struct {
+type PatchLectureAttributeRequestObject struct {
 	LectureId LectureId `json:"lectureId"`
-	Body      *UpdateLectureJSONRequestBody
+	Body      *PatchLectureAttributeJSONRequestBody
 }
 
-type UpdateLectureResponseObject interface {
-	VisitUpdateLectureResponse(w http.ResponseWriter) error
+type PatchLectureAttributeResponseObject interface {
+	VisitPatchLectureAttributeResponse(w http.ResponseWriter) error
 }
 
-type UpdateLecture200JSONResponse Lecture
+type PatchLectureAttribute200JSONResponse LecturePatchResult
 
-func (response UpdateLecture200JSONResponse) VisitUpdateLectureResponse(w http.ResponseWriter) error {
+func (response PatchLectureAttribute200JSONResponse) VisitPatchLectureAttributeResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -1738,9 +2027,9 @@ func (response UpdateLecture200JSONResponse) VisitUpdateLectureResponse(w http.R
 	return err
 }
 
-type UpdateLecture400JSONResponse struct{ ErrorJSONResponse }
+type PatchLectureAttribute400JSONResponse struct{ ErrorJSONResponse }
 
-func (response UpdateLecture400JSONResponse) VisitUpdateLectureResponse(w http.ResponseWriter) error {
+func (response PatchLectureAttribute400JSONResponse) VisitPatchLectureAttributeResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -1752,9 +2041,9 @@ func (response UpdateLecture400JSONResponse) VisitUpdateLectureResponse(w http.R
 	return err
 }
 
-type UpdateLecture404JSONResponse ErrorResponse
+type PatchLectureAttribute404JSONResponse ErrorResponse
 
-func (response UpdateLecture404JSONResponse) VisitUpdateLectureResponse(w http.ResponseWriter) error {
+func (response PatchLectureAttribute404JSONResponse) VisitPatchLectureAttributeResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -1766,16 +2055,126 @@ func (response UpdateLecture404JSONResponse) VisitUpdateLectureResponse(w http.R
 	return err
 }
 
-type UpdateLecture409JSONResponse ErrorResponse
+type ExportLectureRequestObject struct {
+	LectureId LectureId `json:"lectureId"`
+}
 
-func (response UpdateLecture409JSONResponse) VisitUpdateLectureResponse(w http.ResponseWriter) error {
+type ExportLectureResponseObject interface {
+	VisitExportLectureResponse(w http.ResponseWriter) error
+}
+
+type ExportLecture200JSONResponse LectureExport
+
+func (response ExportLecture200JSONResponse) VisitExportLectureResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(409)
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExportLecture404JSONResponse struct{ ErrorJSONResponse }
+
+func (response ExportLecture404JSONResponse) VisitExportLectureResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLectureHistoryRequestObject struct {
+	LectureId LectureId `json:"lectureId"`
+	Params    GetLectureHistoryParams
+}
+
+type GetLectureHistoryResponseObject interface {
+	VisitGetLectureHistoryResponse(w http.ResponseWriter) error
+}
+
+type GetLectureHistory200JSONResponse []AttributeUpdateEvent
+
+func (response GetLectureHistory200JSONResponse) VisitGetLectureHistoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLectureHistory404JSONResponse struct{ ErrorJSONResponse }
+
+func (response GetLectureHistory404JSONResponse) VisitGetLectureHistoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReorderSessionsRequestObject struct {
+	LectureId LectureId `json:"lectureId"`
+	Body      *ReorderSessionsJSONRequestBody
+}
+
+type ReorderSessionsResponseObject interface {
+	VisitReorderSessionsResponse(w http.ResponseWriter) error
+}
+
+type ReorderSessions200JSONResponse []Session
+
+func (response ReorderSessions200JSONResponse) VisitReorderSessionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReorderSessions400JSONResponse struct{ ErrorJSONResponse }
+
+func (response ReorderSessions400JSONResponse) VisitReorderSessionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReorderSessions404JSONResponse ErrorResponse
+
+func (response ReorderSessions404JSONResponse) VisitReorderSessionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1789,7 +2188,7 @@ type CreateSessionResponseObject interface {
 	VisitCreateSessionResponse(w http.ResponseWriter) error
 }
 
-type CreateSession201JSONResponse Session
+type CreateSession201JSONResponse SessionCreateResult
 
 func (response CreateSession201JSONResponse) VisitCreateSessionResponse(w http.ResponseWriter) error {
 
@@ -1827,6 +2226,56 @@ func (response CreateSession404JSONResponse) VisitCreateSessionResponse(w http.R
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLectureWorkspaceRequestObject struct {
+	LectureId LectureId `json:"lectureId"`
+}
+
+type GetLectureWorkspaceResponseObject interface {
+	VisitGetLectureWorkspaceResponse(w http.ResponseWriter) error
+}
+
+type GetLectureWorkspace200JSONResponse LectureWorkspace
+
+func (response GetLectureWorkspace200JSONResponse) VisitGetLectureWorkspaceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLectureWorkspace404JSONResponse struct{ ErrorJSONResponse }
+
+func (response GetLectureWorkspace404JSONResponse) VisitGetLectureWorkspaceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetLectureWorkspace409JSONResponse ErrorResponse
+
+func (response GetLectureWorkspace409JSONResponse) VisitGetLectureWorkspaceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -2078,18 +2527,18 @@ func (response GetSession404JSONResponse) VisitGetSessionResponse(w http.Respons
 	return err
 }
 
-type UpdateSessionRequestObject struct {
+type PatchSessionAttributeRequestObject struct {
 	SessionId SessionId `json:"sessionId"`
-	Body      *UpdateSessionJSONRequestBody
+	Body      *PatchSessionAttributeJSONRequestBody
 }
 
-type UpdateSessionResponseObject interface {
-	VisitUpdateSessionResponse(w http.ResponseWriter) error
+type PatchSessionAttributeResponseObject interface {
+	VisitPatchSessionAttributeResponse(w http.ResponseWriter) error
 }
 
-type UpdateSession200JSONResponse Session
+type PatchSessionAttribute200JSONResponse SessionPatchResult
 
-func (response UpdateSession200JSONResponse) VisitUpdateSessionResponse(w http.ResponseWriter) error {
+func (response PatchSessionAttribute200JSONResponse) VisitPatchSessionAttributeResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -2101,9 +2550,9 @@ func (response UpdateSession200JSONResponse) VisitUpdateSessionResponse(w http.R
 	return err
 }
 
-type UpdateSession400JSONResponse struct{ ErrorJSONResponse }
+type PatchSessionAttribute400JSONResponse struct{ ErrorJSONResponse }
 
-func (response UpdateSession400JSONResponse) VisitUpdateSessionResponse(w http.ResponseWriter) error {
+func (response PatchSessionAttribute400JSONResponse) VisitPatchSessionAttributeResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -2115,9 +2564,9 @@ func (response UpdateSession400JSONResponse) VisitUpdateSessionResponse(w http.R
 	return err
 }
 
-type UpdateSession404JSONResponse ErrorResponse
+type PatchSessionAttribute404JSONResponse ErrorResponse
 
-func (response UpdateSession404JSONResponse) VisitUpdateSessionResponse(w http.ResponseWriter) error {
+func (response PatchSessionAttribute404JSONResponse) VisitPatchSessionAttributeResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -2125,20 +2574,6 @@ func (response UpdateSession404JSONResponse) VisitUpdateSessionResponse(w http.R
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type UpdateSession409JSONResponse ErrorResponse
-
-func (response UpdateSession409JSONResponse) VisitUpdateSessionResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -2310,14 +2745,17 @@ type StrictServerInterface interface {
 	// (GET /flows)
 	ListFlows(ctx context.Context, request ListFlowsRequestObject) (ListFlowsResponseObject, error)
 
-	// (POST /flows)
-	CreateFlow(ctx context.Context, request CreateFlowRequestObject) (CreateFlowResponseObject, error)
-
 	// (GET /flows/{flowId})
 	GetFlow(ctx context.Context, request GetFlowRequestObject) (GetFlowResponseObject, error)
 
-	// (PUT /flows/{flowId})
-	UpdateFlow(ctx context.Context, request UpdateFlowRequestObject) (UpdateFlowResponseObject, error)
+	// (PATCH /flows/{flowId}/checks)
+	PatchFlowCheck(ctx context.Context, request PatchFlowCheckRequestObject) (PatchFlowCheckResponseObject, error)
+
+	// (PUT /flows/{flowId}/flow-class)
+	ReplaceFlowClass(ctx context.Context, request ReplaceFlowClassRequestObject) (ReplaceFlowClassResponseObject, error)
+
+	// (PATCH /flows/{flowId}/page)
+	UpdateFlowPage(ctx context.Context, request UpdateFlowPageRequestObject) (UpdateFlowPageResponseObject, error)
 
 	// (GET /health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
@@ -2334,11 +2772,23 @@ type StrictServerInterface interface {
 	// (GET /lectures/{lectureId})
 	GetLecture(ctx context.Context, request GetLectureRequestObject) (GetLectureResponseObject, error)
 
-	// (PUT /lectures/{lectureId})
-	UpdateLecture(ctx context.Context, request UpdateLectureRequestObject) (UpdateLectureResponseObject, error)
+	// (PATCH /lectures/{lectureId}/attributes)
+	PatchLectureAttribute(ctx context.Context, request PatchLectureAttributeRequestObject) (PatchLectureAttributeResponseObject, error)
+
+	// (GET /lectures/{lectureId}/export)
+	ExportLecture(ctx context.Context, request ExportLectureRequestObject) (ExportLectureResponseObject, error)
+
+	// (GET /lectures/{lectureId}/history)
+	GetLectureHistory(ctx context.Context, request GetLectureHistoryRequestObject) (GetLectureHistoryResponseObject, error)
+
+	// (PUT /lectures/{lectureId}/session-order)
+	ReorderSessions(ctx context.Context, request ReorderSessionsRequestObject) (ReorderSessionsResponseObject, error)
 
 	// (POST /lectures/{lectureId}/sessions)
 	CreateSession(ctx context.Context, request CreateSessionRequestObject) (CreateSessionResponseObject, error)
+
+	// (GET /lectures/{lectureId}/workspace)
+	GetLectureWorkspace(ctx context.Context, request GetLectureWorkspaceRequestObject) (GetLectureWorkspaceResponseObject, error)
 
 	// (GET /profiles/{traqId})
 	GetProfile(ctx context.Context, request GetProfileRequestObject) (GetProfileResponseObject, error)
@@ -2358,8 +2808,8 @@ type StrictServerInterface interface {
 	// (GET /sessions/{sessionId})
 	GetSession(ctx context.Context, request GetSessionRequestObject) (GetSessionResponseObject, error)
 
-	// (PUT /sessions/{sessionId})
-	UpdateSession(ctx context.Context, request UpdateSessionRequestObject) (UpdateSessionResponseObject, error)
+	// (PATCH /sessions/{sessionId}/attributes)
+	PatchSessionAttribute(ctx context.Context, request PatchSessionAttributeRequestObject) (PatchSessionAttributeResponseObject, error)
 
 	// (DELETE /sessions/{sessionId}/completion)
 	UncompleteSession(ctx context.Context, request UncompleteSessionRequestObject) (UncompleteSessionResponseObject, error)
@@ -2584,45 +3034,6 @@ func (sh *strictHandler) ListFlows(ctx echo.Context, params ListFlowsParams) err
 	return nil
 }
 
-// CreateFlow operation middleware
-func (sh *strictHandler) CreateFlow(ctx echo.Context) error {
-	var request CreateFlowRequestObject
-
-	var body CreateFlowJSONRequestBody
-	var err error
-	if binder, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
-		// Bind only the request body, so that path and query parameters
-		// are not also bound into the body struct.
-		err = binder.BindBody(ctx, &body)
-	} else {
-		// A custom binder is installed on the Echo instance; defer to it
-		// entirely, since echo.Binder does not expose body-only binding.
-		err = ctx.Bind(&body)
-	}
-	if err != nil {
-		return err
-	}
-	request.Body = &body
-
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateFlow(ctx.Request().Context(), request.(CreateFlowRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateFlow")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return err
-	} else if validResponse, ok := response.(CreateFlowResponseObject); ok {
-		return validResponse.VisitCreateFlowResponse(ctx.Response())
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
-}
-
 // GetFlow operation middleware
 func (sh *strictHandler) GetFlow(ctx echo.Context, flowId string) error {
 	var request GetFlowRequestObject
@@ -2648,13 +3059,13 @@ func (sh *strictHandler) GetFlow(ctx echo.Context, flowId string) error {
 	return nil
 }
 
-// UpdateFlow operation middleware
-func (sh *strictHandler) UpdateFlow(ctx echo.Context, flowId string) error {
-	var request UpdateFlowRequestObject
+// PatchFlowCheck operation middleware
+func (sh *strictHandler) PatchFlowCheck(ctx echo.Context, flowId string) error {
+	var request PatchFlowCheckRequestObject
 
 	request.FlowId = flowId
 
-	var body UpdateFlowJSONRequestBody
+	var body PatchFlowCheckJSONRequestBody
 	var err error
 	if binder, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
 		// Bind only the request body, so that path and query parameters
@@ -2671,18 +3082,100 @@ func (sh *strictHandler) UpdateFlow(ctx echo.Context, flowId string) error {
 	request.Body = &body
 
 	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.UpdateFlow(ctx.Request().Context(), request.(UpdateFlowRequestObject))
+		return sh.ssi.PatchFlowCheck(ctx.Request().Context(), request.(PatchFlowCheckRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "UpdateFlow")
+		handler = middleware(handler, "PatchFlowCheck")
 	}
 
 	response, err := handler(ctx, request)
 
 	if err != nil {
 		return err
-	} else if validResponse, ok := response.(UpdateFlowResponseObject); ok {
-		return validResponse.VisitUpdateFlowResponse(ctx.Response())
+	} else if validResponse, ok := response.(PatchFlowCheckResponseObject); ok {
+		return validResponse.VisitPatchFlowCheckResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ReplaceFlowClass operation middleware
+func (sh *strictHandler) ReplaceFlowClass(ctx echo.Context, flowId string) error {
+	var request ReplaceFlowClassRequestObject
+
+	request.FlowId = flowId
+
+	var body ReplaceFlowClassJSONRequestBody
+	var err error
+	if binder, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = binder.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ReplaceFlowClass(ctx.Request().Context(), request.(ReplaceFlowClassRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReplaceFlowClass")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ReplaceFlowClassResponseObject); ok {
+		return validResponse.VisitReplaceFlowClassResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// UpdateFlowPage operation middleware
+func (sh *strictHandler) UpdateFlowPage(ctx echo.Context, flowId string) error {
+	var request UpdateFlowPageRequestObject
+
+	request.FlowId = flowId
+
+	var body UpdateFlowPageJSONRequestBody
+	var err error
+	if binder, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = binder.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateFlowPage(ctx.Request().Context(), request.(UpdateFlowPageRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateFlowPage")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(UpdateFlowPageResponseObject); ok {
+		return validResponse.VisitUpdateFlowPageResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}
@@ -2828,13 +3321,13 @@ func (sh *strictHandler) GetLecture(ctx echo.Context, lectureId LectureId, param
 	return nil
 }
 
-// UpdateLecture operation middleware
-func (sh *strictHandler) UpdateLecture(ctx echo.Context, lectureId LectureId) error {
-	var request UpdateLectureRequestObject
+// PatchLectureAttribute operation middleware
+func (sh *strictHandler) PatchLectureAttribute(ctx echo.Context, lectureId LectureId) error {
+	var request PatchLectureAttributeRequestObject
 
 	request.LectureId = lectureId
 
-	var body UpdateLectureJSONRequestBody
+	var body PatchLectureAttributeJSONRequestBody
 	var err error
 	if binder, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
 		// Bind only the request body, so that path and query parameters
@@ -2851,18 +3344,110 @@ func (sh *strictHandler) UpdateLecture(ctx echo.Context, lectureId LectureId) er
 	request.Body = &body
 
 	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.UpdateLecture(ctx.Request().Context(), request.(UpdateLectureRequestObject))
+		return sh.ssi.PatchLectureAttribute(ctx.Request().Context(), request.(PatchLectureAttributeRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "UpdateLecture")
+		handler = middleware(handler, "PatchLectureAttribute")
 	}
 
 	response, err := handler(ctx, request)
 
 	if err != nil {
 		return err
-	} else if validResponse, ok := response.(UpdateLectureResponseObject); ok {
-		return validResponse.VisitUpdateLectureResponse(ctx.Response())
+	} else if validResponse, ok := response.(PatchLectureAttributeResponseObject); ok {
+		return validResponse.VisitPatchLectureAttributeResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ExportLecture operation middleware
+func (sh *strictHandler) ExportLecture(ctx echo.Context, lectureId LectureId) error {
+	var request ExportLectureRequestObject
+
+	request.LectureId = lectureId
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ExportLecture(ctx.Request().Context(), request.(ExportLectureRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ExportLecture")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ExportLectureResponseObject); ok {
+		return validResponse.VisitExportLectureResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetLectureHistory operation middleware
+func (sh *strictHandler) GetLectureHistory(ctx echo.Context, lectureId LectureId, params GetLectureHistoryParams) error {
+	var request GetLectureHistoryRequestObject
+
+	request.LectureId = lectureId
+	request.Params = params
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetLectureHistory(ctx.Request().Context(), request.(GetLectureHistoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetLectureHistory")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetLectureHistoryResponseObject); ok {
+		return validResponse.VisitGetLectureHistoryResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// ReorderSessions operation middleware
+func (sh *strictHandler) ReorderSessions(ctx echo.Context, lectureId LectureId) error {
+	var request ReorderSessionsRequestObject
+
+	request.LectureId = lectureId
+
+	var body ReorderSessionsJSONRequestBody
+	var err error
+	if binder, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = binder.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.ReorderSessions(ctx.Request().Context(), request.(ReorderSessionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReorderSessions")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(ReorderSessionsResponseObject); ok {
+		return validResponse.VisitReorderSessionsResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}
@@ -2904,6 +3489,31 @@ func (sh *strictHandler) CreateSession(ctx echo.Context, lectureId LectureId) er
 		return err
 	} else if validResponse, ok := response.(CreateSessionResponseObject); ok {
 		return validResponse.VisitCreateSessionResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// GetLectureWorkspace operation middleware
+func (sh *strictHandler) GetLectureWorkspace(ctx echo.Context, lectureId LectureId) error {
+	var request GetLectureWorkspaceRequestObject
+
+	request.LectureId = lectureId
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetLectureWorkspace(ctx.Request().Context(), request.(GetLectureWorkspaceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetLectureWorkspace")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(GetLectureWorkspaceResponseObject); ok {
+		return validResponse.VisitGetLectureWorkspaceResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}
@@ -3092,13 +3702,13 @@ func (sh *strictHandler) GetSession(ctx echo.Context, sessionId SessionId, param
 	return nil
 }
 
-// UpdateSession operation middleware
-func (sh *strictHandler) UpdateSession(ctx echo.Context, sessionId SessionId) error {
-	var request UpdateSessionRequestObject
+// PatchSessionAttribute operation middleware
+func (sh *strictHandler) PatchSessionAttribute(ctx echo.Context, sessionId SessionId) error {
+	var request PatchSessionAttributeRequestObject
 
 	request.SessionId = sessionId
 
-	var body UpdateSessionJSONRequestBody
+	var body PatchSessionAttributeJSONRequestBody
 	var err error
 	if binder, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
 		// Bind only the request body, so that path and query parameters
@@ -3115,18 +3725,18 @@ func (sh *strictHandler) UpdateSession(ctx echo.Context, sessionId SessionId) er
 	request.Body = &body
 
 	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.UpdateSession(ctx.Request().Context(), request.(UpdateSessionRequestObject))
+		return sh.ssi.PatchSessionAttribute(ctx.Request().Context(), request.(PatchSessionAttributeRequestObject))
 	}
 	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "UpdateSession")
+		handler = middleware(handler, "PatchSessionAttribute")
 	}
 
 	response, err := handler(ctx, request)
 
 	if err != nil {
 		return err
-	} else if validResponse, ok := response.(UpdateSessionResponseObject); ok {
-		return validResponse.VisitUpdateSessionResponse(ctx.Response())
+	} else if validResponse, ok := response.(PatchSessionAttributeResponseObject); ok {
+		return validResponse.VisitPatchSessionAttributeResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/traP-jp/1m26_13/backend/internal/api"
+	"github.com/traP-jp/1m26_13/backend/internal/domain"
 	"github.com/traP-jp/1m26_13/backend/internal/store"
 	"github.com/traP-jp/1m26_13/backend/internal/traq"
 )
@@ -125,8 +126,13 @@ func (server server) GetAttributeHistory(ctx context.Context, request api.GetAtt
 	}
 	result := make(api.GetAttributeHistory200JSONResponse, 0, len(events))
 	for _, event := range events {
-		result = append(result, api.AttributeUpdateEvent{Id: event.ID, EntityType: api.AttributeUpdateEventEntityType(event.EntityType), EntityId: event.EntityID,
-			AttributePath: event.AttributePath, PreviousValue: event.PreviousValue, NextValue: event.NextValue, ActorId: event.ActorID, OccurredAt: event.OccurredAt, ChangeSetId: event.ChangeSetID})
+		result = append(result, eventToAPI(event))
 	}
 	return result, nil
+}
+
+func eventToAPI(event domain.AttributeUpdateEvent) api.AttributeUpdateEvent {
+	return api.AttributeUpdateEvent{Id: event.ID, EntityType: api.AttributeUpdateEventEntityType(event.EntityType), EntityId: event.EntityID,
+		AttributePath: event.AttributePath, PreviousValue: event.PreviousValue, NextValue: event.NextValue,
+		ActorId: event.ActorID, OccurredAt: event.OccurredAt, ChangeSetId: event.ChangeSetID}
 }

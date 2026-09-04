@@ -6,6 +6,9 @@ type Resource struct {
 	Title string `json:"title,omitempty"`
 	URL   string `json:"url"`
 }
+type Organizer struct {
+	Kind, ID, GroupName string
+}
 type Relation struct {
 	ToLectureID string `json:"toLectureId"`
 	Type        string `json:"type"`
@@ -19,6 +22,8 @@ type Lecture struct {
 	IsIntroductory                                                       bool
 	TraQChannelID                                                        string
 	Resources                                                            []Resource
+	Material                                                             *Resource
+	Organizer                                                            *Organizer
 	Relations                                                            []Relation
 	Sessions                                                             []Session
 	Revision                                                             int
@@ -30,6 +35,8 @@ type Session struct {
 	Date, StartTime, Location, KnoQURL string
 	InstructorIDs                      []string
 	Resources                          []Resource
+	Material                           *Resource
+	InstructorID                       string
 	ReplayOfSessionIDs                 []string
 	Status                             string
 	IsCompleted                        bool
@@ -46,12 +53,18 @@ type FlowClass struct {
 type Flow struct {
 	ID, FlowClassID, TargetID, Type, Text string
 	FormatVersion                         int
-	Answers                               map[string]string
-	Tasks                                 map[string]bool
 	CurrentPage                           int
-	Status                                string
 	Revision                              int
 	CreatedAt, UpdatedAt                  time.Time
+}
+type LectureWorkspace struct {
+	Lecture Lecture
+	Flows   []Flow
+}
+type SessionCreateResult struct {
+	Workspace LectureWorkspace
+	Session   Session
+	Flow      Flow
 }
 type RoadmapItem struct {
 	LectureID string `json:"lectureId"`

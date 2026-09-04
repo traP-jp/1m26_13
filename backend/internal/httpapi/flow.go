@@ -13,14 +13,13 @@ import (
 
 func flowClassToAPI(flowClass domain.FlowClass) api.FlowClass {
 	return api.FlowClass{Id: flowClass.ID, Name: flowClass.Name, Type: api.FlowType(flowClass.Type), Text: flowClass.Text,
-		Listed: flowClass.Listed, FormatVersion: api.FlowClassFormatVersion(flowClass.FormatVersion), Revision: flowClass.Revision,
+		Listed: flowClass.Listed, FormatVersion: flowClass.FormatVersion, Revision: flowClass.Revision,
 		ExpectedRevision: flowClass.Revision, CreatedAt: flowClass.CreatedAt, UpdatedAt: flowClass.UpdatedAt}
 }
 
 func flowToAPI(flow domain.Flow) api.Flow {
 	return api.Flow{Id: flow.ID, FlowClassId: flow.FlowClassID, TargetId: flow.TargetID, Type: api.FlowType(flow.Type), Text: flow.Text,
-		FormatVersion: api.FlowFormatVersion(flow.FormatVersion), Answers: flow.Answers, Tasks: flow.Tasks, CurrentPage: flow.CurrentPage,
-		Status: api.FlowStatus(flow.Status), Revision: flow.Revision, ExpectedRevision: flow.Revision,
+		FormatVersion: flow.FormatVersion, CurrentPage: flow.CurrentPage, Revision: flow.Revision,
 		CreatedAt: flow.CreatedAt, UpdatedAt: flow.UpdatedAt}
 }
 
@@ -29,14 +28,8 @@ func validFlowType(value string) bool {
 }
 
 func (server server) ListFlows(ctx context.Context, request api.ListFlowsRequestObject) (api.ListFlowsResponseObject, error) {
-	targetID, status := "", ""
-	if request.Params.TargetId != nil {
-		targetID = strings.TrimSpace(*request.Params.TargetId)
-	}
-	if request.Params.Status != nil {
-		status = string(*request.Params.Status)
-	}
-	flows, err := server.repository.ListFlows(ctx, targetID, status)
+	targetID := strings.TrimSpace(request.Params.TargetId)
+	flows, err := server.repository.ListFlows(ctx, string(request.Params.TargetType), targetID)
 	if err != nil {
 		return nil, err
 	}
@@ -125,24 +118,6 @@ func (server server) UpdateFlowClass(ctx context.Context, request api.UpdateFlow
 	return api.UpdateFlowClass200JSONResponse(flowClassToAPI(updated)), nil
 }
 
-func (server server) CreateFlow(ctx context.Context, request api.CreateFlowRequestObject) (api.CreateFlowResponseObject, error) {
-	if request.Body == nil {
-		return api.CreateFlow400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_body", Message: "request body is required"}}, nil
-	}
-	user, err := server.currentUser(ctx)
-	if err != nil {
-		return nil, err
-	}
-	created, err := server.repository.CreateFlow(ctx, request.Body.FlowClassId, request.Body.TargetId, user.ID)
-	if errors.Is(err, store.ErrNotFound) {
-		return api.CreateFlow404JSONResponse{Code: "target_not_found", Message: "FlowClassまたは適用先が見つかりません"}, nil
-	}
-	if err != nil {
-		return api.CreateFlow400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "flow_not_created", Message: "同じFlowは適用済みか、対象が不正です"}}, nil
-	}
-	return api.CreateFlow201JSONResponse(flowToAPI(created)), nil
-}
-
 func (server server) GetFlow(ctx context.Context, request api.GetFlowRequestObject) (api.GetFlowResponseObject, error) {
 	flow, err := server.repository.GetFlow(ctx, request.FlowId)
 	if errors.Is(err, store.ErrNotFound) {
@@ -154,65 +129,66 @@ func (server server) GetFlow(ctx context.Context, request api.GetFlowRequestObje
 	return api.GetFlow200JSONResponse(flowToAPI(flow)), nil
 }
 
-func (server server) UpdateFlow(ctx context.Context, request api.UpdateFlowRequestObject) (api.UpdateFlowResponseObject, error) {
+func (server server) ReplaceFlowClass(ctx context.Context, request api.ReplaceFlowClassRequestObject) (api.ReplaceFlowClassResponseObject, error) {
 	if request.Body == nil {
-		return api.UpdateFlow400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_body", Message: "request body is required"}}, nil
+		return api.ReplaceFlowClass400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_body", Message: "request body is required"}}, nil
 	}
 	user, err := server.currentUser(ctx)
 	if err != nil {
 		return nil, err
 	}
-	current, err := server.repository.GetFlow(ctx, request.FlowId)
+	updated, err := server.repository.ReplaceFlowClass(ctx, request.FlowId, request.Body.FlowClassId, user.ID)
 	if errors.Is(err, store.ErrNotFound) {
-		return api.UpdateFlow404JSONResponse{Code: "flow_not_found", Message: "Flowが見つかりません"}, nil
+		return api.ReplaceFlowClass404JSONResponse{Code: "not_found", Message: "FlowまたはFlowClassが見つかりません"}, nil
+	}
+	if errors.Is(err, store.ErrInvalid) {
+		return api.ReplaceFlowClass400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_flow_class", Message: err.Error()}}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	if current.Status == "completed" {
-		return api.UpdateFlow409JSONResponse{Code: "flow_completed", Message: "完了済みFlowは変更できません"}, nil
+	return api.ReplaceFlowClass200JSONResponse{Flow: flowToAPI(updated)}, nil
+}
+
+func (server server) PatchFlowCheck(ctx context.Context, request api.PatchFlowCheckRequestObject) (api.PatchFlowCheckResponseObject, error) {
+	if request.Body == nil {
+		return api.PatchFlowCheck400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_body", Message: "request body is required"}}, nil
 	}
-	document, err := flowparser.Parse(current.Text, current.Type)
+	user, err := server.currentUser(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if request.Body.CurrentPage < 0 || request.Body.CurrentPage >= document.PageCount {
-		return api.UpdateFlow400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_progress", Message: "現在ページが範囲外です"}}, nil
+	expected := text(request.Body.ExpectedText)
+	updated, err := server.repository.PatchFlowCheck(ctx, request.FlowId, request.Body.PageIndex, request.Body.CheckboxIndex, request.Body.Checked, expected, user.ID)
+	if errors.Is(err, store.ErrNotFound) {
+		return api.PatchFlowCheck404JSONResponse{Code: "flow_not_found", Message: "Flowが見つかりません"}, nil
 	}
-	allowedAnswers := make(map[string]bool)
-	for _, key := range document.InputKeys {
-		if strings.HasPrefix(key, "answer.") {
-			allowedAnswers[key] = true
-		}
-	}
-	for key := range request.Body.Answers {
-		if !allowedAnswers[key] {
-			return api.UpdateFlow400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_answers", Message: "Flow本文にない回答keyが含まれています"}}, nil
-		}
-	}
-	allowedTasks := make(map[string]bool, len(document.TaskKeys))
-	for _, key := range document.TaskKeys {
-		allowedTasks[key] = true
-	}
-	for key := range request.Body.Tasks {
-		if !allowedTasks[key] {
-			return api.UpdateFlow400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_tasks", Message: "Flow本文にないtask keyが含まれています"}}, nil
-		}
-	}
-	if request.Body.Status == api.Completed {
-		for _, key := range document.TaskKeys {
-			if !request.Body.Tasks[key] {
-				return api.UpdateFlow400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "incomplete_tasks", Message: "すべてのチェック項目を完了してください"}}, nil
-			}
-		}
-	}
-	current.Answers, current.Tasks, current.CurrentPage, current.Status = request.Body.Answers, request.Body.Tasks, request.Body.CurrentPage, string(request.Body.Status)
-	updated, err := server.repository.UpdateFlow(ctx, current, request.Body.ExpectedRevision, user.ID)
-	if errors.Is(err, store.ErrConflict) {
-		return api.UpdateFlow409JSONResponse{Code: "revision_conflict", Message: "別の利用者が先に更新しました"}, nil
+	if errors.Is(err, store.ErrInvalid) {
+		return api.PatchFlowCheck409JSONResponse{Code: "flow_changed", Message: "Flow本文が変更されています"}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return api.UpdateFlow200JSONResponse(flowToAPI(updated)), nil
+	return api.PatchFlowCheck200JSONResponse{Flow: flowToAPI(updated)}, nil
+}
+
+func (server server) UpdateFlowPage(ctx context.Context, request api.UpdateFlowPageRequestObject) (api.UpdateFlowPageResponseObject, error) {
+	if request.Body == nil {
+		return api.UpdateFlowPage400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_body", Message: "request body is required"}}, nil
+	}
+	user, err := server.currentUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	updated, err := server.repository.UpdateFlowPage(ctx, request.FlowId, request.Body.CurrentPage, user.ID)
+	if errors.Is(err, store.ErrNotFound) {
+		return api.UpdateFlowPage404JSONResponse{Code: "flow_not_found", Message: "Flowが見つかりません"}, nil
+	}
+	if errors.Is(err, store.ErrInvalid) {
+		return api.UpdateFlowPage400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_page", Message: "ページが範囲外です"}}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return api.UpdateFlowPage200JSONResponse{Flow: flowToAPI(updated)}, nil
 }

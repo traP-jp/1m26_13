@@ -94,12 +94,48 @@ export interface paths {
             cookie?: never;
         };
         get: operations["getLecture"];
-        put: operations["updateLecture"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/lectures/{lectureId}/workspace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        get: operations["getLectureWorkspace"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lectures/{lectureId}/attributes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["patchLectureAttribute"];
         trace?: never;
     };
     "/lectures/{lectureId}/sessions": {
@@ -120,6 +156,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/lectures/{lectureId}/session-order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["reorderSessions"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lectures/{lectureId}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        get: operations["getLectureHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lectures/{lectureId}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        get: operations["exportLecture"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/sessions/{sessionId}": {
         parameters: {
             query?: never;
@@ -130,12 +220,30 @@ export interface paths {
             cookie?: never;
         };
         get: operations["getSession"];
-        put: operations["updateSession"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/sessions/{sessionId}/attributes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["patchSessionAttribute"];
         trace?: never;
     };
     "/sessions/{sessionId}/completion": {
@@ -199,7 +307,7 @@ export interface paths {
         };
         get: operations["listFlows"];
         put?: never;
-        post: operations["createFlow"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -216,12 +324,66 @@ export interface paths {
             cookie?: never;
         };
         get: operations["getFlow"];
-        put: operations["updateFlow"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/flows/{flowId}/flow-class": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                flowId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["replaceFlowClass"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/flows/{flowId}/checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                flowId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["patchFlowCheck"];
+        trace?: never;
+    };
+    "/flows/{flowId}/page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                flowId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateFlowPage"];
         trace?: never;
     };
     "/roadmaps": {
@@ -339,30 +501,40 @@ export interface components {
             url: string;
         };
         /** @enum {string} */
+        OrganizerKind: "user" | "group";
+        Organizer: {
+            kind: components["schemas"]["OrganizerKind"];
+            id: string;
+            groupName?: string;
+        };
+        /** @enum {string} */
         RelationType: "prerequisite" | "previous_year" | "recommended_next";
         LectureRelation: {
             toLectureId: components["schemas"]["LectureId"];
             type: components["schemas"]["RelationType"];
         };
-        LectureWrite: {
+        LectureCreate: {
+            name: string;
+            lecturePreFlowClassId: string;
+            sessionMainFlowClassId: string;
+            lecturePostFlowClassId: string;
+            academicYearStart?: number;
+            academicYearEnd?: number;
+        };
+        Lecture: {
+            id: components["schemas"]["LectureId"];
             name: string;
             description?: string;
             academicYearStart: number;
             academicYearEnd: number;
             fieldId?: string;
-            organizerGroupIds: string[];
-            organizerUserIds: string[];
-            contactGroupIds: string[];
-            contactUserIds: string[];
+            organizer?: components["schemas"]["Organizer"];
             targetAudience?: string;
             isIntroductory: boolean;
             traqChannelId?: string;
+            material?: components["schemas"]["Resource"];
             resources: components["schemas"]["Resource"][];
             relations: components["schemas"]["LectureRelation"][];
-            expectedRevision: number;
-        };
-        Lecture: components["schemas"]["LectureWrite"] & {
-            id: components["schemas"]["LectureId"];
             sessions: components["schemas"]["Session"][];
             isPublished: boolean;
             completedSessionCount: number;
@@ -376,7 +548,9 @@ export interface components {
         };
         /** @enum {string} */
         SessionStatus: "draft" | "published";
-        SessionWrite: {
+        Session: {
+            id: components["schemas"]["SessionId"];
+            lectureId: components["schemas"]["LectureId"];
             name: string;
             description?: string;
             order: number;
@@ -386,15 +560,11 @@ export interface components {
             location?: string;
             /** Format: uri */
             knoqUrl?: string;
-            instructorIds: string[];
+            instructorId?: string;
+            material?: components["schemas"]["Resource"];
             resources: components["schemas"]["Resource"][];
             replayOfSessionIds: components["schemas"]["SessionId"][];
             status: components["schemas"]["SessionStatus"];
-            expectedRevision: number;
-        };
-        Session: components["schemas"]["SessionWrite"] & {
-            id: components["schemas"]["SessionId"];
-            lectureId: components["schemas"]["LectureId"];
             isReplay: boolean;
             isCompleted: boolean;
             revision: number;
@@ -402,6 +572,43 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        LectureWorkspace: {
+            lecture: components["schemas"]["Lecture"];
+            flows: components["schemas"]["Flow"][];
+        };
+        AttributePatch: {
+            attributePath: string;
+            baseValue: unknown;
+            nextValue: unknown;
+        };
+        LecturePatchResult: {
+            lecture: components["schemas"]["Lecture"];
+            conflictDetected: boolean;
+        };
+        SessionPatchResult: {
+            session: components["schemas"]["Session"];
+            conflictDetected: boolean;
+        };
+        /** @enum {string} */
+        SessionCreateMode: "empty" | "duplicate";
+        SessionCreate: {
+            mode: components["schemas"]["SessionCreateMode"];
+            flowClassId: string;
+            sourceSessionId?: components["schemas"]["SessionId"];
+            replayOfSessionIds?: components["schemas"]["SessionId"][];
+        };
+        SessionCreateResult: {
+            workspace: components["schemas"]["LectureWorkspace"];
+            session: components["schemas"]["Session"];
+            flow: components["schemas"]["Flow"];
+        };
+        SessionOrderWrite: {
+            items: components["schemas"]["SessionOrderItem"][];
+        };
+        SessionOrderItem: {
+            sessionId: components["schemas"]["SessionId"];
+            order: number;
         };
         SessionCompletion: {
             userId: string;
@@ -413,6 +620,8 @@ export interface components {
         };
         /** @enum {string} */
         FlowType: "lecture_pre" | "session_main" | "lecture_post";
+        /** @enum {string} */
+        FlowTargetType: "lecture" | "session";
         FlowClassWrite: {
             name: string;
             type: components["schemas"]["FlowType"];
@@ -422,44 +631,48 @@ export interface components {
         };
         FlowClass: components["schemas"]["FlowClassWrite"] & {
             id: string;
-            /** @constant */
-            formatVersion: 1;
+            formatVersion: number;
             revision: number;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
         };
-        FlowCreate: {
-            flowClassId: string;
-            targetId: string;
-        };
-        /** @enum {string} */
-        FlowStatus: "active" | "completed" | "cancelled";
-        FlowWrite: {
-            answers: {
-                [key: string]: string;
-            };
-            tasks: {
-                [key: string]: boolean;
-            };
-            currentPage: number;
-            status: components["schemas"]["FlowStatus"];
-            expectedRevision: number;
-        };
-        Flow: components["schemas"]["FlowWrite"] & {
+        Flow: {
             id: string;
             flowClassId: string;
             targetId: string;
             type: components["schemas"]["FlowType"];
             text: string;
-            /** @constant */
-            formatVersion: 1;
+            formatVersion: number;
+            currentPage: number;
             revision: number;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        FlowClassReplace: {
+            flowClassId: string;
+        };
+        FlowCheckPatch: {
+            pageIndex: number;
+            checkboxIndex: number;
+            checked: boolean;
+            expectedText?: string;
+        };
+        FlowPagePatch: {
+            currentPage: number;
+        };
+        FlowOperationResult: {
+            flow: components["schemas"]["Flow"];
+        };
+        /** @enum {string} */
+        HistoryCategory: "data" | "flow";
+        LectureExport: {
+            /** @constant */
+            schemaVersion: 1;
+            lecture: components["schemas"]["Lecture"];
         };
         RoadmapItem: {
             lectureId: components["schemas"]["LectureId"];
@@ -659,20 +872,21 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["LectureWrite"];
+                "application/json": components["schemas"]["LectureCreate"];
             };
         };
         responses: {
-            /** @description Created */
+            /** @description Created workspace */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Lecture"];
+                    "application/json": components["schemas"]["LectureWorkspace"];
                 };
             };
             400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
     getLecture: {
@@ -700,7 +914,31 @@ export interface operations {
             404: components["responses"]["Error"];
         };
     };
-    updateLecture: {
+    getLectureWorkspace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Editor workspace */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LectureWorkspace"];
+                };
+            };
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    patchLectureAttribute: {
         parameters: {
             query?: never;
             header?: never;
@@ -711,22 +949,21 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["LectureWrite"];
+                "application/json": components["schemas"]["AttributePatch"];
             };
         };
         responses: {
-            /** @description Updated */
+            /** @description Saved */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Lecture"];
+                    "application/json": components["schemas"]["LecturePatchResult"];
                 };
             };
             400: components["responses"]["Error"];
             404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
         };
     };
     createSession: {
@@ -740,20 +977,96 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SessionWrite"];
+                "application/json": components["schemas"]["SessionCreate"];
             };
         };
         responses: {
-            /** @description Created */
+            /** @description Session and flow created */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Session"];
+                    "application/json": components["schemas"]["SessionCreateResult"];
                 };
             };
             400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    reorderSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionOrderWrite"];
+            };
+        };
+        responses: {
+            /** @description Reordered sessions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"][];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    getLectureHistory: {
+        parameters: {
+            query: {
+                category: components["schemas"]["HistoryCategory"];
+            };
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Lecture workspace history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttributeUpdateEvent"][];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    exportLecture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current Lecture and Session values */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LectureExport"];
+                };
+            };
             404: components["responses"]["Error"];
         };
     };
@@ -782,7 +1095,7 @@ export interface operations {
             404: components["responses"]["Error"];
         };
     };
-    updateSession: {
+    patchSessionAttribute: {
         parameters: {
             query?: never;
             header?: never;
@@ -793,22 +1106,21 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SessionWrite"];
+                "application/json": components["schemas"]["AttributePatch"];
             };
         };
         responses: {
-            /** @description Updated */
+            /** @description Saved */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Session"];
+                    "application/json": components["schemas"]["SessionPatchResult"];
                 };
             };
             400: components["responses"]["Error"];
             404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
         };
     };
     completeSession: {
@@ -959,9 +1271,9 @@ export interface operations {
     };
     listFlows: {
         parameters: {
-            query?: {
-                targetId?: string;
-                status?: components["schemas"]["FlowStatus"];
+            query: {
+                targetType: components["schemas"]["FlowTargetType"];
+                targetId: string;
             };
             header?: never;
             path?: never;
@@ -978,32 +1290,7 @@ export interface operations {
                     "application/json": components["schemas"]["Flow"][];
                 };
             };
-        };
-    };
-    createFlow: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["FlowCreate"];
-            };
-        };
-        responses: {
-            /** @description Applied flow */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Flow"];
-                };
-            };
             400: components["responses"]["Error"];
-            404: components["responses"]["Error"];
         };
     };
     getFlow: {
@@ -1029,7 +1316,7 @@ export interface operations {
             404: components["responses"]["Error"];
         };
     };
-    updateFlow: {
+    replaceFlowClass: {
         parameters: {
             query?: never;
             header?: never;
@@ -1040,22 +1327,78 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["FlowWrite"];
+                "application/json": components["schemas"]["FlowClassReplace"];
             };
         };
         responses: {
-            /** @description Updated */
+            /** @description Replaced */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Flow"];
+                    "application/json": components["schemas"]["FlowOperationResult"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    patchFlowCheck: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                flowId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FlowCheckPatch"];
+            };
+        };
+        responses: {
+            /** @description Checkbox updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlowOperationResult"];
                 };
             };
             400: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
+        };
+    };
+    updateFlowPage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                flowId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FlowPagePatch"];
+            };
+        };
+        responses: {
+            /** @description Page updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlowOperationResult"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
     listRoadmaps: {
