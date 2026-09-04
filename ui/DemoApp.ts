@@ -692,7 +692,22 @@ export default defineComponent({
             && typeof value.label === "string"
             && typeof value.detail === "string";
         });
-        if (candidates.length) traqDirectory.value = candidates;
+        if (candidates.length) {
+          const enrichedCandidates = candidates.map((candidate) => {
+            const snapshot = TRAQ_DIRECTORY.find((entry) => (
+              entry.kind === candidate.kind
+              && (entry.id === candidate.id || entry.name.toLowerCase() === candidate.name.toLowerCase())
+            ));
+            return snapshot && candidate.detail === "traQグループ"
+              ? { ...candidate, detail: snapshot.detail }
+              : candidate;
+          });
+          const fetchedKeys = new Set(enrichedCandidates.map((candidate) => `${candidate.kind}:${candidate.id}`));
+          traqDirectory.value = [
+            ...enrichedCandidates,
+            ...TRAQ_DIRECTORY.filter((candidate) => !fetchedKeys.has(`${candidate.kind}:${candidate.id}`)),
+          ];
+        }
       } catch {
         // 読み取りに失敗した場合は、安全な同梱スナップショットを使う。
       }

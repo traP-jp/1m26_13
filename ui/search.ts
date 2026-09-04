@@ -77,7 +77,11 @@ function kanaToRomaji(value: string) {
 }
 
 export function normalizeSearchText(value: string) {
-  let normalized = value.normalize("NFKC").toLowerCase();
+  let normalized = value
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/lecture/gu, "kousyuukai")
+    .replace(/workshop/gu, "kousyuukai");
   for (const [pattern, reading] of KANJI_READINGS) normalized = normalized.replace(pattern, reading);
   return kanaToRomaji(katakanaToHiragana(normalized))
     .replace(/shi/gu, "si")
