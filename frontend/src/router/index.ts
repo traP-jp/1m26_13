@@ -33,12 +33,12 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
       {
         path: "/admin/lectures/new",
         name: "lecture-new",
-        component: () => import("@/views/LectureEditorView.vue"),
+        component: () => import("@/views/LectureWorkspaceEditor.vue"),
       },
       {
         path: "/admin/lectures/:id",
         name: "lecture-edit",
-        component: () => import("@/views/LectureEditorView.vue"),
+        component: () => import("@/views/LectureWorkspaceEditor.vue"),
       },
       {
         path: "/admin/roadmaps/new",
@@ -54,7 +54,7 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
       {
         path: "/flows/:id",
         name: "flow-runner",
-        component: () => import("@/views/FlowRunnerView.vue"),
+        component: () => import("@/views/FlowRedirectView.vue"),
       },
       {
         path: "/:pathMatch(.*)*",

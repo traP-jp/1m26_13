@@ -48,8 +48,14 @@ function sessionCountLabel(lecture: Lecture) {
 }
 
 function organizerLabel(lecture: Lecture) {
-  const group = directory.value.groups.find((item) => lecture.organizerGroupIds.includes(item.id));
-  return group?.name ?? "運営未設定";
+  if (!lecture.organizer) return "運営未設定";
+  if (lecture.organizer.kind === "group") {
+    return lecture.organizer.groupName || "運営グループ";
+  }
+  return (
+    directory.value.users.find((item) => item.id === lecture.organizer?.id)?.displayName ??
+    "運営担当者"
+  );
 }
 
 async function load() {

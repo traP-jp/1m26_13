@@ -66,9 +66,7 @@ function openResource(url: string) {
               <div>
                 <dt><AppIcon name="user" :size="16" />講師</dt>
                 <dd>
-                  {{
-                    session.instructorIds.length ? `${session.instructorIds.length}人` : "未設定"
-                  }}
+                  {{ session.instructorId ? "1人" : "未設定" }}
                 </dd>
               </div>
             </dl>
@@ -168,11 +166,7 @@ function openResource(url: string) {
           <div>
             <dt><AppIcon name="user" :size="16" />講師・運営</dt>
             <dd>
-              {{
-                round.normal?.instructorIds.length
-                  ? `${round.normal.instructorIds.length}人`
-                  : "未設定"
-              }}
+              {{ round.normal?.instructorId ? "1人" : "未設定" }}
             </dd>
           </div>
         </dl>
