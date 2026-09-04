@@ -609,8 +609,8 @@
 - 作業場所: リポジトリ直下
 - DB: `docker compose up -d mariadb`
 - backend: `cd backend && mise exec -- go run ./cmd/server`
-- frontend: `cd frontend && mise exec -- pnpm dev`
-- frontend gate: `cd frontend && mise exec -- pnpm check && mise exec -- pnpm build`
+- frontend: `cd frontend && mise exec node pnpm -- env pnpm dev`
+- frontend gate: `cd frontend && mise exec node pnpm -- env pnpm check && mise exec node pnpm -- env pnpm build`
 - backend gate: `cd backend && test -z "$(mise exec -- gofmt -l .)" && mise exec -- go vet ./... && mise exec -- go test ./... && mise exec -- go build ./...`
 - MariaDB結合: `API_BASE_URL=http://127.0.0.1:8080/api/v1 ./scripts/smoke-api.sh`
 

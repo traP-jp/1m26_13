@@ -23,14 +23,16 @@ Go、Node.js、pnpmのバージョンはmiseで管理しています。miseを�
 mise install --locked
 
 cd frontend
-mise exec -- pnpm install --frozen-lockfile
+mise exec node pnpm -- env pnpm install --frozen-lockfile
 
 cd ../backend
 cp .env.example .env
 ```
 
 READMEのコマンドはmiseをshellで有効化していない環境でも動くよう、
-`mise exec --`を明示しています。miseをshellで有効化している場合は省略できます。
+`mise exec node pnpm -- env pnpm`を明示しています。これにより、Node同梱のCorepackではなく
+`mise.toml`で固定したNodeとpnpmの両方を使用します。miseをshellで有効化し、
+`node`と`pnpm`がともに固定版へ解決される場合は省略できます。
 
 `backend/.env`の`TRAQ_BOT_ACCESS_TOKEN`には、ユーザー一覧とユーザーグループ一覧を
 取得できるtraQ Botのアクセストークンを設定してください。`.env`はGitの管理対象外です。
@@ -102,7 +104,7 @@ mise exec -- go run ./cmd/server
 
 ```sh
 cd frontend
-mise exec -- pnpm dev
+mise exec node pnpm -- env pnpm dev
 ```
 
 フロントエンドは <http://localhost:5173>、バックエンドは
@@ -121,7 +123,7 @@ APIは`/api/v1`以下で提供します。API schemaとendpoint pathのsource of
 
 - Lectureと、その下に独立したSessionを1件以上登録・編集
 - 公開Lectureのキーワード・学年度・分野検索と詳細表示
-- `order`ごとの通常Session・再放送をまとめたLecture詳細。複数回だけ`#<round>`で回を直接表示
+- 通常Sessionを`order`順の回として表示するLecture詳細。複数回だけ`#第N回`で回を直接表示し、再放送は学習者向け画面へ表示しない
 - Session単位の完了、Lecture完了、バッジ、ロードマップ進捗の導出
 - `lecture_pre`、`session_main`、`lecture_post`のFlowClassと、対象ごとに1件の適用時スナップショットFlow
 - 段階を持つ一本道ロードマップ
@@ -136,7 +138,7 @@ cd backend
 GOCACHE=/tmp/1m26-go-cache mise exec -- go generate ./...
 
 cd ../frontend
-mise exec -- pnpm generate:api
+mise exec node pnpm -- env pnpm generate:api
 ```
 
 ## traQユーザー・グループ
@@ -170,8 +172,8 @@ MariaDBはバックエンドアプリの作成時に有効化します。NeoShow
 
 ```sh
 cd frontend
-mise exec -- pnpm check
-mise exec -- pnpm build
+mise exec node pnpm -- env pnpm check
+mise exec node pnpm -- env pnpm build
 ```
 
 バックエンド:

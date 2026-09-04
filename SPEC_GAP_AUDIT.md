@@ -21,7 +21,7 @@
 - 再放送元は同じLectureの通常Sessionだけに限定し、自己参照、重複、replayからreplayを拒否する。
 - Sessionの`order`重複は許容し、同順位はIDで安定化する。日付は日付文字列として保持し、表示時刻は利用者環境へ委ねる。
 - ResourceとknoQはHTTP(S) URLをAPI schemaで検証し、外部リンクは`noopener noreferrer`を付ける。自由文はHTMLとして挿入しない。
-- 編集は明示保存と整数revisionの楽観ロックを使う。競合時は409を返し、現在行と属性イベントを同じtransactionで保存する。
+- Lecture / Session属性は自動保存し、同属性の競合も後勝ちで保存してresponseで通知する。FlowClassとRoadmapは明示保存と整数revisionの楽観ロックを使い、競合時は409を返す。現在行と属性イベントは同じtransactionで保存する。
 - 検索は空白区切りの複数語AND、年度範囲の重なり、分野一致、更新日時順とし、最大200件とする。
 - 検索とRoadmapは別入口、プロフィールはバッジ・完了した開催・Roadmapの3タブにした。
 - FlowClassの`listed=false`はStockの新規適用候補から外す。適用済みFlowは残して再開できる。
@@ -33,7 +33,7 @@
 - 更新前後、actor、時刻、changeSetを属性単位で残し、履歴なしの上書きを避ける。
 - Flow本文とformatVersionを適用時にコピーし、Stockの更新から過去の実行を隔離する。
 - 主要entityを物理削除しないため、参照と履歴を失わない。
-- 学習者向けSession単独URLは設けず、再放送はLecture詳細の同じ回タブ内へ通常Sessionと並べる。
+- 学習者向けSession単独URLは設けず、再放送は学習者向けLecture詳細へ表示しない。再放送のAPI・運営編集は維持する。
 
 ## 意図的に初期範囲外へ送るもの
 
