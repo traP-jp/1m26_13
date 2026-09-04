@@ -57,6 +57,7 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 - 正本8画面の再統合完了後、frontendのAPI型生成check、formatter、全lint、Vue型検査、Vitest 6/6、Vite buildとbackend全Go testを再実行して成功した。運営ホーム、Lecture編集、Roadmap編集は1440×900と390×844で横overflow 0、console warning/error 0件を確認した。
 - 追加目視レビューに従い、ホームの講習会カードから初心者ラベルを除去した。通常Sessionだけを数え、`1回完結`／`全N回`／`開催準備中`、運営班、年度の順で正本どおり表示する。
 - Lecture／Session詳細の390px表示は本文を先、学習状況・開催情報の補助欄を後にした。実ブラウザの要素位置で本文上端が補助欄上端より前で、横overflow 0、console warning/error 0件を確認した。
+- Lecture／Session詳細の完了操作は画面全体を再読込せず、対象SessionとLecture集計だけを局所更新する。390×844の実ブラウザで完了・取消を往復し、URL、選択回、scrollYが前後で同一、DB状態も初期値へ戻ることを確認した。
 
 ## 再現手順
 

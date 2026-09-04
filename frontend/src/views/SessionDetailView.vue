@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { BasiqButton, BasiqCard } from "basiq-ui";
-import { onMounted, ref } from "vue";
+import { nextTick, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 
 import { getLecture, getSession, setCompletion, type Lecture, type Session } from "@/api/resources";
@@ -27,14 +27,19 @@ async function load() {
 }
 async function toggleCompletion() {
   if (!session.value || session.value.isReplay) return;
+  const nextCompleted = !session.value.isCompleted;
+  const scrollPosition = { left: window.scrollX, top: window.scrollY };
   saving.value = true;
   notice.value = "";
+  error.value = "";
   try {
-    await setCompletion(session.value.id, !session.value.isCompleted);
-    session.value = await getSession(session.value.id);
+    await setCompletion(session.value.id, nextCompleted);
+    session.value = { ...session.value, isCompleted: nextCompleted };
     notice.value = session.value.isCompleted
       ? "受講完了を記録しました。"
       : "完了記録を取り消しました。";
+    await nextTick();
+    window.scrollTo(scrollPosition);
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : "更新できませんでした";
   } finally {

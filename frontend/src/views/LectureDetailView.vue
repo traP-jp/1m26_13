@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { BasiqButton, BasiqCard, BasiqTabs } from "basiq-ui";
-import { computed, onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import { getLecture, setCompletion, type Lecture } from "@/api/resources";
@@ -46,10 +46,33 @@ async function load() {
 }
 async function toggleCompletion() {
   if (!activeSession.value || activeSession.value.isReplay) return;
+  const sessionId = activeSession.value.id;
+  const wasCompleted = activeSession.value.isCompleted;
+  const scrollPosition = { left: window.scrollX, top: window.scrollY };
   updating.value = true;
+  error.value = "";
   try {
-    await setCompletion(activeSession.value.id, !activeSession.value.isCompleted);
-    await load();
+    await setCompletion(sessionId, !wasCompleted);
+    if (!lecture.value) return;
+    const completedSessionCount = Math.max(
+      0,
+      Math.min(
+        lecture.value.requiredSessionCount,
+        lecture.value.completedSessionCount + (wasCompleted ? -1 : 1),
+      ),
+    );
+    lecture.value = {
+      ...lecture.value,
+      sessions: lecture.value.sessions.map((session) =>
+        session.id === sessionId ? { ...session, isCompleted: !wasCompleted } : session,
+      ),
+      completedSessionCount,
+      isCompleted:
+        lecture.value.requiredSessionCount > 0 &&
+        completedSessionCount === lecture.value.requiredSessionCount,
+    };
+    await nextTick();
+    window.scrollTo(scrollPosition);
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : "完了記録を更新できませんでした";
   } finally {
