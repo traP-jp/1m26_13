@@ -107,9 +107,16 @@ const isRelationRef = (value: unknown): value is WorkshopRelationRef => {
     || (candidate.kind === "text" && typeof candidate.text === "string");
 };
 
+const normalizeTeamName = (team: string) => {
+  if (team === "Algorithm班") return "アルゴリズム班";
+  if (team === "ゲーム系") return "ゲーム班";
+  return team;
+};
+
 /** Adds Step 1 defaults to seed data and drafts saved before these fields existed. */
 export const normalizeWorkshop = (workshop: WorkshopWithOptionalStepOneFields): Workshop => ({
   ...workshop,
+  team: normalizeTeamName(workshop.team),
   operators: Array.isArray(workshop.operators) ? workshop.operators.filter(isOperator) : [],
   targetTeams: Array.isArray(workshop.targetTeams)
     ? workshop.targetTeams.filter((team): team is string => typeof team === "string")
@@ -436,7 +443,7 @@ const seedWorkshopRecords: WorkshopWithOptionalStepOneFields[] = [
     prerequisites: "記録からは確認できません",
     preparation: "記録からは確認できません",
     howToLearn: "このデモでは開催記録のみを登録しています。資料・動画の公開状況は出典では未確認です。",
-    team: "Algorithm班",
+    team: "アルゴリズム班",
     contact: "",
     tags: ["アルゴリズム", "基礎", "開催記録"],
     creators: [],
@@ -468,7 +475,7 @@ const seedWorkshopRecords: WorkshopWithOptionalStepOneFields[] = [
     prerequisites: "Unity講習会を履修済みであること",
     preparation: "特になし",
     howToLearn: "公開されている講習会資料を、第1回から順に進めます。",
-    team: "ゲーム系",
+    team: "ゲーム班",
     contact: "",
     tags: ["Unity", "ゲーム制作"],
     creators: [],

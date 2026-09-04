@@ -3,11 +3,15 @@ import {
   BasiqButton,
   BasiqCard,
   BasiqCheckbox,
+  BasiqDialog,
   BasiqFormField,
   BasiqIcon,
   BasiqInput,
+  BasiqNavigationItem,
+  BasiqNavigationList,
   BasiqRadioGroup,
   BasiqSwitch,
+  BasiqTabsContent,
   BasiqTabsList,
   BasiqTabsRoot,
   BasiqTabsTrigger,
@@ -178,11 +182,15 @@ export default defineComponent({
     BasiqButton,
     BasiqCard,
     BasiqCheckbox,
+    BasiqDialog,
     BasiqFormField,
     BasiqIcon,
     BasiqInput,
+    BasiqNavigationItem,
+    BasiqNavigationList,
     BasiqRadioGroup,
     BasiqSwitch,
+    BasiqTabsContent,
     BasiqTabsList,
     BasiqTabsRoot,
     BasiqTabsTrigger,
@@ -213,6 +221,7 @@ export default defineComponent({
     const traqDirectoryRequested = ref(false);
     const relationQuery = ref<Record<RelationKind, string>>({ previous: "", prerequisite: "", recommended: "" });
     const noticeKind = ref<"traq" | "knoq">("traq");
+    const resetDialogOpen = ref(false);
     const toast = ref("");
     let toastTimer: ReturnType<typeof setTimeout> | undefined;
     let hasUpdatedRoute = false;
@@ -242,9 +251,9 @@ export default defineComponent({
       return workshops.value.filter((candidate) => candidate.previousIds.includes(workshop.id));
     });
 
-    const teams = computed(() => Array.from(new Set(
-      workshops.value.filter((workshop) => workshop.status === "public" && workshop.team).map((workshop) => workshop.team),
-    )).sort());
+    const teams = computed(() => TRAP_TEAMS.filter((team) => workshops.value.some(
+      (workshop) => workshop.status === "public" && workshop.team === team,
+    )));
 
     const latestPublicWorkshops = computed(() => {
       const newestByLineage = new Map<string, Workshop>();
@@ -726,10 +735,6 @@ export default defineComponent({
       return candidate.kind === "user" ? `https://q.trap.jp/api/v3/public/icon/${encodeURIComponent(candidate.name)}` : "";
     }
 
-    function hideBrokenImage(event: Event) {
-      if (event.currentTarget instanceof HTMLElement) event.currentTarget.remove();
-    }
-
     function lecturerSuggestions(occurrence: Occurrence) {
       const needle = occurrence.instructor.trim().replace(/^@/, "");
       if (!needle) return [];
@@ -1096,7 +1101,6 @@ export default defineComponent({
     }
 
     function resetDemo() {
-      if (!window.confirm("入力したデモ内容を消して、初期状態に戻しますか？")) return;
       workshops.value = cloneSeedWorkshops();
       completedAt.value = {};
       profileVisible.value = false;
@@ -1104,6 +1108,7 @@ export default defineComponent({
       localStorage.removeItem(COMPLETION_STORAGE_KEY);
       localStorage.removeItem(VISIBILITY_STORAGE_KEY);
       refreshRandomWorkshops();
+      resetDialogOpen.value = false;
       showToast("デモを初期状態に戻しました");
       navigate("/");
     }
@@ -1191,7 +1196,6 @@ export default defineComponent({
       operatorDetail,
       operatorLabel,
       operatorTagLabel,
-      hideBrokenImage,
       operatorQuery,
       operatorSuggestions,
       lecturerSuggestions,
@@ -1208,6 +1212,7 @@ export default defineComponent({
       relationLabel,
       relationQuery,
       relationSections: RELATION_SECTIONS,
+      resetDialogOpen,
       removeOperator,
       removeRelationEntry,
       removeOccurrence,
@@ -1272,22 +1277,29 @@ export default defineComponent({
             </svg>
             <span><strong>LeQtures</strong><small>traP 講習会</small></span>
           </a>
-          <nav aria-label="メインナビゲーション">
+          <div class="sidebar-navigation">
             <p>受講する</p>
-            <a class="nav-item" :class="{ active: route.name === 'home' }" :aria-current="route.name === 'home' ? 'page' : undefined" href="#/"><BasiqIcon class="nav-icon" :icon="HomeIcon" />ホーム</a>
-            <a class="nav-item" :class="{ active: route.name === 'search' || route.name === 'detail' }" :aria-current="route.name === 'search' || route.name === 'detail' ? 'page' : undefined" href="#/search"><BasiqIcon class="nav-icon" :icon="SearchIcon" />講習会を探す</a>
+            <BasiqNavigationList aria-label="受講する">
+              <BasiqNavigationItem href="#/" :current="route.name === 'home'"><span class="nav-item-content"><BasiqIcon class="nav-icon" :icon="HomeIcon" /><span>ホーム</span></span></BasiqNavigationItem>
+              <BasiqNavigationItem href="#/search" :current="route.name === 'search' || route.name === 'detail'"><span class="nav-item-content"><BasiqIcon class="nav-icon" :icon="SearchIcon" /><span>講習会を探す</span></span></BasiqNavigationItem>
+            </BasiqNavigationList>
             <p>運営する</p>
-            <a class="nav-item" :class="{ active: route.name === 'drafts' }" :aria-current="route.name === 'drafts' ? 'page' : undefined" href="#/drafts"><BasiqIcon class="nav-icon" :icon="DraftIcon" />自分の下書き <em v-if="drafts.length">{{ drafts.length }}</em></a>
-          </nav>
+            <BasiqNavigationList aria-label="運営する">
+              <BasiqNavigationItem href="#/drafts" :current="route.name === 'drafts'"><span class="nav-item-content"><BasiqIcon class="nav-icon" :icon="DraftIcon" /><span>自分の下書き</span><em v-if="drafts.length">{{ drafts.length }}</em></span></BasiqNavigationItem>
+            </BasiqNavigationList>
+          </div>
           <div class="sidebar-footer">
-            <div class="sidebar-note"><strong>デモ版</strong><span>操作内容はこの端末だけに保存されます。</span></div>
-            <button class="reset-button" type="button" @click="resetDemo">初期状態に戻す</button>
+            <BasiqCard class="sidebar-note"><strong>デモ版</strong><span>操作内容はこの端末だけに保存されます。</span></BasiqCard>
+            <BasiqDialog v-model:open="resetDialogOpen" title="初期状態に戻す" description="入力したデモ内容を消して、初期状態へ戻します。">
+              <template #trigger><BasiqButton class="sidebar-reset" type="button" tone="neutral" variant="outline">初期状態に戻す</BasiqButton></template>
+              <template #footer="{ close }"><BasiqButton type="button" tone="neutral" variant="outline" @click="close">キャンセル</BasiqButton><BasiqButton type="button" tone="danger" @click="resetDemo">初期状態に戻す</BasiqButton></template>
+            </BasiqDialog>
             <BasiqButton class="sidebar-create" type="button" :icon="PlusIcon" icon-placement="leading" @click="navigate('/new')">講習会を作る</BasiqButton>
-            <a class="account-row" :class="{ active: route.name === 'me' || route.name === 'share' }" :aria-current="route.name === 'me' || route.name === 'share' ? 'page' : undefined" href="#/me">
-              <BasiqAvatar class="account-avatar" :src="traqUserIconUrl" name="rurun" alt="" size="sm" />
-              <span><strong>rurun</strong><small>マイページ</small></span>
-              <span aria-hidden="true">›</span>
-            </a>
+            <BasiqNavigationList class="account-navigation" aria-label="アカウント">
+              <BasiqNavigationItem href="#/me" :current="route.name === 'me' || route.name === 'share'">
+                <span class="account-row-content"><BasiqAvatar class="account-avatar" :src="traqUserIconUrl" name="rurun" alt="" size="sm" /><span><strong>rurun</strong><small>マイページ</small></span><span aria-hidden="true">›</span></span>
+              </BasiqNavigationItem>
+            </BasiqNavigationList>
           </div>
         </aside>
 
@@ -1295,13 +1307,13 @@ export default defineComponent({
           <header class="mobile-header">
             <a class="mobile-brand" href="#/" aria-label="LeQtures ホーム"><svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><rect x="1" y="1" width="22" height="22" rx="5" fill="currentColor" /><circle cx="11.5" cy="11" r="5" fill="none" stroke="white" stroke-width="2.5" /><path d="M15 14.5 19 18.5" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" /></svg><strong>LeQtures</strong></a>
           </header>
-          <nav class="mobile-nav" aria-label="モバイルナビゲーション">
-            <a :class="{ active: route.name === 'home' }" :aria-current="route.name === 'home' ? 'page' : undefined" href="#/"><BasiqIcon class="mobile-nav-icon" :icon="HomeIcon" /><small>ホーム</small></a>
-            <a :class="{ active: route.name === 'search' || route.name === 'detail' }" :aria-current="route.name === 'search' || route.name === 'detail' ? 'page' : undefined" href="#/search"><BasiqIcon class="mobile-nav-icon" :icon="SearchIcon" /><small>探す</small></a>
-            <a :class="{ active: route.name === 'create' || route.name === 'edit' }" :aria-current="route.name === 'create' || route.name === 'edit' ? 'page' : undefined" href="#/new"><BasiqIcon class="mobile-nav-icon" :icon="PlusIcon" /><small>作る</small></a>
-            <a :class="{ active: route.name === 'drafts' }" :aria-current="route.name === 'drafts' ? 'page' : undefined" href="#/drafts"><BasiqIcon class="mobile-nav-icon" :icon="DraftIcon" /><small>下書き</small></a>
-            <a :class="{ active: route.name === 'me' || route.name === 'share' }" :aria-current="route.name === 'me' || route.name === 'share' ? 'page' : undefined" href="#/me"><BasiqAvatar class="mobile-avatar" :src="traqUserIconUrl" name="rurun" alt="" :size="22" /><small>rurun</small></a>
-          </nav>
+          <BasiqNavigationList class="mobile-nav" aria-label="モバイルナビゲーション">
+            <BasiqNavigationItem href="#/" :current="route.name === 'home'"><span class="mobile-nav-content"><BasiqIcon class="mobile-nav-icon" :icon="HomeIcon" /><small>ホーム</small></span></BasiqNavigationItem>
+            <BasiqNavigationItem href="#/search" :current="route.name === 'search' || route.name === 'detail'"><span class="mobile-nav-content"><BasiqIcon class="mobile-nav-icon" :icon="SearchIcon" /><small>探す</small></span></BasiqNavigationItem>
+            <BasiqNavigationItem href="#/new" :current="route.name === 'create' || route.name === 'edit'"><span class="mobile-nav-content"><BasiqIcon class="mobile-nav-icon" :icon="PlusIcon" /><small>作る</small></span></BasiqNavigationItem>
+            <BasiqNavigationItem href="#/drafts" :current="route.name === 'drafts'"><span class="mobile-nav-content"><BasiqIcon class="mobile-nav-icon" :icon="DraftIcon" /><small>下書き</small></span></BasiqNavigationItem>
+            <BasiqNavigationItem href="#/me" :current="route.name === 'me' || route.name === 'share'"><span class="mobile-nav-content"><BasiqAvatar class="mobile-avatar" :src="traqUserIconUrl" name="rurun" alt="" :size="22" /><small>rurun</small></span></BasiqNavigationItem>
+          </BasiqNavigationList>
 
           <main id="main-content" tabindex="-1">
             <template v-if="route.name === 'home'">
@@ -1311,10 +1323,10 @@ export default defineComponent({
               </header>
               <div class="home-content">
                 <section class="home-section" aria-labelledby="teams-title">
-                  <div class="home-section-heading"><div><h2 id="teams-title">班から探す</h2><p>興味のある班・分野に絞って一覧を開きます。</p></div><button type="button" @click="showAllWorkshops">すべて見る →</button></div>
-                  <div class="team-grid">
-                    <button v-for="team in teamSummaries" :key="team.name" type="button" class="team-card" @click="searchByTeam(team.name)"><strong>{{ team.name }}</strong><span>{{ team.count }}件の講習会</span><span aria-hidden="true">→</span></button>
-                  </div>
+                  <div class="home-section-heading"><div><h2 id="teams-title">班から探す</h2><p>興味のある班・分野に絞って一覧を開きます。</p></div><BasiqButton type="button" tone="neutral" variant="outline" @click="showAllWorkshops">すべて見る</BasiqButton></div>
+                  <BasiqNavigationList class="team-navigation" aria-label="班から探す">
+                    <BasiqNavigationItem v-for="team in teamSummaries" :key="team.name" as-child><button type="button" class="team-option" @click="searchByTeam(team.name)"><span><strong>{{ team.name }}</strong><small>{{ team.count }}件の講習会</small></span><span aria-hidden="true">→</span></button></BasiqNavigationItem>
+                  </BasiqNavigationList>
                 </section>
 
                 <div class="home-feed-grid">
@@ -1330,7 +1342,7 @@ export default defineComponent({
                   </section>
 
                   <section class="home-section" aria-labelledby="random-title">
-                    <div class="home-section-heading"><div><h2 id="random-title">ランダムに表示</h2><p>登録済みの講習会から3件を表示します。</p></div><button type="button" @click="refreshRandomWorkshops">入れ替える</button></div>
+                    <div class="home-section-heading"><div><h2 id="random-title">ランダムに表示</h2><p>登録済みの講習会から3件を表示します。</p></div><BasiqButton type="button" tone="neutral" variant="outline" @click="refreshRandomWorkshops">入れ替える</BasiqButton></div>
                     <div class="home-workshop-list">
                       <BasiqCard v-for="workshop in randomWorkshops" :key="workshop.id" class="home-workshop-card">
                         <a class="home-workshop-link" :href="'#/workshops/' + workshop.id" :aria-label="workshop.title + 'の詳細を見る'">
@@ -1348,31 +1360,32 @@ export default defineComponent({
                 <div><h1>講習会を探す</h1><p>これから参加する講習会も、過去の資料から受講する講習会も同じ場所で探せます。</p></div>
               </header>
               <div class="home-browser">
-                <aside class="search-area" aria-labelledby="search-filter-title">
-                  <h2 id="search-filter-title">絞り込み</h2>
-                  <BasiqFormField label="キーワード" control-id="workshop-search">
-                    <BasiqInput id="workshop-search" v-model="query" size="lg" type="search" placeholder="名前、分野、対象者" />
-                  </BasiqFormField>
-                  <div class="search-options">
-                    <label>班・分野<select v-model="activeTeam"><option value="all">すべて</option><option v-for="team in teams" :key="team" :value="team">{{ team }}</option></select></label>
-                    <label class="year-toggle"><input v-model="showAllYears" type="checkbox">過去年度もすべて表示</label>
-                  </div>
-                  <div class="quick-filters">
-                    <strong>教材の状態</strong>
-                    <div class="quick-filter-buttons" aria-label="教材の状態で絞り込む">
-                      <button :class="{ active: activeFilter === 'all' }" :aria-pressed="activeFilter === 'all'" type="button" @click="activeFilter = 'all'">すべて</button>
-                      <button :class="{ active: activeFilter === 'learnable' }" :aria-pressed="activeFilter === 'learnable'" type="button" @click="activeFilter = 'learnable'">今から受講できる</button>
-                      <button :class="{ active: activeFilter === 'material' }" :aria-pressed="activeFilter === 'material'" type="button" @click="activeFilter = 'material'">資料あり</button>
-                      <button :class="{ active: activeFilter === 'video' }" :aria-pressed="activeFilter === 'video'" type="button" @click="activeFilter = 'video'">動画あり</button>
-                      <button :class="{ active: activeFilter === 'record' }" :aria-pressed="activeFilter === 'record'" type="button" @click="activeFilter = 'record'">記録のみ</button>
+                <aside class="search-area" aria-label="絞り込み">
+                  <BasiqCard class="search-card" title="絞り込み">
+                    <BasiqFormField label="キーワード" control-id="workshop-search">
+                      <BasiqInput id="workshop-search" v-model="query" size="lg" type="search" placeholder="名前、分野、対象者" />
+                    </BasiqFormField>
+                    <div class="search-options">
+                      <BasiqFormField label="班・分野" control-id="team-filter"><select id="team-filter" v-model="activeTeam"><option value="all">すべて</option><option v-for="team in teams" :key="team" :value="team">{{ team }}</option></select></BasiqFormField>
+                      <BasiqCheckbox v-model="showAllYears">過去年度もすべて表示</BasiqCheckbox>
                     </div>
-                  </div>
+                    <div class="quick-filters">
+                      <strong>教材の状態</strong>
+                      <div class="quick-filter-buttons" aria-label="教材の状態で絞り込む">
+                        <BasiqButton :tone="activeFilter === 'all' ? 'accent' : 'neutral'" :variant="activeFilter === 'all' ? 'solid' : 'outline'" :aria-pressed="activeFilter === 'all'" type="button" @click="activeFilter = 'all'">すべて</BasiqButton>
+                        <BasiqButton :tone="activeFilter === 'learnable' ? 'accent' : 'neutral'" :variant="activeFilter === 'learnable' ? 'solid' : 'outline'" :aria-pressed="activeFilter === 'learnable'" type="button" @click="activeFilter = 'learnable'">今から受講できる</BasiqButton>
+                        <BasiqButton :tone="activeFilter === 'material' ? 'accent' : 'neutral'" :variant="activeFilter === 'material' ? 'solid' : 'outline'" :aria-pressed="activeFilter === 'material'" type="button" @click="activeFilter = 'material'">資料あり</BasiqButton>
+                        <BasiqButton :tone="activeFilter === 'video' ? 'accent' : 'neutral'" :variant="activeFilter === 'video' ? 'solid' : 'outline'" :aria-pressed="activeFilter === 'video'" type="button" @click="activeFilter = 'video'">動画あり</BasiqButton>
+                        <BasiqButton :tone="activeFilter === 'record' ? 'accent' : 'neutral'" :variant="activeFilter === 'record' ? 'solid' : 'outline'" :aria-pressed="activeFilter === 'record'" type="button" @click="activeFilter = 'record'">記録のみ</BasiqButton>
+                      </div>
+                    </div>
+                  </BasiqCard>
                 </aside>
                 <section class="catalog" aria-labelledby="catalog-title">
                   <div class="section-heading"><div><h2 id="catalog-title">検索結果</h2><p v-if="!showAllYears">対応する過去年度がある場合は、条件に合う最新のものを表示しています。</p></div><span aria-live="polite">{{ searchResults.length }}件</span></div>
                   <div v-if="searchResults.length" class="workshop-list-head" aria-hidden="true"><span>講習会</span><span>年度・班</span><span>開催枠・形式</span><span>教材</span><span></span></div>
                   <div v-if="searchResults.length" class="workshop-grid">
-                    <BasiqCard v-for="workshop in searchResults" :key="workshop.id" class="workshop-card">
+                    <div v-for="workshop in searchResults" :key="workshop.id" class="workshop-card">
                       <a class="workshop-card-link" :href="'#/workshops/' + workshop.id" :aria-label="workshop.title + 'の詳細を見る'">
                         <article>
                           <div class="card-meta"><span>{{ workshop.year }}年度</span><span v-if="workshop.team">{{ workshop.team }}</span></div>
@@ -1386,9 +1399,9 @@ export default defineComponent({
                           <footer><strong>{{ availability(workshop) }}</strong><span class="card-detail"><span>詳細を見る</span><span aria-hidden="true"> →</span></span></footer>
                         </article>
                       </a>
-                    </BasiqCard>
+                    </div>
                   </div>
-                  <div v-else class="empty-state"><strong>該当する講習会がありません</strong><p>キーワードや絞り込みを変えてください。</p><BasiqButton type="button" tone="neutral" variant="outline" @click="query = ''; activeTeam = 'all'; activeFilter = 'all'; showAllYears = false">条件をクリア</BasiqButton></div>
+                  <BasiqCard v-else class="empty-state"><strong>該当する講習会がありません</strong><p>キーワードや絞り込みを変えてください。</p><BasiqButton type="button" tone="neutral" variant="outline" @click="query = ''; activeTeam = 'all'; activeFilter = 'all'; showAllYears = false">条件をクリア</BasiqButton></BasiqCard>
                 </section>
               </div>
             </template>
@@ -1406,7 +1419,7 @@ export default defineComponent({
                   <BasiqButton type="button" tone="neutral" variant="outline" @click="editWorkshop(selectedWorkshop)">編集する</BasiqButton>
                 </div>
               </header>
-              <div v-if="selectedWorkshop.status === 'draft'" class="draft-notice"><strong>下書き</strong><span>作成者と共同編集者だけが閲覧できます。情報が揃っていなくても公開できます。</span></div>
+              <BasiqCard v-if="selectedWorkshop.status === 'draft'" class="draft-notice"><strong>下書き</strong><span>作成者と共同編集者だけが閲覧できます。情報が揃っていなくても公開できます。</span></BasiqCard>
               <div class="detail-layout">
                 <article class="detail-content">
                   <section id="overview" class="detail-section"><h2>基本情報</h2><dl class="facts"><div><dt>年度</dt><dd>{{ selectedWorkshop.year }}年度</dd></div><div><dt>分野・班</dt><dd>{{ selectedWorkshop.team || '未登録' }}</dd></div><div><dt>タグ</dt><dd>{{ selectedWorkshop.tags.join('、') || '未登録' }}</dd></div></dl></section>
@@ -1415,20 +1428,20 @@ export default defineComponent({
                     <div class="section-title-row"><h2>開催枠</h2><span>{{ selectedWorkshop.occurrences.length }}件</span></div>
                     <p v-if="selectedWorkshop.occurrences.length" class="section-note">{{ relationLabel(selectedWorkshop.occurrences) }}</p>
                     <div v-if="selectedWorkshop.occurrences.length" class="occurrence-list">
-                      <article v-for="(occurrence, index) in selectedWorkshop.occurrences" :key="occurrence.id" class="occurrence-card">
-                        <header><span>{{ index + 1 }}</span><div><h3>{{ occurrence.title }}</h3><p>{{ occurrence.description || '内容は未登録です。' }}</p></div><BasiqTag :label="occurrenceStatusLabel(occurrence.status)" /></header>
+                      <BasiqCard v-for="(occurrence, index) in selectedWorkshop.occurrences" :key="occurrence.id" class="occurrence-card">
+                        <header><span class="occurrence-number">{{ index + 1 }}</span><div><h3>{{ occurrence.title }}</h3><p>{{ occurrence.description || '内容は未登録です。' }}</p></div><BasiqTag :label="occurrenceStatusLabel(occurrence.status)" /></header>
                         <dl><div><dt>日時</dt><dd>{{ formatDate(occurrence.date) }}<span v-if="occurrence.time"> {{ occurrence.time }}</span></dd></div><div><dt>形式・場所</dt><dd>{{ modeLabel(occurrence.mode) }}<span v-if="occurrence.place">・{{ occurrence.place }}</span></dd></div><div><dt>講師</dt><dd>{{ occurrence.instructor || '未登録' }}</dd></div><div><dt>knoQ</dt><dd><a v-if="occurrence.knoqUrl" :href="occurrence.knoqUrl" target="_blank" rel="noreferrer">参加ページを開く</a><span v-else>未登録</span></dd></div></dl>
-                      </article>
+                      </BasiqCard>
                     </div>
-                    <p v-else class="empty-inline">開催枠はまだ登録されていません。</p>
+                    <BasiqCard v-else class="empty-inline">開催枠はまだ登録されていません。</BasiqCard>
                   </section>
                   <section id="how-to" class="detail-section"><h2>参加・受講方法</h2><dl class="stacked-facts"><div><dt>事前準備</dt><dd>{{ selectedWorkshop.preparation || '未登録' }}</dd></div><div><dt>後から受講する場合</dt><dd>{{ selectedWorkshop.howToLearn || '未登録' }}</dd></div><div><dt>質問・連絡先</dt><dd>{{ selectedWorkshop.contact || '未登録' }}</dd></div></dl></section>
                   <section id="resources" class="detail-section">
                     <div class="section-title-row"><h2>資料・動画・関連情報</h2><span>{{ selectedWorkshop.resources.length }}件</span></div>
                     <div v-if="selectedWorkshop.resources.length" class="resource-list">
-                      <article v-for="resource in selectedWorkshop.resources" :key="resource.id"><span class="resource-type">{{ typeLabel[resource.type] }}</span><div><h3>{{ resource.title }}</h3><small v-if="resource.occurrenceId">{{ occurrenceTitle(resource.occurrenceId) }}</small><p v-if="resource.note">{{ resource.note }}</p></div><a v-if="resource.url" :href="resource.url" target="_blank" rel="noreferrer">開く ↗</a><span v-else class="unavailable">URL未登録</span></article>
+                      <article v-for="resource in selectedWorkshop.resources" :key="resource.id"><BasiqTag :label="typeLabel[resource.type]" /><div><h3>{{ resource.title }}</h3><small v-if="resource.occurrenceId">{{ occurrenceTitle(resource.occurrenceId) }}</small><p v-if="resource.note">{{ resource.note }}</p></div><a v-if="resource.url" :href="resource.url" target="_blank" rel="noreferrer">開く ↗</a><span v-else class="unavailable">URL未登録</span></article>
                     </div>
-                    <p v-else class="empty-inline">資料・動画はまだ登録されていません。この講習会は記録として検索できます。</p>
+                    <BasiqCard v-else class="empty-inline">資料・動画はまだ登録されていません。この講習会は記録として検索できます。</BasiqCard>
                   </section>
                   <section id="lineage" class="detail-section">
                     <h2>引き継ぎのつながり</h2>
@@ -1440,54 +1453,63 @@ export default defineComponent({
                       <span class="lineage-arrow" aria-hidden="true">→</span>
                       <div class="lineage-side"><small>この講習会を引き継いだもの</small><button v-for="workshop in nextWorkshops" :key="workshop.id" type="button" @click="openWorkshop(workshop.id)"><span>{{ workshop.year }}年度</span><strong>{{ workshop.title }}</strong></button><span v-if="!nextWorkshops.length">まだありません</span></div>
                     </div>
-                    <div v-else class="empty-inline">引き継ぎ関係はまだ登録されていません。</div>
+                    <BasiqCard v-else class="empty-inline">引き継ぎ関係はまだ登録されていません。</BasiqCard>
                   </section>
-                  <section id="management" class="detail-section"><h2>運営・更新情報</h2><dl class="stacked-facts"><div><dt>作成・編集</dt><dd>{{ selectedWorkshop.creators.join('、') || '移行元では未確認' }}</dd></div><div><dt>情報源</dt><dd><a v-if="selectedWorkshop.sourceUrl" :href="selectedWorkshop.sourceUrl" target="_blank" rel="noreferrer">{{ selectedWorkshop.sourceLabel || '元のページを開く' }} ↗</a><span v-else>このサービスで新規作成</span></dd></div></dl><details v-if="selectedWorkshop.revisions.length" class="history"><summary>編集履歴（{{ selectedWorkshop.revisions.length }}件）</summary><ol><li v-for="revision in selectedWorkshop.revisions" :key="revision.at + revision.summary"><span>{{ revision.at }}</span><strong>{{ revision.summary }}</strong><small>{{ revision.by }}</small></li></ol></details><p v-else class="empty-inline">このサービス上での編集履歴はまだありません。</p></section>
-                  <section class="completion-panel"><div><h2>受講記録</h2><p>資料や動画を確認し終えたら、講習会全体を受講完了として記録します。</p></div><BasiqButton v-if="!completedAt[selectedWorkshop.id]" type="button" @click="toggleCompletion(selectedWorkshop)">この講習会を受講完了</BasiqButton><div v-else class="completed-action"><strong>✓ {{ completionDate(selectedWorkshop.id) }}に完了</strong><button type="button" @click="toggleCompletion(selectedWorkshop)">取り消す</button></div></section>
+                  <section id="management" class="detail-section"><h2>運営・更新情報</h2><dl class="stacked-facts"><div><dt>作成・編集</dt><dd>{{ selectedWorkshop.creators.join('、') || '移行元では未確認' }}</dd></div><div><dt>情報源</dt><dd><a v-if="selectedWorkshop.sourceUrl" :href="selectedWorkshop.sourceUrl" target="_blank" rel="noreferrer">{{ selectedWorkshop.sourceLabel || '元のページを開く' }} ↗</a><span v-else>このサービスで新規作成</span></dd></div></dl><details v-if="selectedWorkshop.revisions.length" class="history"><summary>編集履歴（{{ selectedWorkshop.revisions.length }}件）</summary><ol><li v-for="revision in selectedWorkshop.revisions" :key="revision.at + revision.summary"><span>{{ revision.at }}</span><strong>{{ revision.summary }}</strong><small>{{ revision.by }}</small></li></ol></details><BasiqCard v-else class="empty-inline">このサービス上での編集履歴はまだありません。</BasiqCard></section>
+                  <section class="completion-panel"><div><h2>受講記録</h2><p>この講習会を受講したら、講習会全体を受講完了として記録します。</p></div><BasiqButton v-if="!completedAt[selectedWorkshop.id]" type="button" @click="toggleCompletion(selectedWorkshop)">この講習会を受講完了</BasiqButton><div v-else class="completed-action"><strong>✓ {{ completionDate(selectedWorkshop.id) }}に完了</strong><BasiqButton type="button" tone="danger" variant="outline" @click="toggleCompletion(selectedWorkshop)">取り消す</BasiqButton></div></section>
                 </article>
-                <aside class="detail-index"><strong>このページの項目</strong><button type="button" @click="scrollToSection('overview')">基本情報</button><button type="button" @click="scrollToSection('audience')">学べること・対象者</button><button type="button" @click="scrollToSection('occurrences')">開催枠</button><button type="button" @click="scrollToSection('how-to')">参加・受講方法</button><button type="button" @click="scrollToSection('resources')">資料・動画</button><button type="button" @click="scrollToSection('lineage')">引き継ぎ</button><button type="button" @click="scrollToSection('management')">運営・更新情報</button><span>{{ availability(selectedWorkshop) }}</span></aside>
+                <aside class="detail-index">
+                  <BasiqNavigationList aria-label="このページの項目">
+                    <BasiqNavigationItem as-child><button type="button" @click="scrollToSection('overview')">基本情報</button></BasiqNavigationItem>
+                    <BasiqNavigationItem as-child><button type="button" @click="scrollToSection('audience')">学べること・対象者</button></BasiqNavigationItem>
+                    <BasiqNavigationItem as-child><button type="button" @click="scrollToSection('occurrences')">開催枠</button></BasiqNavigationItem>
+                    <BasiqNavigationItem as-child><button type="button" @click="scrollToSection('how-to')">参加・受講方法</button></BasiqNavigationItem>
+                    <BasiqNavigationItem as-child><button type="button" @click="scrollToSection('resources')">資料・動画</button></BasiqNavigationItem>
+                    <BasiqNavigationItem as-child><button type="button" @click="scrollToSection('lineage')">引き継ぎ</button></BasiqNavigationItem>
+                    <BasiqNavigationItem as-child><button type="button" @click="scrollToSection('management')">運営・更新情報</button></BasiqNavigationItem>
+                  </BasiqNavigationList>
+                  <BasiqTag :label="availability(selectedWorkshop)" />
+                </aside>
               </div>
             </template>
 
             <template v-else-if="route.name === 'create'">
               <header class="page-header"><div><h1>講習会を作る</h1><p>過去の講習会を引き継ぐと、共通する情報や資料を参考にしながら準備できます。</p></div><BasiqButton type="button" tone="neutral" variant="outline" @click="startBlank">白紙から作る</BasiqButton></header>
-              <section class="create-search"><BasiqFormField label="引き継ぐ講習会を探す" control-id="creation-search"><BasiqInput id="creation-search" v-model="creationQuery" type="search" size="lg" placeholder="講習会名、分野" /></BasiqFormField></section>
-              <section class="create-list"><h2>過去の講習会から作る</h2><p>概要、対象者、前提知識、開催枠の構成を引き継ぎます。日時・場所・knoQ・受講方法・資料URLは空になります。</p><div class="inherit-list"><article v-for="workshop in creationResults" :key="workshop.id"><div class="card-meta"><span>{{ workshop.year }}年度</span><span>{{ workshop.team }}</span></div><div><h3>{{ workshop.title }}</h3><p>{{ workshop.summary }}</p></div><div class="inherit-resources"><span>{{ availability(workshop) }}</span><small>対応する過去版 {{ workshops.filter(w => w.lineageId === workshop.lineageId).length }}件</small></div><BasiqButton type="button" tone="neutral" variant="outline" @click="startFromWorkshop(workshop)">引き継いで作る</BasiqButton></article></div></section>
+              <BasiqCard class="create-search"><BasiqFormField label="引き継ぐ講習会を探す" control-id="creation-search"><BasiqInput id="creation-search" v-model="creationQuery" type="search" size="lg" placeholder="講習会名、分野" /></BasiqFormField></BasiqCard>
+              <section class="create-list"><h2>過去の講習会から作る</h2><p>概要、対象者、前提知識、開催枠の構成を引き継ぎます。日時・場所・knoQ・受講方法・資料URLは空になります。</p><div v-if="creationResults.length" class="inherit-list"><article v-for="workshop in creationResults" :key="workshop.id"><div class="card-meta"><span>{{ workshop.year }}年度</span><span v-if="workshop.team">{{ workshop.team }}</span></div><div><h3>{{ workshop.title }}</h3><p>{{ workshop.summary }}</p></div><div class="inherit-resources"><span>{{ availability(workshop) }}</span><small>対応する過去版 {{ Math.max(0, workshops.filter(w => w.lineageId === workshop.lineageId).length - 1) }}件</small></div><BasiqButton type="button" tone="neutral" variant="outline" @click="startFromWorkshop(workshop)">引き継いで作る</BasiqButton></article></div><BasiqCard v-else class="empty-state"><strong>該当する講習会がありません</strong><p>講習会名や分野を変えてください。</p></BasiqCard></section>
             </template>
 
             <template v-else-if="route.name === 'edit'">
               <header class="editor-header"><div><button class="back-button" type="button" @click="navigate(editorDraft.status === 'public' ? '/workshops/' + editorDraft.id : '/drafts')">← {{ editorDraft.status === 'public' ? '講習会へ' : '下書きへ' }}</button><span class="editor-status" :class="{ public: editorDraft.status === 'public' }">{{ editorDraft.status === 'draft' ? '下書き' : '公開中' }}</span><h1>{{ editorDraft.title || '名称未定の講習会' }}</h1></div><div class="header-actions"><BasiqButton type="button" tone="neutral" variant="outline" @click="saveDraft">{{ editorDraft.status === 'public' ? '変更を保存' : '下書きを保存' }}</BasiqButton><BasiqButton v-if="editorDraft.status === 'draft'" type="button" @click="publishDraft">今の内容で公開</BasiqButton></div></header>
-              <div class="editor-step-tabs-wrap">
-                <BasiqTabsRoot class="editor-step-tabs" :model-value="String(editorStep)" orientation="horizontal" @update:model-value="setEditorStep(Number($event))">
-                  <BasiqTabsList aria-label="Step" width="100%">
+              <BasiqTabsRoot class="editor-step-tabs" :model-value="String(editorStep)" orientation="horizontal" @update:model-value="setEditorStep(Number($event))">
+                <div class="editor-step-tabs-wrap">
+                  <BasiqTabsList aria-label="Step">
                     <BasiqTabsTrigger v-for="(section, index) in editorSections" :key="index" :value="String(index)">
                       <span>Step {{ index + 1 }}</span>
                       <strong v-if="section.label">{{ section.label }}</strong>
                     </BasiqTabsTrigger>
                   </BasiqTabsList>
-                </BasiqTabsRoot>
-              </div>
-              <div class="editor-layout">
+                </div>
+                <BasiqTabsContent v-for="(_, tabIndex) in editorSections" :key="'editor-panel-' + tabIndex" class="editor-step-content" :value="String(tabIndex)">
+                  <div v-if="editorStep === tabIndex" class="editor-layout">
                 <aside class="editor-navigation">
-                  <nav class="editor-toc" aria-label="目次">
+                  <div class="editor-toc">
                     <template v-if="editorStep === 0">
-                      <button v-for="(section, index) in basicInfoSections" :key="section.id" type="button" :class="{ active: activeBasicInfoSection === section.id }" @click="scrollToEditorSection(section.id)">
-                        <span class="toc-number">{{ index + 1 }}</span>
-                        <strong>{{ section.label }}</strong>
-                        <em v-if="section.done" aria-label="入力済み">✓</em>
-                      </button>
+                      <BasiqNavigationList class="editor-toc-list" aria-label="基本情報の項目">
+                        <BasiqNavigationItem v-for="(section, index) in basicInfoSections" :key="section.id" as-child :current="activeBasicInfoSection === section.id">
+                          <button type="button" @click="scrollToEditorSection(section.id)"><span class="toc-number">{{ index + 1 }}</span><strong>{{ section.label }}</strong><em v-if="section.done" aria-label="入力済み">✓</em></button>
+                        </BasiqNavigationItem>
+                      </BasiqNavigationList>
                     </template>
                     <template v-else-if="editorStep === 1">
-                      <div class="occurrence-toc-list">
-                        <button v-for="(section, index) in occurrenceSections" :key="section.id" type="button" :class="{ active: activeOccurrenceId === section.id }" @click="scrollToOccurrence(section.id)">
-                          <span class="toc-number">{{ index + 1 }}</span>
-                          <strong>{{ section.label }}</strong>
-                          <em v-if="section.done" aria-label="入力済み">✓</em>
-                        </button>
-                      </div>
-                      <div class="editor-toc-action"><BasiqButton type="button" tone="neutral" variant="outline" width="100%" @click="addOccurrence">開催枠を追加</BasiqButton></div>
+                      <BasiqNavigationList class="editor-toc-list" aria-label="開催枠">
+                        <BasiqNavigationItem v-for="(section, index) in occurrenceSections" :key="section.id" as-child :current="activeOccurrenceId === section.id">
+                          <button type="button" @click="scrollToOccurrence(section.id)"><span class="toc-number">{{ index + 1 }}</span><strong>{{ section.label }}</strong><em v-if="section.done" aria-label="入力済み">✓</em></button>
+                        </BasiqNavigationItem>
+                      </BasiqNavigationList>
+                      <div class="editor-toc-action"><BasiqButton type="button" tone="neutral" variant="outline" @click="addOccurrence">開催枠を追加</BasiqButton></div>
                     </template>
-                  </nav>
+                  </div>
                 </aside>
                 <section class="editor-form">
                   <template v-if="editorStep === 0">
@@ -1509,15 +1531,13 @@ export default defineComponent({
                     <section id="basic-operations" class="editor-subsection">
                       <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">3</span><h3>運営を決めよう</h3></div>
                       <div class="field-stack">
-                        <BasiqFormField class="full" label="運営元">
-                          <BasiqRadioGroup v-model="editorDraft.team" class="compact-radio-group" name="organizer-source" orientation="horizontal" :items="organizerSources" />
-                        </BasiqFormField>
+                        <BasiqRadioGroup v-model="editorDraft.team" class="compact-radio-group" label="運営元" name="organizer-source" orientation="horizontal" :items="organizerSources" />
                         <BasiqFormField class="full" label="運営" description="traQ ID・グループから複数選択">
                           <div class="operator-picker">
                             <BasiqInput v-model="operatorQuery" type="search" placeholder="traQ ID・グループ" @keydown.enter="addFirstOperatorSuggestion" />
                             <div v-if="operatorQuery.trim()" class="suggestion-list operator-suggestions" role="listbox" aria-label="運営候補">
                               <button v-for="candidate in operatorSuggestions" :key="candidate.kind + candidate.id" type="button" role="option" @click="addOperator(candidate)">
-                                <img v-if="candidate.kind === 'user'" :src="operatorAvatar(candidate)" alt="" referrerpolicy="no-referrer" @error="hideBrokenImage">
+                                <BasiqAvatar v-if="candidate.kind === 'user'" class="candidate-avatar" :src="operatorAvatar(candidate)" :name="candidate.name" alt="" shape="circle" :size="28" referrerpolicy="no-referrer" />
                                 <span><strong>{{ candidate.label }}</strong><small v-if="candidate.detail">{{ candidate.detail }}</small></span>
                                 <em>追加</em>
                               </button>
@@ -1560,7 +1580,7 @@ export default defineComponent({
                             </div>
                           </div>
                           <div v-if="relationEntries(relation.kind).length" class="relation-selections">
-                            <article v-for="entry in relationEntries(relation.kind)" :key="entry.key"><span class="relation-entry-type">{{ entry.kind === 'workshop' ? '講習会' : '自由入力' }}</span><span><strong>{{ entry.label }}</strong><small>{{ entry.meta }}</small></span><button v-if="entry.kind === 'text' && entry.text" type="button" @click="searchRelationText(relation.kind, entry.text)">候補を検索</button><button type="button" :aria-label="entry.label + 'を削除'" @click="removeRelationEntry(relation.kind, entry)">×</button></article>
+                            <article v-for="entry in relationEntries(relation.kind)" :key="entry.key"><span class="relation-entry-type">{{ entry.kind === 'workshop' ? '講習会' : '自由入力' }}</span><span><strong>{{ entry.label }}</strong><small>{{ entry.meta }}</small></span><BasiqButton v-if="entry.kind === 'text' && entry.text" type="button" tone="neutral" variant="outline" @click="searchRelationText(relation.kind, entry.text)">候補を検索</BasiqButton><BasiqButton type="button" tone="danger" variant="outline" :aria-label="entry.label + 'を削除'" @click="removeRelationEntry(relation.kind, entry)">×</BasiqButton></article>
                           </div>
                         </section>
                       </div>
@@ -1568,7 +1588,7 @@ export default defineComponent({
                   </template>
                   <template v-else-if="editorStep === 1">
                     <section v-for="(occurrence, index) in editorDraft.occurrences" :id="'occurrence-slot-' + occurrence.id" :key="occurrence.id" class="occurrence-editor">
-                      <div class="occurrence-editor-title"><h3>{{ occurrence.title.trim() || ('開催枠 ' + (index + 1)) }}</h3><button v-if="editorDraft.occurrences.length > 1" type="button" @click="removeOccurrence(index)">削除</button></div>
+                      <div class="occurrence-editor-title"><h3>{{ occurrence.title.trim() || ('開催枠 ' + (index + 1)) }}</h3><BasiqButton v-if="editorDraft.occurrences.length > 1" type="button" tone="danger" variant="outline" @click="removeOccurrence(index)">削除</BasiqButton></div>
                       <div class="occurrence-fields">
                         <BasiqFormField label="タイトル" description="「第1回」「Web編」など"><BasiqInput v-model="occurrence.title" /></BasiqFormField>
                         <BasiqFormField label="内容" description="この回の内容や説明"><BasiqTextarea v-model="occurrence.description" :rows="4" /></BasiqFormField>
@@ -1577,7 +1597,7 @@ export default defineComponent({
                             <BasiqInput :model-value="occurrence.instructor" type="search" placeholder="traQ ID" role="combobox" :aria-expanded="activeLecturerId === occurrence.id && Boolean(occurrence.instructor.trim())" @focus="activeLecturerId = occurrence.id" @update:model-value="setLecturerQuery(occurrence, $event)" @keydown.enter="addFirstLecturerSuggestion($event, occurrence)" @keydown.esc="activeLecturerId = ''" />
                             <div v-if="activeLecturerId === occurrence.id && occurrence.instructor.trim()" class="suggestion-list operator-suggestions" role="listbox" aria-label="講師候補">
                               <button v-for="candidate in lecturerSuggestions(occurrence)" :key="candidate.id" type="button" role="option" @click="selectLecturer(occurrence, candidate)">
-                                <img :src="operatorAvatar(candidate)" alt="" referrerpolicy="no-referrer" @error="hideBrokenImage">
+                                <BasiqAvatar class="candidate-avatar" :src="operatorAvatar(candidate)" :name="candidate.name" alt="" shape="circle" :size="28" referrerpolicy="no-referrer" />
                                 <span><strong>{{ candidate.label }}</strong><small v-if="candidate.detail">{{ candidate.detail }}</small></span>
                                 <em>選択</em>
                               </button>
@@ -1585,38 +1605,38 @@ export default defineComponent({
                             </div>
                           </div>
                         </BasiqFormField>
-                        <BasiqFormField label="開催形式">
-                          <BasiqRadioGroup :model-value="occurrence.mode === 'undecided' ? null : occurrence.mode" class="compact-radio-group" :name="'occurrence-mode-' + occurrence.id" orientation="horizontal" :items="occurrenceFormats" @update:model-value="setOccurrenceMode(occurrence, $event)" />
-                        </BasiqFormField>
+                        <BasiqRadioGroup :model-value="occurrence.mode === 'undecided' ? null : occurrence.mode" class="compact-radio-group" label="開催形式" :name="'occurrence-mode-' + occurrence.id" orientation="horizontal" :items="occurrenceFormats" @update:model-value="setOccurrenceMode(occurrence, $event)" />
                         <BasiqFormField class="occurrence-date-field" label="日付" :control-id="'occurrence-date-' + occurrence.id"><input :id="'occurrence-date-' + occurrence.id" v-model="occurrence.date" type="date"></BasiqFormField>
                       </div>
                     </section>
                   </template>
                   <template v-else-if="editorStep === 2"><header><span>3 / 5</span><h2>参加する人・後から受講する人に何を伝えますか</h2><p>開催前後で同じ項目を同じ順番で表示します。</p></header><div class="form-grid"><BasiqFormField class="full" label="事前準備" description="必要なアプリ、アカウント、持ち物など"><BasiqTextarea v-model="editorDraft.preparation" :rows="4" /></BasiqFormField><BasiqFormField class="full" label="後から受講する方法" description="資料や動画をどの順番で使うか"><BasiqTextarea v-model="editorDraft.howToLearn" :rows="4" /></BasiqFormField><BasiqFormField class="full" label="質問・連絡先" description="traQチャンネルや担当者"><BasiqInput v-model="editorDraft.contact" placeholder="#event/workshop、@担当者 など" /></BasiqFormField></div></template>
-                  <template v-else-if="editorStep === 3"><header><span>4 / 5</span><h2>資料・動画を登録します</h2><p>まだできていなければ空のまま進められます。開催後に追加しても同じ場所へ表示されます。</p></header><div v-if="sourceWorkshop" class="reference-resources"><strong>前年度の参考資料</strong><p>今回の資料としては登録されません。必要なら内容を確認して新しいURLを入力してください。</p><a v-for="resource in sourceWorkshop.resources.filter(resource => resource.url)" :key="resource.id" :href="resource.url" target="_blank" rel="noreferrer"><span>{{ typeLabel[resource.type] }}</span>{{ resource.title }} ↗</a></div><div class="form-grid"><BasiqFormField class="full" label="全開催枠で共通の資料URL"><BasiqInput v-model="materialUrl" type="url" placeholder="https://..." /></BasiqFormField><BasiqFormField class="full" label="全開催枠で共通の動画URL"><BasiqInput v-model="videoUrl" type="url" placeholder="https://..." /></BasiqFormField></div><div v-if="editorDraft.occurrences.length > 1" class="occurrence-resources"><h3>開催枠ごとの資料・動画</h3><p>回ごとに内容が違う場合だけ入力します。</p><details v-for="occurrence in editorDraft.occurrences" :key="occurrence.id"><summary>{{ occurrence.title }}</summary><div class="form-grid"><BasiqFormField label="資料URL"><BasiqInput :model-value="occurrenceResourceUrl(occurrence.id, 'material')" type="url" placeholder="https://..." @update:model-value="setOccurrenceResourceUrl(occurrence.id, 'material', $event)" /></BasiqFormField><BasiqFormField label="動画URL"><BasiqInput :model-value="occurrenceResourceUrl(occurrence.id, 'video')" type="url" placeholder="https://..." @update:model-value="setOccurrenceResourceUrl(occurrence.id, 'video', $event)" /></BasiqFormField></div></details></div></template>
-                  <template v-else><header><span>5 / 5</span><h2>告知文を確認して公開します</h2><p>入力済みの情報を再利用します。knoQやtraQへの投稿は自動では行いません。</p></header><BasiqFormField class="collaborator-field" label="共同編集者" description="下書きを見られるtraQ IDを、読点で区切って入力します"><BasiqInput v-model="collaboratorText" placeholder="例：alice、bob" /></BasiqFormField><div class="notice-tabs" aria-label="生成する文章"><button type="button" :class="{ active: noticeKind === 'traq' }" :aria-pressed="noticeKind === 'traq'" @click="noticeKind = 'traq'">traQ告知文</button><button type="button" :class="{ active: noticeKind === 'knoq' }" :aria-pressed="noticeKind === 'knoq'" @click="noticeKind = 'knoq'">knoQ説明文</button></div><BasiqTextarea aria-label="生成された告知文" :model-value="activeNotice" :rows="12" readonly /><div class="notice-actions"><BasiqButton type="button" tone="neutral" variant="outline" @click="copyText(activeNotice, '告知文をコピーしました')">文章をコピー</BasiqButton><BasiqButton v-if="editorDraft.status === 'draft'" type="button" @click="publishDraft">今の内容で公開</BasiqButton><BasiqButton v-else type="button" @click="saveDraft">変更を保存</BasiqButton></div></template>
+                  <template v-else-if="editorStep === 3"><header><span>4 / 5</span><h2>資料・動画を登録します</h2><p>まだできていなければ空のまま進められます。開催後に追加しても同じ場所へ表示されます。</p></header><BasiqCard v-if="sourceWorkshop" class="reference-resources"><strong>前年度の参考資料</strong><p>今回の資料としては登録されません。必要なら内容を確認して新しいURLを入力してください。</p><a v-for="resource in sourceWorkshop.resources.filter(resource => resource.url)" :key="resource.id" :href="resource.url" target="_blank" rel="noreferrer"><span>{{ typeLabel[resource.type] }}</span>{{ resource.title }} ↗</a></BasiqCard><div class="form-grid"><BasiqFormField class="full" label="全開催枠で共通の資料URL"><BasiqInput v-model="materialUrl" type="url" placeholder="https://..." /></BasiqFormField><BasiqFormField class="full" label="全開催枠で共通の動画URL"><BasiqInput v-model="videoUrl" type="url" placeholder="https://..." /></BasiqFormField></div><div v-if="editorDraft.occurrences.length > 1" class="occurrence-resources"><h3>開催枠ごとの資料・動画</h3><p>回ごとに内容が違う場合だけ入力します。</p><details v-for="occurrence in editorDraft.occurrences" :key="occurrence.id"><summary>{{ occurrence.title }}</summary><div class="form-grid"><BasiqFormField label="資料URL"><BasiqInput :model-value="occurrenceResourceUrl(occurrence.id, 'material')" type="url" placeholder="https://..." @update:model-value="setOccurrenceResourceUrl(occurrence.id, 'material', $event)" /></BasiqFormField><BasiqFormField label="動画URL"><BasiqInput :model-value="occurrenceResourceUrl(occurrence.id, 'video')" type="url" placeholder="https://..." @update:model-value="setOccurrenceResourceUrl(occurrence.id, 'video', $event)" /></BasiqFormField></div></details></div></template>
+                  <template v-else><header><span>5 / 5</span><h2>告知文を確認して公開します</h2><p>入力済みの情報を再利用します。knoQやtraQへの投稿は自動では行いません。</p></header><BasiqFormField class="collaborator-field" label="共同編集者" description="下書きを見られるtraQ IDを、読点で区切って入力します"><BasiqInput v-model="collaboratorText" placeholder="例：alice、bob" /></BasiqFormField><BasiqTabsRoot class="notice-tabs" :model-value="noticeKind" orientation="horizontal" @update:model-value="noticeKind = $event === 'knoq' ? 'knoq' : 'traq'"><BasiqTabsList aria-label="生成する文章"><BasiqTabsTrigger value="traq">traQ告知文</BasiqTabsTrigger><BasiqTabsTrigger value="knoq">knoQ説明文</BasiqTabsTrigger></BasiqTabsList><BasiqTabsContent value="traq"><BasiqTextarea aria-label="生成されたtraQ告知文" :model-value="generatedTraq" :rows="12" readonly /></BasiqTabsContent><BasiqTabsContent value="knoq"><BasiqTextarea aria-label="生成されたknoQ説明文" :model-value="generatedKnoq" :rows="12" readonly /></BasiqTabsContent></BasiqTabsRoot><div class="notice-actions"><BasiqButton type="button" tone="neutral" variant="outline" @click="copyText(activeNotice, '告知文をコピーしました')">文章をコピー</BasiqButton><BasiqButton v-if="editorDraft.status === 'draft'" type="button" @click="publishDraft">今の内容で公開</BasiqButton><BasiqButton v-else type="button" @click="saveDraft">変更を保存</BasiqButton></div></template>
                 </section>
-              </div>
+                  </div>
+                </BasiqTabsContent>
+              </BasiqTabsRoot>
             </template>
 
             <template v-else-if="route.name === 'drafts'">
               <header class="page-header"><div><h1>自分の下書き</h1><p>下書きは作成者と共同編集者だけが閲覧できます。</p></div><BasiqButton type="button" @click="navigate('/new')">講習会を作る</BasiqButton></header>
-              <section class="draft-list" v-if="drafts.length"><article v-for="draft in drafts" :key="draft.id"><div><div class="card-meta"><span>下書き</span><span>{{ draft.year }}年度</span></div><h2>{{ draft.title || '名称未定の講習会' }}</h2><p>{{ draft.summary || '概要はまだ入力されていません。' }}</p></div><BasiqButton type="button" tone="neutral" variant="outline" @click="editWorkshop(draft)">続きを編集</BasiqButton></article></section>
-              <section v-else class="empty-state"><strong>下書きはありません</strong><p>過去の講習会を引き継ぐか、白紙から作成できます。</p><BasiqButton type="button" @click="navigate('/new')">講習会を作る</BasiqButton></section>
+              <section class="draft-list" v-if="drafts.length"><BasiqCard v-for="draft in drafts" :key="draft.id" class="draft-card"><div class="draft-card-content"><div><div class="card-meta"><span>下書き</span><span>{{ draft.year }}年度</span></div><h2>{{ draft.title || '名称未定の講習会' }}</h2><p>{{ draft.summary || '概要はまだ入力されていません。' }}</p></div><BasiqButton type="button" tone="neutral" variant="outline" @click="editWorkshop(draft)">続きを編集</BasiqButton></div></BasiqCard></section>
+              <BasiqCard v-else class="empty-state page-empty"><strong>下書きはありません</strong><p>過去の講習会を引き継ぐか、白紙から作成できます。</p><BasiqButton type="button" @click="navigate('/new')">講習会を作る</BasiqButton></BasiqCard>
             </template>
 
             <template v-else-if="route.name === 'me'">
               <header class="page-header profile-heading"><div><BasiqAvatar class="profile-avatar" :src="traqUserIconUrl" name="rurun" alt="" size="lg" /><div><h1>rurun のマイページ</h1><p>受講履歴と、獲得したバッジを確認できます。</p></div></div></header>
-              <section class="privacy-setting"><div><h2>traP内プロフィールでバッジを公開</h2><p>初期状態は非公開です。公開しても、共有するバッジは自分で選べます。</p></div><BasiqSwitch v-model="profileVisible" aria-label="バッジをtraP内プロフィールで公開" /></section>
-              <section class="badge-section"><div class="section-heading"><div><h2>獲得したバッジ</h2><p>講習会を受講完了すると追加されます。</p></div><span>{{ completedWorkshops.length }}個</span></div><div v-if="completedWorkshops.length" class="badge-grid"><article v-for="workshop in completedWorkshops" :key="workshop.id"><div class="badge-medal"><span>{{ badgeLabel(workshop) }}</span><small>{{ workshop.year }}</small></div><div><h3>{{ workshop.title }}</h3><p>{{ completionDate(workshop.id) }}に受講完了</p></div><BasiqButton type="button" tone="neutral" variant="outline" @click="shareBadge(workshop)">このバッジを共有</BasiqButton></article></div><div v-else class="empty-state"><strong>まだバッジはありません</strong><p>講習会ページから受講完了を記録してください。</p><BasiqButton type="button" tone="neutral" variant="outline" @click="navigate('/search')">講習会を探す</BasiqButton></div></section>
+              <BasiqCard class="privacy-setting"><div class="privacy-setting-content"><div><h2>traP内プロフィールでバッジを公開</h2><p>初期状態は非公開です。</p></div><BasiqSwitch v-model="profileVisible" aria-label="バッジをtraP内プロフィールで公開" /></div></BasiqCard>
+              <section class="badge-section"><div class="section-heading"><div><h2>獲得したバッジ</h2><p>講習会を受講完了すると追加されます。</p></div><span>{{ completedWorkshops.length }}個</span></div><div v-if="completedWorkshops.length" class="badge-grid"><BasiqCard v-for="workshop in completedWorkshops" :key="workshop.id" class="badge-card"><div class="badge-card-content"><div class="badge-medal"><span>{{ badgeLabel(workshop) }}</span><small>{{ workshop.year }}</small></div><div><h3>{{ workshop.title }}</h3><p>{{ completionDate(workshop.id) }}に受講完了</p></div><BasiqButton type="button" tone="neutral" variant="outline" @click="shareBadge(workshop)">このバッジを共有</BasiqButton></div></BasiqCard></div><BasiqCard v-else class="empty-state"><strong>まだバッジはありません</strong><p>講習会ページから受講完了を記録してください。</p><BasiqButton type="button" tone="neutral" variant="outline" @click="navigate('/search')">講習会を探す</BasiqButton></BasiqCard></section>
             </template>
 
             <template v-else-if="route.name === 'share' && selectedWorkshop && completedAt[selectedWorkshop.id]">
               <header class="page-header"><div><button class="back-button" type="button" @click="navigate('/me')">← マイページ</button><h1>バッジを共有</h1><p>他の受講履歴は含めず、このバッジだけを共有します。</p></div></header>
-              <section class="share-card-wrap"><article class="share-card"><p>LeQtures</p><div class="badge-medal large"><span>{{ badgeLabel(selectedWorkshop) }}</span><small>{{ selectedWorkshop.year }}</small></div><h2>{{ selectedWorkshop.title }}</h2><p>{{ completionDate(selectedWorkshop.id) }}に受講しました</p><small>@rurun</small></article><div class="share-controls"><h2>共有する内容</h2><BasiqTextarea aria-label="バッジの共有文" :model-value="shareText(selectedWorkshop)" :rows="3" readonly /><BasiqButton type="button" @click="copyText(shareText(selectedWorkshop), '共有文をコピーしました')">共有文をコピー</BasiqButton><p>traQやSNSへの投稿は自動では行いません。</p></div></section>
+              <section class="share-card-wrap"><BasiqCard class="share-card"><div class="share-card-content"><p>LeQtures</p><div class="badge-medal large"><span>{{ badgeLabel(selectedWorkshop) }}</span><small>{{ selectedWorkshop.year }}</small></div><h2>{{ selectedWorkshop.title }}</h2><p>{{ completionDate(selectedWorkshop.id) }}に受講しました</p><small>@rurun</small></div></BasiqCard><BasiqCard class="share-controls"><div class="share-controls-content"><h2>共有する内容</h2><BasiqTextarea aria-label="バッジの共有文" :model-value="shareText(selectedWorkshop)" :rows="3" readonly /><BasiqButton type="button" @click="copyText(shareText(selectedWorkshop), '共有文をコピーしました')">共有文をコピー</BasiqButton><p>traQやSNSへの投稿は自動では行いません。</p></div></BasiqCard></section>
             </template>
 
-            <section v-else class="empty-state not-found"><strong>ページが見つかりません</strong><BasiqButton type="button" @click="navigate('/')">ホームへ戻る</BasiqButton></section>
+            <BasiqCard v-else class="empty-state not-found"><strong>ページが見つかりません</strong><BasiqButton type="button" @click="navigate('/')">ホームへ戻る</BasiqButton></BasiqCard>
           </main>
         </div>
       </div>

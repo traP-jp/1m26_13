@@ -101,7 +101,9 @@ function subsequenceScore(value: string, query: string) {
     else if (queryIndex > 0) gaps += 1;
     valueIndex += 1;
   }
-  return queryIndex === query.length ? Math.max(1, 240 - gaps) : -1;
+  if (queryIndex !== query.length) return -1;
+  const allowedGaps = Math.max(2, Math.floor(query.length / 2));
+  return gaps <= allowedGaps ? 240 - gaps : -1;
 }
 
 export function searchTextScore(fields: string[], query: string) {
@@ -112,7 +114,8 @@ export function searchTextScore(fields: string[], query: string) {
   if (normalizedFields.some((field) => field.startsWith(needle))) return 800;
   if (normalizedFields.some((field) => field.includes(needle))) return 600;
 
-  const combined = normalizedFields.join("");
-  if (combined.includes(needle)) return 500;
-  return subsequenceScore(combined, needle);
+  return normalizedFields.reduce(
+    (bestScore, field) => Math.max(bestScore, subsequenceScore(field, needle)),
+    -1,
+  );
 }
