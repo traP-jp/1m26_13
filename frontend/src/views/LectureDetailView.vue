@@ -543,14 +543,12 @@ onMounted(load);
     gap: 24px;
   }
 
-  .detail-rail {
-    width: 100%;
-    order: 1;
-  }
-
   .detail-main {
     width: 100%;
-    order: 2;
+  }
+
+  .detail-rail {
+    width: 100%;
   }
 
   .audience-grid,

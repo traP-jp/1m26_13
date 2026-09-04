@@ -298,10 +298,6 @@ onMounted(load);
     grid-template-columns: 1fr;
   }
 
-  .detail-rail {
-    grid-row: 1;
-  }
-
   .completion-card {
     position: sticky;
     top: 68px;
