@@ -50,13 +50,8 @@ type Lecture = {
   // 分野
   fieldId?: string
 
-  // 運営
-  organizerGroupIds: string[]
-  organizerUserIds: string[]
-
-  // 問い合わせ先
-  contactGroupIds: string[]
-  contactUserIds: string[]
+  // 運営担当。個人またはグループのどちらか1件
+  organizer?: Organizer
 
   // 対象者
   targetAudience?: string
@@ -67,7 +62,10 @@ type Lecture = {
   // 関連 traQ チャンネル
   traqChannelId?: string
 
-  // 講習会全体に関連するリンク
+  // 講義資料は最大1件
+  material?: Material
+
+  // 講習会全体に関連するその他のリンク
   resources: Resource[]
 }
 ```
@@ -163,10 +161,13 @@ type Session = {
   // knoQ イベントへのURL
   knoqUrl?: string
 
-  // 講師
-  instructorIds: string[]
+  // 講師は個人0〜1名
+  instructorId?: string
 
-  // この開催に関連するリンク
+  // 講義資料は最大1件
+  material?: Material
+
+  // この開催に関連するその他のリンク
   resources: Resource[]
 
   // 再放送元となる Session
@@ -231,9 +232,11 @@ Discord #ctf-workshop / Qall
 replayOfSessionIds: string[]
 ```
 
-`replayOfSessionIds`が1件以上あるSessionは再放送として扱う。初期実装では、元Sessionと同じLecture・同じ`order`を要求し、各Lecture・各`order`の通常Sessionは1件だけにする。再放送はLecture詳細の同じ回タブ内へ通常Sessionと並べて表示するが、受講完了操作は置かない。
+`replayOfSessionIds`が1件以上あるSessionは再放送または総集編として扱う。初期実装では、元Sessionと同じLectureを要求する。複製は入力値を作る操作であり、複製しただけでは再放送属性にならない。利用者が`replayOfSessionIds`を設定した結果から再放送・総集編を導出する。
 
-学習者向けのSession単独URLは設けない。Lecture詳細は単発なら`/lectures/<lectureId>`、複数回なら`/lectures/<lectureId>#<round>`とする。複数回のfragmentは直接表示、再読込、ブラウザの戻る・進むで同期する。単発へ`#1`付きで入った場合はfragmentを除去する。Session内部IDはAPIと運営編集だけで使う。
+Session追加時は、空のdraftを作るか既存Sessionの属性を複製するかを選び、同時に`session_main`のFlowClassを選ぶ。複製時も元Flowの本文、チェック状態、ページ位置はコピーしない。元Flowが参照するFlowClassの現在の本文から新しいFlowを作る。
+
+学習者向けのSession単独URLは設けない。Lecture詳細は通常Sessionだけで回を構成し、単発なら`/lectures/<lectureId>`、複数回ならタブ表示と同じ`/lectures/<lectureId>#第N回`とする。再放送Sessionは学習者向けLecture詳細へ表示しない。複数回のfragmentは直接表示、再読込、ブラウザの戻る・進むで同期し、旧`#N`は新形式へ置換する。単発のfragmentは除去する。Session内部IDはAPIと運営編集だけで使う。
 
 例:
 
@@ -247,41 +250,44 @@ replayOfSessionIds: string[]
 
 ---
 
-## 8. Resource
+## 8. Material と Resource
 
-講義資料、Wiki、アンケート、GitHub リポジトリなどの関連リンクを統一して Resource として扱う。
-
-現時点では種類は持たない。
+講義で中心的に使う資料を`Material`、Wiki、アンケート、GitHubリポジトリなどのその他の関連リンクを`Resource`として分ける。LectureとSessionはそれぞれMaterialを最大1件、Resourceを複数件持てる。
 
 ```ts
+type Material = {
+  url: string
+  title?: string
+}
+
 type Resource = {
   title?: string
   url: string
 }
 ```
 
+Materialのtitleは任意で、未設定時のUI表示は「講義資料」とする。LectureとSessionのMaterial / Resourceは独立して扱い、自動継承は行わない。既存ResourceのtitleからMaterialを推測して自動移行しない。
+
 ### 例
 
 ```json
-[
-  {
-    "title": "講義資料",
+{
+  "material": {
+    "title": "当日スライド",
     "url": "https://example.com/slides"
   },
-  {
-    "title": "Wiki",
-    "url": "https://example.com/wiki"
-  },
-  {
-    "title": "受講後アンケート",
-    "url": "https://example.com/survey"
-  }
-]
+  "resources": [
+    {
+      "title": "Wiki",
+      "url": "https://example.com/wiki"
+    },
+    {
+      "title": "受講後アンケート",
+      "url": "https://example.com/survey"
+    }
+  ]
+}
 ```
-
-Resource は Lecture と Session の両方が持てる。
-
-Lecture の Resource と Session の Resource は独立して扱い、自動継承は行わない。
 
 ---
 
@@ -297,37 +303,25 @@ knoQ との同期処理は行わない。
 
 ---
 
-## 10. 講師・運営・問い合わせ先
+## 10. 講師・運営担当
 
 ### 講師
 
 講師は Session 単位で保持する。
 
-```ts
-instructorIds: string[]
-```
-
-講師は個人のみを対象とする。
+講師は個人のみを対象とし、Sessionごとに0〜1名を`instructorId`へ保持する。
 
 ### 運営
 
-Lecture 全体の運営者として、グループと個人をそれぞれ保持する。
+Lecture全体の運営担当は、個人1名またはグループ1件のどちらかとする。
 
 ```ts
-organizerGroupIds: string[]
-organizerUserIds: string[]
+type Organizer =
+  | { kind: "user", id: string }
+  | { kind: "group", id: string, groupName?: string }
 ```
 
-### 問い合わせ先
-
-問い合わせ先もグループと個人の両方を指定できる。
-
-```ts
-contactGroupIds: string[]
-contactUserIds: string[]
-```
-
-講師と運営者は役割が異なるため、別フィールドとして管理する。
+グループを指定した場合は、選択時点の基本名を`groupName`へsnapshotとして保存する。後からdirectoryのグループ名が変化しても過去イベントの表示名は自動更新しない。問い合わせ先は運営担当へ統合し、独立属性を持たない。講師と運営担当は役割が異なるため別フィールドとする。
 
 ---
 
@@ -450,13 +444,15 @@ status: "draft" | "published"
 
 必要な場合は日時から判定する。
 
+公開変更時は推奨項目の未設定を確認モーダルで警告するが、schemaとして有効なSessionの公開を妨げない。最後のpublished Sessionをdraftへ戻す場合は、Lectureが学習者向け画面から非表示になる影響も警告する。
+
 ---
 
 ## 15. 削除
 
 `deletedAt` などの soft delete 用フィールドは持たない。
 
-初期リリースではLecture、Session、FlowClass、Flow、Roadmapの削除機能を実装しない。誤りは編集またはdraftへの変更で訂正する。利用停止・アーカイブが必要になった場合は、削除とは別の状態として改めて設計する。
+初期リリースではLecture、Session、FlowClass、Flow、Roadmapの削除、アーカイブ、取り下げを実装しない。誤作成したSessionはdraftのまま別用途へ再利用し、その他の誤りも編集またはdraftへの変更で訂正する。利用停止・アーカイブが必要になった場合は、改めて設計する。
 
 ---
 
@@ -487,11 +483,11 @@ status: "draft" | "published"
 │ academicYearStart  │
 │ academicYearEnd    │
 │ fieldId            │
-│ organizers         │
-│ contacts           │
+│ organizer          │
 │ targetAudience     │
 │ isIntroductory     │
 │ traqChannelId      │
+│ material           │
 │ resources          │
 └─────────┬──────────┘
           │ 1
@@ -507,7 +503,8 @@ status: "draft" | "published"
 │ startTime          │
 │ location           │
 │ knoqUrl            │
-│ instructors        │
+│ instructor         │
+│ material           │
 │ resources          │
 │ replayOf[]         │
 │ status             │
@@ -522,10 +519,19 @@ Lecture ── N:M ── Lecture
 ## 18. 全体データ型
 
 ```ts
+type Material = {
+  title?: string
+  url: string
+}
+
 type Resource = {
   title?: string
   url: string
 }
+
+type Organizer =
+  | { kind: "user", id: string }
+  | { kind: "group", id: string, groupName?: string }
 
 type Lecture = {
   id: string
@@ -538,17 +544,14 @@ type Lecture = {
 
   fieldId?: string
 
-  organizerGroupIds: string[]
-  organizerUserIds: string[]
-
-  contactGroupIds: string[]
-  contactUserIds: string[]
+  organizer?: Organizer
 
   targetAudience?: string
   isIntroductory: boolean
 
   traqChannelId?: string
 
+  material?: Material
   resources: Resource[]
 }
 
@@ -568,8 +571,9 @@ type Session = {
 
   knoqUrl?: string
 
-  instructorIds: string[]
+  instructorId?: string
 
+  material?: Material
   resources: Resource[]
 
   replayOfSessionIds: string[]
@@ -640,7 +644,7 @@ type FlowClass = {
 
 ### 20.2 Flow
 
-`Flow`は、利用者がStockから`FlowClass`を選び、具体的なLectureまたはSessionへ適用した時点で作成する。
+`Flow`は、Stockから選んだ`FlowClass`を具体的なLectureまたはSessionへ適用した作業実体である。
 
 ```ts
 type Flow = {
@@ -649,10 +653,7 @@ type Flow = {
   targetId: string
   text: string
   formatVersion: 1
-  answers: Record<string, string>
-  tasks: Record<string, boolean>
   currentPage: number
-  status: "active" | "completed" | "cancelled"
   revision: number
 }
 ```
@@ -664,6 +665,7 @@ type Flow = {
 - `lecture_pre`と`lecture_post`: 1件のLectureを参照する。
 - `session_main`: 1件のSessionを参照する。
 - 対象なし、属性と対象種別の不一致は許可しない。
+- Lectureは`lecture_pre`と`lecture_post`を各1件、Sessionは`session_main`を1件、常に持つ。同じ対象属性へ複数Flowを適用しない。
 
 `FlowClass.type`は分類ではなく対象制約でもある。1件以上のFlowから参照された`FlowClass.type`は変更できない。別のtypeとして扱いたい場合は新しいFlowClassを作成する。これにより、既存Flowへtypeを重複保存せず、適用時の対象整合性を維持する。
 
@@ -679,12 +681,17 @@ Lecture / Session
     ├── flowClassId
     ├── targetId
     ├── copied text
-    └── 回答・進捗
+    ├── text内のチェック状態
+    └── currentPage
 ```
 
-将来、Stock上で版履歴、差分表示、特定版の再利用が必要になった場合に`FlowClassVersion`を追加する。初期文法、回答・進捗、保存、途中再開、完了条件は`FLOW_FORMAT_ANALYSIS.md`を正本とする。
+将来、Stock上で版履歴、差分表示、特定版の再利用が必要になった場合に`FlowClassVersion`を追加する。初期文法、チェック更新、自動保存、途中再開は`FLOW_FORMAT_ANALYSIS.md`を正本とする。
 
-Flowは物理削除しない。途中のFlowは`active`、完了操作後は`completed`とし、完了後は読み取り専用にする。`cancelled`は将来の中断表示に使える予約状態で、初期画面からは変更しない。
+Flowは物理削除しない。Flow固有の回答、タスク状態、`active` / `completed` / `cancelled`、完了後の読み取り専用化は設けない。チェックは`Flow.text`を、ページ位置は`currentPage`を更新する。
+
+講習会作成時には講習会名、`lecture_pre`、第1回用`session_main`、`lecture_post`のFlowClassを必須選択し、Lecture、第1回draft Session、3件のFlowを同じtransactionで作る。第1回の初期名は「第1回」、`order`は0とする。
+
+使用FlowClassの変更ではLecture / Session属性を維持し、同じFlowの`flowClassId`、`text`、`formatVersion`、チェック状態、`currentPage`を新しいFlowClassの現在値と先頭ページへ置き換える。FlowClass自身の更新は既存Flowへ伝播しない。
 
 ---
 
@@ -728,7 +735,98 @@ type AttributeUpdateEvent = {
 ```
 
 - 現在値の正本は各entityであり、イベント再生だけで現在状態を作るevent sourcingにはしない。
-- 一度の保存で複数属性を変更した場合、属性ごとにイベントを作り、同じ`changeSetId`で束ねる。
+- 単一属性は入力停止またはblurで自動保存し、属性ごとにイベントを作る。配列・複合値はモーダル確定時に全体を1属性として保存する。
 - 現在値の更新とイベント追加は同じtransactionで行う。片方だけの成功を許可しない。
 - 値は型を保てるJSONとして保存する。ResourceやID配列は初期リリースでは属性全体のbefore/afterを1イベントへ記録する。
-- Flowの回答、チェック、現在位置、状態はFlow自身の属性更新イベントとして記録する。FlowからLecture / Session属性を変更した場合は、対象エンティティ側の属性更新イベントとして記録する。
+- Flowの`flowClassId`、`text`内チェック、`formatVersion`、`currentPage`はFlow自身の属性更新イベントとして記録する。FlowからLecture / Session属性を変更した場合は、対象エンティティ側の属性更新イベントとして記録する。
+- 同じ属性を他者が先に変更していても後勝ちで保存する。requestの`baseValue`とtransaction内の現在値が異なる場合はresponseで一時的な競合警告を返すが、競合フラグは永続化しない。
+- 履歴画面の既定はLecture / Sessionデータ変更とし、チェックと使用FlowClass変更は「Flow操作」へ分ける。初期版の履歴は閲覧・コピーだけで、復旧操作を持たない。
+
+---
+
+## 23. 講習会編集
+
+対象単位の横タブを`講習会`、順序付きの`第1回`、`第2回`…、開催追加`+`、`事後`、`一覧編集`、その他操作`…`の順に置く。`講習会`は`lecture_pre`、各`第N回`はそのSessionの`session_main`、`事後`は`lecture_post`のFlowそのものを表示する。モバイルでは対象タブを横スクロールできるようにする。
+
+`+`は開催追加モーダルを開く。空のdraft作成または既存Sessionの複製と、使用する`session_main` FlowClassを選ぶ。`…`は使用Flow変更、開催順変更、変更履歴を開く。
+
+一覧編集はPCで属性ごとのアコーディオン内にSession名付き小カードを横並びのレーンとして配置し、外周罫線で巨大な表に見せない。モバイルでは同じ属性単位のままSessionを縦に積む。配列・複合値は要約と中央モーダルで編集し、確定時に配列全体を1イベントとして保存する。
+
+開催順変更はPCとモバイルの両方で専用ハンドルのドラッグ操作、上下ボタン、swapアニメーションを備え、明示保存する。「日時順に並べる」は保存前の補助操作とする。
+
+単一属性の未送信差分だけをlocalStorageへリアルタイムに保存し、7日で失効させる。server値が差分の`baseValue`と同じなら自動復元し、変化済みなら自動適用せず、確認、コピー、破棄を提示する。
+
+公開状態はFlowと一覧編集の双方から変更できる。確認モーダルはLectureの説明・対象者・運営担当と、対象Sessionの日時・場所・講師・materialが未設定なら推奨項目として警告するが、公開を妨げない。最後のpublished Sessionをdraftへ戻す場合はLectureが学習者向け画面から非表示になることも警告する。
+
+一覧編集から保存済みのLecture / Session現在値をJSONとして書き出せる。localStorageの未送信差分、Flow本文、履歴は含めず、JSON入力は実装しない。
+
+---
+
+## 24. OpenAPI契約
+
+```ts
+type LectureCreate = {
+  name: string
+  lecturePreFlowClassId: string
+  sessionMainFlowClassId: string
+  lecturePostFlowClassId: string
+}
+
+type LectureWorkspace = {
+  lecture: Lecture // sessionsを含む
+  flows: Flow[]
+}
+
+type AttributePatch = {
+  attributePath: string
+  baseValue?: JsonValue
+  nextValue: JsonValue
+}
+
+type AttributePatchResult<T> = {
+  entity: T
+  conflictDetected: boolean
+}
+
+type SessionCreate = {
+  mode: "empty" | "duplicate"
+  sourceSessionId?: string
+  flowClassId: string
+  replayOfSessionIds?: string[]
+}
+
+type SessionCreateResult = {
+  workspace: LectureWorkspace
+  session: Session
+  flow: Flow
+}
+
+type LectureExport = {
+  schemaVersion: 1
+  lecture: Lecture // sessionsを含む
+}
+```
+
+`SessionCreate.sourceSessionId`は`mode="duplicate"`のときだけ必須とする。属性PATCHの`attributePath`は任意のJSON Pointerではなく、APIが公開する1階層の属性名allowlistとする。`JsonValue`でも各pathの実際の型をhandlerで検証し、未知pathや型不一致は400にする。
+
+- `POST /lectures`: `LectureCreate`として`name`、`lecturePreFlowClassId`、`sessionMainFlowClassId`、`lecturePostFlowClassId`を受け、Lecture、第1回draft Session、3件のFlowを原子的に作成する。responseはそれらを含む`LectureWorkspace`とする。
+- `PATCH /lectures/{lectureId}/attributes`、`PATCH /sessions/{sessionId}/attributes`: `AttributePatch { attributePath, baseValue?, nextValue }`を受け、更新後entityと`conflictDetected`を返す。許可pathと値型は対象ごとのallowlistで検証する。revision不一致の409拒否は行わない。
+- `POST /lectures/{lectureId}/sessions`: `SessionCreate`を受け、draft SessionとメインFlowを同じtransactionで作り、`SessionCreateResult`を返す。
+- `PUT /lectures/{lectureId}/session-order`: `{ sessionIds: SessionId[] }`を受け、明示保存する。対象Lectureの全Sessionを重複なく1回ずつ含め、並び全体を1属性イベントとして記録する。
+- `PUT /flows/{flowId}/flow-class`: `{ flowClassId: string }`を受ける。同じFlowTypeだけを許可し、対象属性を変えずFlow snapshotとページ位置を置換して更新後Flowを返す。
+- `PATCH /flows/{flowId}/checks`: `{ pageIndex, checkboxIndex, checked, expectedText? }`を受け、backendが現在textを解析して該当markerだけを更新し、更新後Flowを返す。`expectedText`が現本文と異なる場合は別位置へ推測適用しない。
+- `PATCH /flows/{flowId}/page`: `{ currentPage: integer >= 0 }`を受け、存在するページ範囲だけを許可して更新後Flowを返す。
+- `GET /lectures/{lectureId}/history?category=data|flow`: Lectureと各Sessionの履歴を分類して返す。
+- `GET /lectures/{lectureId}/export`: 保存済みLecture（`sessions`を含む）現在値を`LectureExport`の`application/json`で返す。
+
+既存のFlow一般作成API、Flow全文更新API、Flow status filter、`FlowStatus`、`answers`、`tasks`、`status`、Lecture / Session全体Writeの`expectedRevision`、revision競合409は次期契約から除く。FlowClass Stock編集とRoadmap編集は今回の講習会編集UIスコープ外であり、現行の明示保存、`expectedRevision`、競合409を維持する。内部`revision`は更新世代と診断のためresponseへ残す。
+
+---
+
+## 25. 追加migration方針
+
+既存データを破壊しない`002`系列のadditive migrationを追加する。`002_editor_model.sql`でLectureへ`material`と単一organizer用のkind / id / group_name、Sessionへ`material`と単一instructor_idを追加する。旧配列は先頭のgroup、なければ先頭のuserをorganizerへ、先頭のinstructorを単一講師へbackfillする。migrationだけでgroup名を解決できない既存行はgroup_name未設定を許し、次にdirectoryから選択・保存した時点でsnapshotする。旧organizer/contact/instructor JSON列はdropせず、新コードからの書込みを止める。既存ResourceをtitleからMaterialへ推測移行せず、そのままResourceとして保持する。
+
+Flowの`answers`、`tasks`、`status`列もdropせず、新コードから参照・更新しない。`text`、`format_version`、`current_page`、`revision`は継続利用する。`002_editor_model.sql`でFlowClassから`flow_type`をbackfillし、`003_flow_target_constraints.sql`でFlowTypeと対象の組へ一意indexを追加して、各slotを最大1件に制約する。exactly-oneは新規作成以降の不変条件とする。DBの一意indexだけでは必須存在を表せないため、新規作成transactionとworkspace読取時のdomain検証でLectureの事前・事後、Sessionのメインが各1件あることを保証する。既存に重複または欠落Flowがある場合は移行preflightで対象とslotを列挙し、任意のFlowClassを自動選択したり黙って削除したりせず、人間がtype一致FlowClassを明示割当してから移行する。
+
+作成transactionではLecture、Session、Flowのいずれかが失敗した場合に全体をrollbackする。属性更新では現在値のrow lock、`baseValue`比較、現在値更新、revision増加、属性イベント追加を同じtransactionで行う。

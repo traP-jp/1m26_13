@@ -495,7 +495,7 @@
 
 ### B50. Lecture/Session仕様と3属性Flowの採用
 
-状態: 完了（2026-09-04）
+状態: 完了（2026-09-04。Flow cardinality、実行状態、削除はP4の最新仕様でsuperseded）
 
 - 添付仕様を`Lecture -> Session`の正本としてプロジェクト内へ取り込む。
 - 従来のウィザードをフローへ改称し、講習会の事前、各開催のメイン、講習会の事後の3属性を構造化する。
@@ -516,7 +516,7 @@
 
 ### P2. 本番画面設計
 
-状態: 完了（2026-09-04）
+状態: 完了（2026-09-04。Flow実行状態と編集保存方式はP4でsuperseded）
 
 - 画面設計前に、Flowのtext文法・回答・進捗、Session完了からの集約、公開後ライフサイクル、ロードマップの具体型、利用停止・参照切れの残るP0仕様を確定する。
 - `BADGE_ALPHA_SPEC.md`を講習会バッジの機能・視覚制約として使い、プロフィール内の配置、詳細、モーション、書き出し範囲を設計する。
@@ -535,6 +535,63 @@
 - 各単位でデータ、API、画面、テスト、実ブラウザ確認を完了する。
 
 検証: β版への実行時依存がなく、本番の完了条件を新しい基盤だけで満たす。
+
+### P4. 講習会編集の最新仕様、API、migration方針を確定する
+
+状態: 完了（2026-09-05。実装はP5以降）
+
+- 対象ごとに必須のFlow、原子的な講習会作成、Flow text内チェック、属性単位自動保存、後勝ち競合警告を正本へ反映する。
+- 単一担当、Material / Resource分離、一覧編集、公開確認、履歴、JSON書き出しを型と操作へ落とす。
+- OpenAPIの次期endpoint / schema契約と、既存データを破壊しない`002`系列のadditive migration方針を固定する。
+
+検証: `PRODUCTION_CONTEXT.md`、`LECTURE_SESSION_FLOW_SPEC.md`、`FLOW_FORMAT_ANALYSIS.md`、`DECISIONS.md`間に旧Flow状態・明示保存・複数担当・汎用教材の未解決な矛盾がない。
+
+### P5. additive migrationとdomain / storeを実装する
+
+状態: 未着手
+
+- `002`系列のadditive migrationでMaterial、単一担当、Flow slot制約を追加し、旧列は破壊せず互換保持する。
+- Lecture＋第1回Session＋3 Flowのtransaction、Session追加・複製、FlowClass変更、チェック部分更新を実装する。
+- 属性更新をrow lock、baseValue比較、後勝ち保存、revision増加、属性イベント追加の同一transactionで実装する。
+
+検証: 空DBと既存schema相当DBのmigration、重複Flow検出、rollback、属性競合、チェック位置不正をbackendテストで確認する。
+
+### P6. OpenAPIとEcho handlerを次期契約へ移行する
+
+状態: 未着手
+
+- 原子的作成、属性PATCH、Session追加、開催順保存、FlowClass変更、チェック、ページ位置、履歴、JSON書き出しAPIを実装する。
+- Flow一般作成・全文更新・status filter、Lecture / Session全体Writeの`expectedRevision`と競合409を廃止し、FlowClass Stock編集とRoadmap編集の現行契約は維持してGo / TypeScript生成物を更新する。
+
+検証: OpenAPI生成差分、gofmt、go vet、全Go test/build、API smokeを成功させる。
+
+### P7. 対象タブとFlow、自動保存を実装する
+
+状態: 未着手
+
+- `[講習会][第N回…][+][事後][一覧編集][…]`を実装し、対象タブには対応Flowだけを表示する。
+- Flowページ、text内チェック、単一属性自動保存、競合toast、7日TTLの未送信差分復元を接続する。
+- 作成画面を4必須入力と原子的作成へ変更し、開催追加の空作成・複製を接続する。
+
+検証: frontendのgenerate check、format、lint、typecheck、test、buildと、作成・Flow切替・再読込を実ブラウザで確認する。
+
+### P8. 一覧編集、公開、並べ替え、履歴、JSONを書き出す
+
+状態: 未着手
+
+- PC属性レーン、モバイル縦積み、配列・複合値モーダル、Material / Resource、単一担当入力を実装する。
+- 公開警告、D&D / 上下 / 日時順 / 明示保存、Flow変更、分類履歴、JSON書き出しを実装する。
+
+検証: PCと390pxでキーボード、タブ横スクロール、swap、横overflow、console warning/error 0件を確認する。
+
+### P9. 講習会編集の統合QA
+
+状態: 未着手
+
+- 空DBから講習会作成→属性編集→開催追加・複製→Flow変更→公開→並べ替え→履歴→JSON書き出しを一巡する。
+- 最後のpublished Sessionをdraftへ戻す警告、同属性競合、localStorageの安全な復元、削除操作がないことを確認する。
+
+検証: frontend全gate/build、backend全gate/build、空DB migration/API smoke、PC/390px実ブラウザをすべて成功させ、`STATUS.md`へ結果を記録する。
 
 ## 停止条件
 
@@ -557,7 +614,9 @@
 - backend gate: `cd backend && test -z "$(mise exec -- gofmt -l .)" && mise exec -- go vet ./... && mise exec -- go test ./... && mise exec -- go build ./...`
 - MariaDB結合: `API_BASE_URL=http://127.0.0.1:8080/api/v1 ./scripts/smoke-api.sh`
 
-## 本番実装の最終検証結果
+## P4以前の本番実装の最終検証結果
+
+以下はP4で仕様を更新する前の実装に対する結果であり、P5以降の完了を表さない。
 
 - frontend: OpenAPI生成差分、oxfmt、oxlint、ESLint、stylelint、Vue型検査、Vitest 6件、Vite production buildが成功。
 - backend: gofmt、go vet、全Go test、全package buildが成功。

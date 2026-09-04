@@ -1,7 +1,7 @@
 # Status
 
 更新日: 2026-09-05
-フェーズ: Lecture / Sessionの連番ID、Lecture詳細統合、Flowタブの実体化を完了。
+フェーズ: P4 講習会編集の最新仕様・API・migration方針を確定。実装はP5以降。
 
 ## 現在地
 
@@ -19,6 +19,19 @@ Lecture詳細は正本の最大1160px、左右40px余白、本文＋310px補助�
 Roadmap詳細は正本の42px左右余白、進捗＋現在地、学習順＋318px共有欄へ合わせ、完了済み項目間の接続線とメタ情報の区切りも復元した。390×844では進捗、現在地、学習順、共有欄の順に縦積みする。
 Profileは固定commit内で欠落していたprototype pathを同commitの実画面とCSSで補い、学習統計、独立した3タブ、2列バッジ一覧＋詳細欄、完了Session一覧、Roadmap進捗一覧を復元した。badge alphaの決定論的SVGは一覧と詳細の両方で使う。
 運営ホームは正本の最大1160px、最近編集した講習会の4列一覧、検索付きRoadmap管理へ合わせた。モバイルでは左右16pxと一覧の縦積みを適用し、公開・下書きの表記も統一した。
+
+## P4で確定した次期実装仕様
+
+- Lecture事前、各Sessionメイン、Lecture事後は対象ごとにFlowを必ず1件持つ。講習会作成は講習会名と3種類のFlowClassを受け、Lecture、第1回draft Session、3件のFlowを同じtransactionで作る。
+- 編集タブは`講習会`、`第N回`、`+`、`事後`、`一覧編集`、`…`とする。対象タブにはFlowそのものを表示し、`+`はSession追加、`…`はFlow変更・開催順・履歴を扱う。
+- Flow固有answers、tasks、status、完了、完了後read-only、task安定keyを廃止する。チェックはFlow.text内、ページ位置はcurrentPageを正本とし、backendのチェック専用操作で該当markerだけを更新する。
+- Lecture / Session属性は入力停止・blurまたは複合値モーダル確定時に自動保存する。revision不一致で拒否せず後勝ちで保存し、同属性競合はresponseにだけ示してtoastを出す。FlowClass Stock編集とRoadmap編集は現行の明示保存・競合409を維持する。
+- localStorageは未送信属性差分だけを7日間保持する。server値がbaseValueから変化済みなら自動適用せず、確認・コピー・破棄だけを提示する。
+- Lecture運営担当は個人または1グループ、Session講師は個人0〜1名とする。問い合わせ先を運営担当へ統合する。Materialは`{url,title?}`で対象ごとに最大1件、その他のResourcesは複数とする。
+- 公開前の推奨項目警告、最後のpublished Sessionをdraftへ戻す影響警告、属性レーン型一覧編集、開催順の明示保存、分類した履歴の閲覧・コピー、保存済み現在値のJSON書き出しを実装対象とする。
+- `LECTURE_SESSION_FLOW_SPEC.md`へ次期OpenAPI endpoint / schema契約と、旧列をdropしない`002`系列のadditive migration方針を記録した。
+
+以下の「実装済み」「最終検証」はP4以前の現行実装の記録である。上記仕様への移行完了を表さない。
 
 ## 実装済み
 
@@ -91,4 +104,4 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 
 ## 次のチェックポイント
 
-ローカル確認環境を使って内部試用を行い、実利用で見つかった仕様差だけを次の判断として記録する。
+P5として`002`系列のadditive migration、exactly-one Flow制約、原子的作成、属性単位後勝ち保存、Flowチェック部分更新をdomain / storeへ実装する。
