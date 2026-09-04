@@ -939,7 +939,7 @@
 
 ## D-20260904-076 — Profile正本の欠落pathは同commitの実画面で補う
 
-- 状態: decided
+- 状態: superseded by D-20260904-077
 - 判断が必要だった理由: `screens.json`がProfile正本として示す`app/prototypes/profile`は、指定commit `8b41ea6b43b7f532bf77d7964fa6d58997fb35c0`に存在しない。
 - 選択肢: Profileの再統合を止める／同じ固定commitの`app/ui/views/ProfileView.ts`と`app/styles/pages.css`、`app/qa/redesign-profile-desktop.jpg`を使う。
 - 決定: 後者。同commit内で実際に使われているProfileのDOM、CSS、QA画像を視覚的正本として扱う。
@@ -947,6 +947,17 @@
 - 影響: 本番のSession単位完了とbadge alpha SVGは維持し、正本の情報配置へ接続する。正本インデックス自体は履歴として書き換えない。
 - 再検討する条件: Profileの正しい静的prototype pathまたは新しい固定commitが提示された場合。
 - 参照: `references/ui-canonical/screens.json`。
+
+## D-20260904-077 — Profileは新しい固定commitと実データ3指標を統合する
+
+- 状態: decided
+- 判断が必要だった理由: Profileの正しい静的prototypeとbadge生成器を含む固定commitが提示され、同時に本番で算出している3つの数値サマリーを残す明示指定があった。
+- 選択肢: D-20260904-076の代替正本を継続する／新しい`app/prototypes/profile`を正本にして本番3指標だけを統合する。
+- 決定: 後者。`574c7ec5925345ada1c67094f502f16a3a5901ab`のProfileを表示の正本とし、`完了した講習会`、`完了した開催`、`ロードマップ内の完了`は現在のAPIデータから算出する横並び構造をProfileヘッダーへ統合する。バッジは同commitの`badge-generator.ts`と同じアルゴリズムとPRNG呼び出し順を使い、seedは既存仕様の`badge-alpha-v1:${lectureId}`を維持する。
+- 根拠: 確定した最新画面とバッジ生成規則を採用しつつ、利用者が気に入った実データの学習集計を失わない。
+- 影響: 以前の代替正本判断D-20260904-076をsupersededとする。Profileのタブ、バッジ一覧と詳細、完了Session、Roadmap進捗は本番APIへ接続したまま正本の視覚言語へ合わせる。生成SVGへユーザー入力を連結しない。
+- 再検討する条件: 本人が別のProfile正本または数値サマリー構造を明示した場合。
+- 参照: `references/ui-canonical/README.md`、`references/ui-canonical/screens.json`、本人の2026-09-04の訂正指示。
 
 ---
 
