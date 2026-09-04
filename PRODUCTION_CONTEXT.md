@@ -68,7 +68,7 @@ traP内で行われる講習会を一度きりの催しにせず、学習内容�
 - 学年度と分野を絞り込み候補とする。旧「班」絞り込みは新モデルの運営グループまたは分野へ意味を分解する。
 - Lectureとロードマップは発見の二本柱である。一つの検索結果へ統合するか、明確な別入口にするかは画面設計で比較する。
 - 非公開Lectureを学習者の検索・ホーム・ロードマップへ表示しない。
-- Session単独の学習者URLは設けない。Lecture詳細を`/lectures/<lectureId>#<round>`とし、同じ`order`の通常Sessionと再放送Sessionを同じ回タブに表示する。fragmentは直接表示、再読込、ブラウザの戻る・進むと同期する。
+- Session単独の学習者URLは設けない。Lecture詳細は単発なら`/lectures/<lectureId>`、複数回なら`/lectures/<lectureId>#<round>`とする。同じ`order`の通常Sessionと再放送Sessionを同じ回に表示し、横タブとfragmentはroundが2件以上ある場合だけ使う。
 - 0件、該当多数、失敗時から条件変更または別の探し方へ進める必要がある。
 
 ## Lecture・Sessionの登録と閲覧

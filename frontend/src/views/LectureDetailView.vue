@@ -109,7 +109,11 @@ function formatDate(date?: string, time?: string) {
 }
 
 function syncRoundFromHash() {
-  if (!rounds.value.length) return;
+  if (rounds.value.length <= 1) {
+    selectedRound.value = "1";
+    if (route.hash) void router.replace({ hash: "" });
+    return;
+  }
   const match = /^#([1-9][0-9]*)$/.exec(route.hash);
   const requested = match ? Number(match[1]) : 1;
   const round = rounds.value.some((entry) => entry.round === requested) ? requested : 1;
@@ -159,7 +163,7 @@ onMounted(load);
       <p v-if="error" class="notice error" role="alert">{{ error }}</p>
 
       <BasiqTabs
-        v-if="roundTabs.length"
+        v-if="roundTabs.length > 1"
         :model-value="selectedRound"
         :items="roundTabs"
         aria-label="講習会の回"

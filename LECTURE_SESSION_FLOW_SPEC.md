@@ -233,7 +233,7 @@ replayOfSessionIds: string[]
 
 `replayOfSessionIds`が1件以上あるSessionは再放送として扱う。初期実装では、元Sessionと同じLecture・同じ`order`を要求し、各Lecture・各`order`の通常Sessionは1件だけにする。再放送はLecture詳細の同じ回タブ内へ通常Sessionと並べて表示するが、受講完了操作は置かない。
 
-学習者向けのSession単独URLは設けない。Lecture詳細は`/lectures/<lectureId>#<round>`とし、fragmentの回番号を直接表示、再読込、ブラウザの戻る・進むで同期する。Session内部IDはAPIと運営編集だけで使う。
+学習者向けのSession単独URLは設けない。Lecture詳細は単発なら`/lectures/<lectureId>`、複数回なら`/lectures/<lectureId>#<round>`とする。複数回のfragmentは直接表示、再読込、ブラウザの戻る・進むで同期する。単発へ`#1`付きで入った場合はfragmentを除去する。Session内部IDはAPIと運営編集だけで使う。
 
 例:
 

@@ -44,6 +44,8 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 
 - Lecture / Sessionの連番化後、隔離した空のMariaDB 11.8へmigrationを適用し、Lecture ID `1`→`2`、Session ID `1`→`2`の自動採番、通常開催と再放送の同一order、公開Lectureへの両Session返却、再放送完了拒否をAPIスモークで確認した。バックエンド再起動後もmigration成功とデータ保持を確認した。
 - Lecture詳細を実ブラウザで確認し、第1回に通常開催と再放送が同時表示されること、第2回タブでURLが`#2`になり、戻る・進む・再読込後も選択回とURLが同期することを確認した。完了操作後も`#2`、選択回、`scrollY`を維持した。1280pxと390×844で横overflow 0、console warning/error 0件だった。
+- roundが1件だけのLectureでは横タブを表示せず、`#1`で入ってもfragmentなしのURLへ正規化する。roundが2件以上のLectureでは従来どおりタブと`#<round>`を使う。
+- 単発Lectureを1280×900と390×844の実ブラウザで確認し、タブ0件、`#1`除去、通常開催＋録画の2カード表示、横overflow 0、console warning/error 0件だった。複数回Lectureはタブ2件と`#2`選択を維持した。frontendの生成型check、formatter、全lint、Vue型検査、Vitest 9/9、Vite buildも成功した。
 - 学習者向け`/sessions/1`は404へ解決する。講習会編集はLecture / Sessionの連番が衝突する場合もFlow IDで重複排除し、横タブ1つにFlow 1つ、その内容にFlow本文・進捗・入力・task・完了操作が直接表示されることを実ブラウザで確認した。
 - badge alphaのseedをLecture名へ変更し、同名なら同じSVG、異なる名前なら異なるSVGになるテストを追加した。固定済みの生成アルゴリズムは変更していない。
 
