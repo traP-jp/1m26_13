@@ -83,8 +83,6 @@ const AppIcon = defineComponent({
       <template v-else-if="name === 'user'"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.7-4 3-6 7-6s6.3 2 7 6"/></template>
       <template v-else-if="name === 'edit'"><path d="M4 20h4l11-11-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></template>
       <template v-else-if="name === 'arrow'"><path d="M5 12h14M14 7l5 5-5 5"/></template>
-      <template v-else-if="name === 'calendar'"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></template>
-      <template v-else-if="name === 'clock'"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></template>
       <template v-else><path d="M6 12.5 10 16l8-9"/></template>
     </svg>`,
 });
@@ -195,20 +193,7 @@ const Prototype = defineComponent({
                 </ol>
               </section>
 
-              <aside class="side-rail" aria-label="次の講習会と共有">
-                <BasiqCard id="next-workshop" class="next-card">
-                  <template #header><div class="card-heading"><span class="card-icon"><AppIcon name="calendar" /></span><h2>次回の開催</h2></div></template>
-                  <div class="next-copy">
-                    <h3>JavaScript基礎講習会</h3>
-                    <p>第2回：DOM操作とイベント</p>
-                    <dl>
-                      <div><dt><AppIcon name="calendar" />日時</dt><dd>9月12日（土）13:00</dd></div>
-                      <div><dt><AppIcon name="clock" />所要時間</dt><dd>約90分</dd></div>
-                    </dl>
-                  </div>
-                  <template #footer><BasiqButton class="full-button" tone="accent" variant="solid">講習会の詳細を見る</BasiqButton></template>
-                </BasiqCard>
-
+              <aside class="side-rail" aria-label="共有">
                 <BasiqCard id="share-panel" class="share-card">
                   <template #header><h2>共有用Markdown</h2></template>
                   <BasiqFormField label="共有内容">
