@@ -28,6 +28,7 @@ import {
 
 type Route =
   | { name: "home" }
+  | { name: "search" }
   | { name: "detail"; id: string }
   | { name: "create" }
   | { name: "edit"; id: string }
@@ -46,6 +47,7 @@ const parseRoute = (hash: string): Route => {
   const path = hash.replace(/^#/, "") || "/";
   const segments = path.split("?")[0].split("/").filter(Boolean).map(decodeURIComponent);
   if (!segments.length) return { name: "home" };
+  if (segments.length === 1 && segments[0] === "search") return { name: "search" };
   if (segments.length === 1 && segments[0] === "new") return { name: "create" };
   if (segments.length === 1 && segments[0] === "drafts") return { name: "drafts" };
   if (segments.length === 1 && segments[0] === "me") return { name: "me" };
@@ -58,7 +60,8 @@ const parseRoute = (hash: string): Route => {
 const cloneWorkshop = (workshop: Workshop): Workshop => JSON.parse(JSON.stringify(workshop));
 
 const routeTitle = (route: Route, workshop?: Workshop | null) => {
-  if (route.name === "home") return "講習会を探す";
+  if (route.name === "home") return "ホーム";
+  if (route.name === "search") return "講習会を探す";
   if (route.name === "create") return "講習会を作る";
   if (route.name === "drafts") return "自分の下書き";
   if (route.name === "me") return "マイページ";
@@ -99,6 +102,7 @@ export default defineComponent({
     const activeFilter = ref<SearchFilter>("all");
     const activeTeam = ref("all");
     const showAllYears = ref(false);
+    const randomWorkshopIds = ref<string[]>([]);
     const editorDraft = ref<Workshop>(makeBlankWorkshop());
     const editorStep = ref(0);
     const noticeKind = ref<"traq" | "knoq">("traq");
@@ -134,6 +138,36 @@ export default defineComponent({
       workshops.value.filter((workshop) => workshop.status === "public" && workshop.team).map((workshop) => workshop.team),
     )).sort());
 
+    const latestPublicWorkshops = computed(() => {
+      const newestByLineage = new Map<string, Workshop>();
+      const publicWorkshops = workshops.value
+        .filter((workshop) => workshop.status === "public")
+        .sort((a, b) => b.year - a.year || a.title.localeCompare(b.title, "ja"));
+      for (const workshop of publicWorkshops) {
+        if (!newestByLineage.has(workshop.lineageId)) newestByLineage.set(workshop.lineageId, workshop);
+      }
+      return Array.from(newestByLineage.values());
+    });
+
+    const teamSummaries = computed(() => teams.value.map((name) => ({
+      name,
+      count: latestPublicWorkshops.value.filter((workshop) => workshop.team === name).length,
+    })));
+
+    const workshopLatestDate = (workshop: Workshop) => workshop.occurrences
+      .map((occurrence) => occurrence.date)
+      .filter(Boolean)
+      .sort((a, b) => b.localeCompare(a))[0] ?? "";
+
+    const recentWorkshops = computed(() => latestPublicWorkshops.value
+      .filter((workshop) => workshopLatestDate(workshop))
+      .sort((a, b) => workshopLatestDate(b).localeCompare(workshopLatestDate(a)))
+      .slice(0, 3));
+
+    const randomWorkshops = computed(() => randomWorkshopIds.value
+      .map((id) => latestPublicWorkshops.value.find((workshop) => workshop.id === id))
+      .filter((workshop): workshop is Workshop => Boolean(workshop)));
+
     const hasResource = (workshop: Workshop, type: ResourceType) => workshop.resources.some(
       (resource) => resource.type === type && Boolean(resource.url?.trim()),
     );
@@ -150,7 +184,7 @@ export default defineComponent({
       return "記録のみ";
     };
 
-    const workshopMatches = (workshop: Workshop, needle: string, filter: SearchFilter) => {
+    const workshopMatches = (workshop: Workshop, needle: string, filter: SearchFilter, teamFilter = activeTeam.value) => {
       const haystack = [
         workshop.title,
         workshop.summary,
@@ -161,7 +195,7 @@ export default defineComponent({
         ...workshop.tags,
       ].join(" ").toLowerCase();
       const queryMatches = !needle || haystack.includes(needle);
-      const teamMatches = activeTeam.value === "all" || workshop.team === activeTeam.value;
+      const teamMatches = teamFilter === "all" || workshop.team === teamFilter;
       const filterMatches = filter === "all"
         || (filter === "learnable" && hasLearningResource(workshop))
         || (filter === "material" && (hasResource(workshop, "material") || hasResource(workshop, "practice")))
@@ -188,7 +222,7 @@ export default defineComponent({
       const needle = creationQuery.value.trim().toLowerCase();
       const matches = workshops.value
         .filter((workshop) => workshop.status === "public")
-        .filter((workshop) => workshopMatches(workshop, needle, "all"))
+        .filter((workshop) => workshopMatches(workshop, needle, "all", "all"))
         .sort((a, b) => b.year - a.year);
       const newestByLineage = new Map<string, Workshop>();
       for (const workshop of matches) {
@@ -391,6 +425,38 @@ export default defineComponent({
       location.hash = path;
     }
 
+    function searchByTeam(team: string) {
+      query.value = "";
+      activeTeam.value = team;
+      activeFilter.value = "all";
+      showAllYears.value = false;
+      navigate("/search");
+    }
+
+    function showAllWorkshops() {
+      query.value = "";
+      activeTeam.value = "all";
+      activeFilter.value = "all";
+      showAllYears.value = false;
+      navigate("/search");
+    }
+
+    function refreshRandomWorkshops() {
+      const pool = [...latestPublicWorkshops.value];
+      for (let index = pool.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [pool[index], pool[swapIndex]] = [pool[swapIndex], pool[index]];
+      }
+      const count = Math.min(3, pool.length);
+      const next = pool.slice(0, count);
+      const previousIds = new Set(randomWorkshopIds.value);
+      if (pool.length > count && next.length && next.every((workshop) => previousIds.has(workshop.id))) {
+        const replacement = pool.find((workshop) => !previousIds.has(workshop.id));
+        if (replacement) next[next.length - 1] = replacement;
+      }
+      randomWorkshopIds.value = next.map((workshop) => workshop.id);
+    }
+
     function scrollToSection(id: string) {
       document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
@@ -403,7 +469,7 @@ export default defineComponent({
         if (existing) editorDraft.value = cloneWorkshop(existing);
       }
       await nextTick();
-      document.title = `${routeTitle(route.value, selectedWorkshop.value)} | traP 講習会`;
+      document.title = `${routeTitle(route.value, selectedWorkshop.value)} | LeQtures`;
       document.querySelector<HTMLElement>("main")?.focus({ preventScroll: true });
       window.scrollTo({ top: 0, behavior: "auto" });
     }
@@ -546,6 +612,7 @@ export default defineComponent({
       localStorage.removeItem(WORKSHOP_STORAGE_KEY);
       localStorage.removeItem(COMPLETION_STORAGE_KEY);
       localStorage.removeItem(VISIBILITY_STORAGE_KEY);
+      refreshRandomWorkshops();
       showToast("デモを初期状態に戻しました");
       navigate("/");
     }
@@ -566,6 +633,7 @@ export default defineComponent({
         try { completedAt.value = JSON.parse(savedCompletions); } catch { completedAt.value = {}; }
       }
       profileVisible.value = savedVisibility === "true";
+      refreshRandomWorkshops();
       hydrated.value = true;
       window.addEventListener("hashchange", updateRoute);
       void updateRoute();
@@ -624,27 +692,34 @@ export default defineComponent({
       profileVisible,
       publishDraft,
       query,
+      randomWorkshops,
+      recentWorkshops,
+      refreshRandomWorkshops,
       relationLabel,
       removeOccurrence,
       resetDemo,
       route,
       saveDraft,
       searchResults,
+      searchByTeam,
       selectedWorkshop,
       scrollToSection,
       shareBadge,
       shareText,
       setOccurrenceResourceUrl,
       showAllYears,
+      showAllWorkshops,
       sourceWorkshop,
       startBlank,
       startFromWorkshop,
       tagText,
       teams,
+      teamSummaries,
       toast,
       toggleCompletion,
       typeLabel,
       videoUrl,
+      workshopLatestDate,
       addOccurrence,
       workshops,
     };
@@ -654,30 +729,82 @@ export default defineComponent({
       <a class="skip-link" href="#main-content">本文へ移動</a>
       <div class="app-shell">
         <aside class="sidebar">
-          <a class="brand" href="#/" aria-label="traP 講習会 ホーム">
-            <span class="brand-mark">講</span>
-            <span><strong>traP 講習会</strong><small>講習会を探す・残す</small></span>
+          <a class="brand" href="#/" aria-label="LeQtures ホーム">
+            <span class="brand-mark">Q</span>
+            <span><strong>LeQtures</strong><small>traP 講習会</small></span>
           </a>
           <nav aria-label="メインナビゲーション">
             <p>受講する</p>
-            <a class="nav-item" :class="{ active: route.name === 'home' || route.name === 'detail' }" :aria-current="route.name === 'home' || route.name === 'detail' ? 'page' : undefined" href="#/"><span aria-hidden="true">⌕</span>講習会を探す</a>
-            <a class="nav-item" :class="{ active: route.name === 'me' || route.name === 'share' }" :aria-current="route.name === 'me' || route.name === 'share' ? 'page' : undefined" href="#/me"><span aria-hidden="true">●</span>マイページ</a>
+            <a class="nav-item" :class="{ active: route.name === 'home' }" :aria-current="route.name === 'home' ? 'page' : undefined" href="#/"><span aria-hidden="true">⌂</span>ホーム</a>
+            <a class="nav-item" :class="{ active: route.name === 'search' || route.name === 'detail' }" :aria-current="route.name === 'search' || route.name === 'detail' ? 'page' : undefined" href="#/search"><span aria-hidden="true">⌕</span>講習会を探す</a>
             <p>運営する</p>
-            <a class="nav-item" :class="{ active: route.name === 'create' || route.name === 'edit' }" :aria-current="route.name === 'create' || route.name === 'edit' ? 'page' : undefined" href="#/new"><span aria-hidden="true">＋</span>講習会を作る</a>
             <a class="nav-item" :class="{ active: route.name === 'drafts' }" :aria-current="route.name === 'drafts' ? 'page' : undefined" href="#/drafts"><span aria-hidden="true">▤</span>自分の下書き <em v-if="drafts.length">{{ drafts.length }}</em></a>
           </nav>
-          <div class="sidebar-note"><strong>デモ版</strong><span>操作内容はこの端末だけに保存されます。</span></div>
-          <button class="reset-button" type="button" @click="resetDemo">初期状態に戻す</button>
+          <div class="sidebar-footer">
+            <div class="sidebar-note"><strong>デモ版</strong><span>操作内容はこの端末だけに保存されます。</span></div>
+            <button class="reset-button" type="button" @click="resetDemo">初期状態に戻す</button>
+            <BasiqButton class="sidebar-create" type="button" @click="navigate('/new')">＋ 講習会を作る</BasiqButton>
+            <a class="account-row" :class="{ active: route.name === 'me' || route.name === 'share' }" :aria-current="route.name === 'me' || route.name === 'share' ? 'page' : undefined" href="#/me">
+              <img src="https://q.trap.jp/api/v3/public/icon/rurun" alt="" />
+              <span><strong>rurun</strong><small>マイページ</small></span>
+              <span aria-hidden="true">›</span>
+            </a>
+          </div>
         </aside>
 
         <div class="workspace">
           <header class="mobile-header">
-            <a class="mobile-brand" href="#/"><span class="brand-mark">講</span><strong>traP 講習会</strong></a>
-            <nav aria-label="モバイルナビゲーション"><a href="#/new">作る</a><a href="#/drafts">下書き</a><a href="#/me">マイページ</a></nav>
+            <a class="mobile-brand" href="#/" aria-label="LeQtures ホーム"><span class="brand-mark">Q</span><strong>LeQtures</strong></a>
           </header>
+          <nav class="mobile-nav" aria-label="モバイルナビゲーション">
+            <a :class="{ active: route.name === 'home' }" :aria-current="route.name === 'home' ? 'page' : undefined" href="#/"><span aria-hidden="true">⌂</span><small>ホーム</small></a>
+            <a :class="{ active: route.name === 'search' || route.name === 'detail' }" :aria-current="route.name === 'search' || route.name === 'detail' ? 'page' : undefined" href="#/search"><span aria-hidden="true">⌕</span><small>探す</small></a>
+            <a :class="{ active: route.name === 'create' || route.name === 'edit' }" :aria-current="route.name === 'create' || route.name === 'edit' ? 'page' : undefined" href="#/new"><span aria-hidden="true">＋</span><small>作る</small></a>
+            <a :class="{ active: route.name === 'drafts' }" :aria-current="route.name === 'drafts' ? 'page' : undefined" href="#/drafts"><span aria-hidden="true">▤</span><small>下書き</small></a>
+            <a :class="{ active: route.name === 'me' || route.name === 'share' }" :aria-current="route.name === 'me' || route.name === 'share' ? 'page' : undefined" href="#/me"><img src="https://q.trap.jp/api/v3/public/icon/rurun" alt="" /><small>rurun</small></a>
+          </nav>
 
           <main id="main-content" tabindex="-1">
             <template v-if="route.name === 'home'">
+              <header class="page-header home-header home-welcome">
+                <div><h1>ホーム</h1><p>気になる分野や最近の開催から、受けたい講習会を見つけられます。</p></div>
+                <BasiqButton type="button" tone="neutral" variant="outline" @click="showAllWorkshops">講習会を探す</BasiqButton>
+              </header>
+              <div class="home-content">
+                <section class="home-section" aria-labelledby="teams-title">
+                  <div class="home-section-heading"><div><h2 id="teams-title">班から探す</h2><p>興味のある班・分野に絞って一覧を開きます。</p></div><button type="button" @click="showAllWorkshops">すべて見る →</button></div>
+                  <div class="team-grid">
+                    <button v-for="team in teamSummaries" :key="team.name" type="button" class="team-card" @click="searchByTeam(team.name)"><strong>{{ team.name }}</strong><span>{{ team.count }}件の講習会</span><span aria-hidden="true">→</span></button>
+                  </div>
+                </section>
+
+                <div class="home-feed-grid">
+                  <section class="home-section" aria-labelledby="recent-title">
+                    <div class="home-section-heading"><div><h2 id="recent-title">直近の講習会</h2><p>開催日の新しいものから表示しています。</p></div></div>
+                    <div class="home-workshop-list">
+                      <BasiqCard v-for="workshop in recentWorkshops" :key="workshop.id" class="home-workshop-card">
+                        <a class="home-workshop-link" :href="'#/workshops/' + workshop.id" :aria-label="workshop.title + 'の詳細を見る'">
+                          <article><div class="card-meta"><span>{{ workshop.year }}年度</span><span v-if="workshop.team">{{ workshop.team }}</span></div><h3>{{ workshop.title }}</h3><p>{{ workshop.summary }}</p><footer><span>{{ formatDate(workshopLatestDate(workshop)) }}</span><strong>{{ availability(workshop) }}</strong></footer></article>
+                        </a>
+                      </BasiqCard>
+                    </div>
+                  </section>
+
+                  <section class="home-section" aria-labelledby="random-title">
+                    <div class="home-section-heading"><div><h2 id="random-title">ランダムに表示</h2><p>登録済みの講習会から3件を表示します。</p></div><button type="button" @click="refreshRandomWorkshops">入れ替える</button></div>
+                    <div class="home-workshop-list">
+                      <BasiqCard v-for="workshop in randomWorkshops" :key="workshop.id" class="home-workshop-card">
+                        <a class="home-workshop-link" :href="'#/workshops/' + workshop.id" :aria-label="workshop.title + 'の詳細を見る'">
+                          <article><div class="card-meta"><span>{{ workshop.year }}年度</span><span v-if="workshop.team">{{ workshop.team }}</span></div><h3>{{ workshop.title }}</h3><p>{{ workshop.summary }}</p><footer><span>{{ relationLabel(workshop.occurrences) }}</span><strong>{{ availability(workshop) }}</strong></footer></article>
+                        </a>
+                      </BasiqCard>
+                    </div>
+                  </section>
+                </div>
+              </div>
+            </template>
+
+            <template v-else-if="route.name === 'search'">
               <header class="page-header home-header">
                 <div><h1>講習会を探す</h1><p>これから参加する講習会も、過去の資料から受講する講習会も同じ場所で探せます。</p></div>
               </header>
@@ -730,7 +857,7 @@ export default defineComponent({
             <template v-else-if="route.name === 'detail' && selectedWorkshop">
               <header class="page-header detail-heading">
                 <div>
-                  <button class="back-button" type="button" @click="navigate('/')">← 講習会を探す</button>
+                  <button class="back-button" type="button" @click="navigate('/search')">← 講習会を探す</button>
                   <div class="heading-tags"><BasiqTag :label="selectedWorkshop.year + '年度'" /><BasiqTag :label="selectedWorkshop.status === 'draft' ? '下書き' : '公開中'" /></div>
                   <h1>{{ selectedWorkshop.title || '名称未定の講習会' }}</h1>
                   <p>{{ selectedWorkshop.summary || '概要はまだ登録されていません。' }}</p>
@@ -812,14 +939,14 @@ export default defineComponent({
             </template>
 
             <template v-else-if="route.name === 'me'">
-              <header class="page-header profile-heading"><div><span class="profile-avatar">る</span><div><h1>rurun のマイページ</h1><p>受講履歴と、獲得したバッジを確認できます。</p></div></div></header>
+              <header class="page-header profile-heading"><div><img class="profile-avatar" src="https://q.trap.jp/api/v3/public/icon/rurun" alt="" /><div><h1>rurun のマイページ</h1><p>受講履歴と、獲得したバッジを確認できます。</p></div></div></header>
               <section class="privacy-setting"><div><h2>traP内プロフィールでバッジを公開</h2><p>初期状態は非公開です。公開しても、共有するバッジは自分で選べます。</p></div><BasiqSwitch v-model="profileVisible" aria-label="バッジをtraP内プロフィールで公開" /></section>
-              <section class="badge-section"><div class="section-heading"><div><h2>獲得したバッジ</h2><p>講習会を受講完了すると追加されます。</p></div><span>{{ completedWorkshops.length }}個</span></div><div v-if="completedWorkshops.length" class="badge-grid"><article v-for="workshop in completedWorkshops" :key="workshop.id"><div class="badge-medal"><span>{{ badgeLabel(workshop) }}</span><small>{{ workshop.year }}</small></div><div><h3>{{ workshop.title }}</h3><p>{{ completionDate(workshop.id) }}に受講完了</p></div><BasiqButton type="button" tone="neutral" variant="outline" @click="shareBadge(workshop)">このバッジを共有</BasiqButton></article></div><div v-else class="empty-state"><strong>まだバッジはありません</strong><p>講習会ページから受講完了を記録してください。</p><BasiqButton type="button" tone="neutral" variant="outline" @click="navigate('/')">講習会を探す</BasiqButton></div></section>
+              <section class="badge-section"><div class="section-heading"><div><h2>獲得したバッジ</h2><p>講習会を受講完了すると追加されます。</p></div><span>{{ completedWorkshops.length }}個</span></div><div v-if="completedWorkshops.length" class="badge-grid"><article v-for="workshop in completedWorkshops" :key="workshop.id"><div class="badge-medal"><span>{{ badgeLabel(workshop) }}</span><small>{{ workshop.year }}</small></div><div><h3>{{ workshop.title }}</h3><p>{{ completionDate(workshop.id) }}に受講完了</p></div><BasiqButton type="button" tone="neutral" variant="outline" @click="shareBadge(workshop)">このバッジを共有</BasiqButton></article></div><div v-else class="empty-state"><strong>まだバッジはありません</strong><p>講習会ページから受講完了を記録してください。</p><BasiqButton type="button" tone="neutral" variant="outline" @click="navigate('/search')">講習会を探す</BasiqButton></div></section>
             </template>
 
             <template v-else-if="route.name === 'share' && selectedWorkshop && completedAt[selectedWorkshop.id]">
               <header class="page-header"><div><button class="back-button" type="button" @click="navigate('/me')">← マイページ</button><h1>バッジを共有</h1><p>他の受講履歴は含めず、このバッジだけを共有します。</p></div></header>
-              <section class="share-card-wrap"><article class="share-card"><p>traP 講習会</p><div class="badge-medal large"><span>{{ badgeLabel(selectedWorkshop) }}</span><small>{{ selectedWorkshop.year }}</small></div><h2>{{ selectedWorkshop.title }}</h2><p>{{ completionDate(selectedWorkshop.id) }}に受講しました</p><small>@rurun</small></article><div class="share-controls"><h2>共有する内容</h2><BasiqTextarea aria-label="バッジの共有文" :model-value="shareText(selectedWorkshop)" :rows="3" readonly /><BasiqButton type="button" @click="copyText(shareText(selectedWorkshop), '共有文をコピーしました')">共有文をコピー</BasiqButton><p>traQやSNSへの投稿は自動では行いません。</p></div></section>
+              <section class="share-card-wrap"><article class="share-card"><p>LeQtures</p><div class="badge-medal large"><span>{{ badgeLabel(selectedWorkshop) }}</span><small>{{ selectedWorkshop.year }}</small></div><h2>{{ selectedWorkshop.title }}</h2><p>{{ completionDate(selectedWorkshop.id) }}に受講しました</p><small>@rurun</small></article><div class="share-controls"><h2>共有する内容</h2><BasiqTextarea aria-label="バッジの共有文" :model-value="shareText(selectedWorkshop)" :rows="3" readonly /><BasiqButton type="button" @click="copyText(shareText(selectedWorkshop), '共有文をコピーしました')">共有文をコピー</BasiqButton><p>traQやSNSへの投稿は自動では行いません。</p></div></section>
             </template>
 
             <section v-else class="empty-state not-found"><strong>ページが見つかりません</strong><BasiqButton type="button" @click="navigate('/')">ホームへ戻る</BasiqButton></section>
