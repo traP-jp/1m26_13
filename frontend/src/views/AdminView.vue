@@ -96,7 +96,7 @@ onMounted(load);
           >
             <div class="lecture-main">
               <span :class="['status-badge', lecture.isPublished ? 'published' : 'draft']">{{
-                lecture.isPublished ? "公開中" : "作成中"
+                lecture.isPublished ? "公開中" : "下書き"
               }}</span>
               <h3>{{ lecture.name }}</h3>
             </div>
@@ -202,7 +202,8 @@ onMounted(load);
 <style scoped>
 /* stylelint-disable no-descending-specificity */
 .admin-page {
-  padding-top: 48px;
+  width: min(1160px, 100%);
+  padding: 48px 40px 72px;
 }
 
 .admin-heading,
@@ -258,7 +259,7 @@ onMounted(load);
 .lecture-row {
   min-height: 68px;
   display: grid;
-  grid-template-columns: minmax(320px, 1fr) minmax(220px, 0.7fr) 126px auto;
+  grid-template-columns: minmax(320px, 1fr) minmax(250px, 0.75fr) 126px auto;
   align-items: center;
   gap: 16px;
   padding: 12px 16px;
@@ -273,7 +274,7 @@ onMounted(load);
 .lecture-main {
   min-width: 0;
   display: grid;
-  grid-template-columns: 76px minmax(0, 1fr);
+  grid-template-columns: 72px minmax(0, 1fr);
   align-items: center;
   gap: 12px;
 }
@@ -405,8 +406,7 @@ onMounted(load);
 
 @media (width <= 760px) {
   .admin-page {
-    padding-top: 20px;
-    padding-bottom: 92px;
+    padding: 16px 16px 92px;
   }
 
   .admin-heading {
@@ -423,6 +423,10 @@ onMounted(load);
     gap: 12px;
   }
 
+  .recent-section {
+    margin-bottom: 40px;
+  }
+
   .lecture-row {
     min-height: 0;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -432,7 +436,7 @@ onMounted(load);
 
   .lecture-main {
     grid-column: 1 / -1;
-    grid-template-columns: 68px minmax(0, 1fr);
+    grid-template-columns: 64px minmax(0, 1fr);
     gap: 8px;
   }
 
