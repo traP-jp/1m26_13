@@ -21,7 +21,7 @@ type Document struct {
 }
 
 var (
-	inputPattern    = regexp.MustCompile(`^\{\{\s*(?:edit\s+)?([a-z][a-zA-Z0-9_.-]*)\s*\}\}$`)
+	inputPattern    = regexp.MustCompile(`^\{\{\s*(?:(edit)\s+)?([a-z][a-zA-Z0-9_.-]*)\s*\}\}$`)
 	checkboxPattern = regexp.MustCompile(`^- \[([ xX])\](?:\{#[a-z][a-z0-9-]{0,63}\})?\s+(.+)$`)
 	valuePattern    = regexp.MustCompile(`\[\[\s*([a-z][a-zA-Z0-9_.-]*)\s*\]\]`)
 )
@@ -64,9 +64,12 @@ func Parse(text, flowType string) (Document, error) {
 				continue
 			}
 			if matches := inputPattern.FindStringSubmatch(line); len(matches) > 0 {
-				key := matches[1]
+				mode, key := matches[1], matches[2]
 				if !allowedInput(key, flowType) {
 					return Document{}, fmt.Errorf("input %q is not allowed in %s", key, flowType)
+				}
+				if (mode == "edit") != complexKeys[key] {
+					return Document{}, fmt.Errorf("input %q must use the correct scalar or edit form", key)
 				}
 				if seenInputs[key] {
 					return Document{}, fmt.Errorf("input %q is duplicated", key)
@@ -155,6 +158,12 @@ var sessionKeys = map[string]bool{
 	"session.startTime": true, "session.location": true, "session.knoqUrl": true,
 	"session.instructorId": true, "session.material": true, "session.resources": true,
 	"session.replayOfSessionIds": true, "session.status": true,
+}
+
+var complexKeys = map[string]bool{
+	"lecture.organizer": true, "lecture.material": true, "lecture.resources": true,
+	"lecture.relations": true, "session.material": true, "session.resources": true,
+	"session.replayOfSessionIds": true,
 }
 
 func validateValues(line, flowType string) error {

@@ -55,3 +55,17 @@ func TestParseValidatesCopyBlockValues(t *testing.T) {
 		t.Fatal("expected unknown copy value to fail")
 	}
 }
+
+func TestParseRequiresEditFormOnlyForComplexAttributes(t *testing.T) {
+	for _, text := range []string{
+		"# Page\n{{ edit session.name }}",
+		"# Page\n{{ session.material }}",
+	} {
+		if _, err := Parse(text, "session_main"); err == nil {
+			t.Fatalf("Parse(%q) succeeded, want error", text)
+		}
+	}
+	if _, err := Parse("# Page\n{{ session.name }}\n{{ edit session.material }}", "session_main"); err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+}

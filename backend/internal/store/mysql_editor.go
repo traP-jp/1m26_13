@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/traP-jp/1m26_13/backend/internal/domain"
+	flowparser "github.com/traP-jp/1m26_13/backend/internal/flow"
 )
 
 func decodeValue[T any](value any) (T, error) {
@@ -52,6 +53,9 @@ func flowClassTx(ctx context.Context, tx *sql.Tx, id, expectedType string) (doma
 	}
 	if value.Type != expectedType {
 		return value, fmt.Errorf("%w: expected %s FlowClass", ErrInvalid, expectedType)
+	}
+	if _, err := flowparser.Parse(value.Text, value.Type); err != nil {
+		return value, fmt.Errorf("%w: invalid FlowClass text: %v", ErrInvalid, err)
 	}
 	return value, nil
 }
