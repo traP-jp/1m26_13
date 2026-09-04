@@ -53,6 +53,8 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 - Flow単位タブへの修正後、frontendのVue型検査、ESLint、stylelint、Vitest 6/6、Vite buildとbackend全Go testを再実行して成功。実ブラウザで「全般・各開催・事後」の横タブ、Flow IDとの1対1表示、未適用Flowの選択欄、開催タブ内のSession編集を確認した。
 - Flowのタブ内実行化後、実ブラウザで完了済み事前Flowの本文・入力・task・完了状態と、未適用の事後Flow選択面を確認した。
 - Lecture編集を正本の30px上余白、横幅1160px、横タブ、中央800pxの実行領域へ合わせた。各タブは引き続き1 Flowに対応し、適用済みFlowはタブ内runner、未適用枠は同じ位置のFlowClass選択を表示する。1440×900と390×844の両方で横overflow 0、開催タブへ切替後も別画面へ遷移しないことを確認した。
+- Roadmap編集は確定仕様の段階付き一本道を保ったまま、正本の最大1060pxと28/36/72pxのページ余白へ合わせた。タブレットは左右24px、390px幅では左右14pxと固定保存バーを適用し、1440×900と390×844で横overflow 0を確認した。
+- 正本8画面の再統合完了後、frontendのAPI型生成check、formatter、全lint、Vue型検査、Vitest 6/6、Vite buildとbackend全Go testを再実行して成功した。運営ホーム、Lecture編集、Roadmap編集は1440×900と390×844で横overflow 0、console warning/error 0件を確認した。
 
 ## 再現手順
 
@@ -71,4 +73,4 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 
 ## 次のチェックポイント
 
-正本インデックスの順にホーム／探索、Lecture・Session詳細、Roadmap詳細、プロフィール、運営、Lecture編集、Roadmap編集を再統合する。各単位でデスクトップとモバイルの比較、console、overflow、frontend回帰を確認してcommit・pushする。
+正本インデックス8画面の本番表示層への再統合は完了した。ローカル確認環境を維持し、最終のfrontend/backend回帰と作業ツリー確認を行う。

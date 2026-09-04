@@ -297,7 +297,7 @@ onMounted(load);
 <style scoped>
 .roadmap-editor-page {
   width: min(1060px, 100%);
-  padding-top: 28px;
+  padding: 28px 36px 72px;
 }
 
 .editor-heading {
@@ -518,10 +518,15 @@ onMounted(load);
   }
 }
 
+@media (width <= 900px) and (width >= 761px) {
+  .roadmap-editor-page {
+    padding-inline: 24px;
+  }
+}
+
 @media (width <= 760px) {
   .roadmap-editor-page {
-    padding-top: 18px;
-    padding-bottom: 112px;
+    padding: 18px 16px 112px;
   }
 
   .breadcrumb a:first-child,
@@ -599,6 +604,13 @@ onMounted(load);
 
   .action-bar button:last-child {
     flex: 1;
+  }
+}
+
+@media (width <= 390px) {
+  .roadmap-editor-page,
+  .action-bar {
+    padding-inline: 14px;
   }
 }
 </style>
