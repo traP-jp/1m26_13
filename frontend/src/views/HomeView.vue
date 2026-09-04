@@ -93,7 +93,7 @@ onMounted(load);
   <div class="page discovery-page">
     <h1 class="visually-hidden">講習会とロードマップを探す</h1>
 
-    <section aria-labelledby="lecture-results-heading">
+    <section class="view-panel" aria-labelledby="lecture-results-heading">
       <BasiqCard class="filter-card">
         <template #header>
           <div class="filter-header">
@@ -170,7 +170,7 @@ onMounted(load);
       </template>
     </section>
 
-    <section class="roadmap-section" aria-labelledby="roadmap-results-heading">
+    <section class="view-panel roadmap-section" aria-labelledby="roadmap-results-heading">
       <div id="roadmap-results-heading" class="results-heading">
         <div>
           <h2>ロードマップ</h2>
@@ -207,6 +207,11 @@ onMounted(load);
   --discovery-content: 1120px;
 
   width: min(100%, calc(var(--discovery-content) + 80px));
+}
+
+.view-panel {
+  width: 100%;
+  padding-top: 4px;
 }
 
 .roadmap-section {
@@ -264,6 +269,14 @@ onMounted(load);
   grid-template-columns: minmax(0, 1.6fr) minmax(160px, 0.8fr) minmax(140px, 0.65fr) auto;
   gap: 16px;
   align-items: end;
+}
+
+.filter-grid > * {
+  min-width: 0;
+}
+
+.filter-grid :deep(input) {
+  min-width: 0;
 }
 
 .filter-grid select {
@@ -423,6 +436,10 @@ onMounted(load);
     width: 100%;
   }
 
+  .view-panel {
+    padding-top: 0;
+  }
+
   .roadmap-section {
     margin-top: 48px;
     padding-top: 40px;
@@ -447,6 +464,8 @@ onMounted(load);
 
   .search-button {
     width: 100%;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .results-heading {
