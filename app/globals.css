@@ -525,7 +525,7 @@ main { min-height: 100vh; outline: none; }
 .not-found { width: min(calc(100% - 40px), 680px); margin: 72px auto; }
 .toast { position: fixed; z-index: var(--basiq-layer-toast, 40); right: var(--basiq-space-600); bottom: var(--basiq-space-600); max-width: min(360px, calc(100vw - 32px)); padding: var(--basiq-space-300) var(--basiq-space-400); border: 1px solid var(--basiq-color-border-control); border-left: 3px solid var(--app-positive); border-radius: var(--basiq-radius-sm); color: var(--basiq-color-content-default); background: var(--basiq-color-surface-base); font-size: .78rem; font-weight: 700; }
 
-@media (max-width: 1080px) and (min-width: 761px) {
+@media (max-width: 1080px) and (min-width: 861px) {
   .home-browser { grid-template-columns: 1fr; }
   .home-browser > .search-area { position: static; }
   .search-options { align-items: flex-end; flex-direction: row; }
@@ -542,7 +542,7 @@ main { min-height: 100vh; outline: none; }
   .editor-form { padding: var(--basiq-space-600); }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 860px) {
   body { font-size: 14px; }
   .app-shell { display: block; }
   .sidebar { display: none; }
