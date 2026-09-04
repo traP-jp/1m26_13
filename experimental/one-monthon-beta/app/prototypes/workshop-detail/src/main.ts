@@ -230,7 +230,6 @@ const RoundDetails = defineComponent({
         <section class="content-section outcome-section">
           <div class="section-heading">
             <div>
-              <span class="eyebrow">第{{ round.number }}回</span>
               <h2>この回で学べること</h2>
             </div>
             <span v-if="occurrences.length > 1">{{ occurrences.length }}つの開催</span>
