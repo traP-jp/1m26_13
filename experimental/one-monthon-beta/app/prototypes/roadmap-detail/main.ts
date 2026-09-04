@@ -2,7 +2,6 @@ import {
   BasiqButton,
   BasiqCard,
   BasiqFormField,
-  BasiqTabs,
   BasiqTextarea,
   BasiqThemeProvider,
 } from 'basiq-ui';
@@ -97,19 +96,13 @@ const Prototype = defineComponent({
     BasiqButton,
     BasiqCard,
     BasiqFormField,
-    BasiqTabs,
     BasiqTextarea,
     BasiqThemeProvider,
   },
   setup() {
     const copied = ref(false);
-    const activeStatus = ref('current');
-    const statusTabs = [
-      { value: 'current', label: '現在地' },
-      { value: 'completed', label: '完了済み（2）' },
-    ] as const;
     const scrollToShare = () => document.querySelector('#share-panel')?.scrollIntoView({ behavior: 'smooth' });
-    return { activeStatus, copied, learningItems, shareMarkdown, statusTabs, scrollToShare };
+    return { copied, learningItems, shareMarkdown, scrollToShare };
   },
   template: `
     <BasiqThemeProvider mode="light" class="theme-root">
@@ -163,23 +156,17 @@ const Prototype = defineComponent({
                 </div>
               </BasiqCard>
 
-              <BasiqTabs v-model="activeStatus" :items="statusTabs" aria-label="学習状況の切り替え" list-width="100%" class="status-tabs">
-                <template #content="{ item }">
-                  <div v-if="item.value === 'current'" class="current-tab-content">
-                    <div class="current-tab-copy">
-                      <span class="current-label">次の講習会</span>
-                      <h2>JavaScript基礎講習会</h2>
-                      <p>第2回：DOM操作とイベント</p>
-                      <div class="current-meta"><span>Webエンジニア班</span><span>全3回</span></div>
-                    </div>
-                    <BasiqButton tone="accent" variant="solid">講習会を見る</BasiqButton>
+              <BasiqCard class="current-card">
+                <div class="current-content">
+                  <div class="current-copy">
+                    <span class="current-label">現在地</span>
+                    <h2>JavaScript基礎講習会</h2>
+                    <p>第2回：DOM操作とイベント</p>
+                    <div class="current-meta"><span>Webエンジニア班</span><span>全3回</span></div>
                   </div>
-                  <ul v-else class="completed-tab-list">
-                    <li><AppIcon name="check" /><span><strong>はじめてのGit</strong><small>8月20日に完了</small></span></li>
-                    <li><AppIcon name="check" /><span><strong>HTML・CSS入門</strong><small>8月28日に完了</small></span></li>
-                  </ul>
-                </template>
-              </BasiqTabs>
+                  <BasiqButton tone="accent" variant="solid">講習会を見る</BasiqButton>
+                </div>
+              </BasiqCard>
             </section>
 
             <div class="content-grid">
