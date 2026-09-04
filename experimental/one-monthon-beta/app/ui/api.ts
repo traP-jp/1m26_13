@@ -1,4 +1,4 @@
-import type { ApiErrorBody, DiscoveryResponse, RoadmapDetail, RoadmapInput, RoadmapManage, UserProfile, WorkshopDetail, WorkshopInput } from '../lib/contracts';
+import type { ApiErrorBody, DiscoveryResponse, Flow, FlowInput, RoadmapDetail, RoadmapInput, RoadmapManage, UserProfile, WorkshopDetail, WorkshopInput } from '../lib/contracts';
 
 export class ApiClientError extends Error {
   constructor(message: string, readonly status: number, readonly code: string, readonly fields: Record<string, string> = {}) { super(message); this.name = 'ApiClientError'; }
@@ -30,3 +30,6 @@ export async function fetchManagedRoadmaps() { const result = await requestJson<
 export async function fetchManagedRoadmap(id: string | number) { const result = await requestJson<{ roadmap: RoadmapManage }>(`/api/roadmaps/${encodeURIComponent(id)}?manage=1`); return result.roadmap; }
 export async function saveRoadmap(input: RoadmapInput, id?: string | number) { const result = await requestJson<{ roadmap: RoadmapManage }>(id ? `/api/roadmaps/${encodeURIComponent(id)}` : '/api/roadmaps', { method: id ? 'PUT' : 'POST', body: JSON.stringify(input) }); return result.roadmap; }
 export async function removeRoadmap(id: string | number) { await requestJson<never>(`/api/roadmaps/${encodeURIComponent(id)}`, { method: 'DELETE' }); }
+export async function fetchFlows() { const result = await requestJson<{ flows: Flow[] }>('/api/flows'); return result.flows; }
+export async function saveFlow(input: FlowInput, id?: number) { const result = await requestJson<{ flow: Flow }>(id ? `/api/flows/${id}` : '/api/flows', { method: id ? 'PUT' : 'POST', body: JSON.stringify(input) }); return result.flow; }
+export async function removeFlow(id: number) { await requestJson<never>(`/api/flows/${id}`, { method: 'DELETE' }); }

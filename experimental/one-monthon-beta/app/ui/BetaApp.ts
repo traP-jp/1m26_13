@@ -8,7 +8,7 @@ import RoadmapDetailView from './views/RoadmapDetailView';
 import RoadmapEditorView from './views/RoadmapEditorView';
 import WorkshopDetailView from './views/WorkshopDetailView';
 import WorkshopListView from './views/WorkshopListView';
-import WorkshopEditorView from './views/WorkshopWizardView';
+import WorkshopEditorView from './views/WorkshopFlowView';
 
 type Route =
   | { name: 'home' }
@@ -17,7 +17,7 @@ type Route =
   | { name: 'roadmap'; id: string }
   | { name: 'admin' }
   | { name: 'roadmap-editor'; mode: 'new' | 'edit'; id?: string }
-  | { name: 'editor'; mode: 'wizard' | 'edit'; id?: string }
+  | { name: 'editor'; mode: 'flow' | 'edit'; id?: string }
   | { name: 'profile'; id: string }
   | { name: 'not-found' };
 
@@ -31,7 +31,7 @@ function parseRoute(href: string): Route {
   if (segments.length === 1 && segments[0] === 'admin') return { name: 'admin' };
   if (segments.join('/') === 'admin/roadmaps/new') return { name: 'roadmap-editor', mode: 'new' };
   if (segments[0] === 'admin' && segments[1] === 'roadmaps' && segments.length === 3) return { name: 'roadmap-editor', mode: 'edit', id: segments[2] };
-  if (segments.join('/') === 'admin/workshops/new') return { name: 'editor', mode: 'wizard' };
+  if (segments.join('/') === 'admin/workshops/new') return { name: 'editor', mode: 'flow' };
   if (segments[0] === 'admin' && segments[1] === 'workshops' && segments.length === 3) return { name: 'editor', mode: 'edit', id: segments[2] };
   if (segments[0] === 'users' && segments.length === 2) return { name: 'profile', id: segments[1] };
   return { name: 'not-found' };

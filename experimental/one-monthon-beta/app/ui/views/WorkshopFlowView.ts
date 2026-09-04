@@ -5,14 +5,14 @@ import OccurrenceFields from '../components/OccurrenceFields';
 import { ApiClientError, copyOccurrence, fetchDiscovery, fetchWorkshop, removeWorkshop, saveWorkshop } from '../api';
 import { blankOccurrence, blankWorkshop, detailToInput, renumberOccurrenceGroups } from '../forms/workshopForm';
 
-type EditorMode = 'wizard' | 'edit';
+type EditorMode = 'flow' | 'edit';
 
 export default defineComponent({
   name: 'WorkshopEditorView', components: { BasiqButton, BasiqCard, BasiqToggleButton, OccurrenceFields },
   props: { editorMode: { type: String as PropType<EditorMode>, required: true }, workshopId: { type: String, default: '' } }, emits: ['navigate'],
   setup(props, { emit }) {
     const form = reactive<WorkshopInput>(blankWorkshop(props.editorMode === 'edit')); const options = ref<WorkshopSummary[]>([]); const loading = ref(props.editorMode === 'edit'); const loadFailed = ref(false); const saving = ref(false); const deleting = ref(false); const copyingId = ref<number | null>(null); const error = ref(''); const errorTitle = ref('保存できませんでした'); const notice = ref(''); const fieldErrors = ref<Record<string, string>>({}); const restored = ref(false);
-    const isWizard = computed(() => props.editorMode === 'wizard'); const isEdit = computed(() => props.editorMode === 'edit'); const draftKey = computed(() => `one-monthon.beta.${props.editorMode}.draft.v2`);
+    const isFlow = computed(() => props.editorMode === 'flow'); const isEdit = computed(() => props.editorMode === 'edit'); const draftKey = computed(() => `one-monthon.beta.${props.editorMode}.draft.v3`);
     const applyInput = (input: WorkshopInput) => { form.title = input.title; form.summary = input.summary; form.prerequisiteIds = [...input.prerequisiteIds]; form.successorIds = [...input.successorIds]; form.occurrences = input.occurrences.map((item) => ({ ...item })); };
     const addOccurrence = () => { const next = Math.max(0, ...form.occurrences.filter((item) => item.kind === 'standard').map((item) => item.sequenceNumber)) + 1; form.occurrences.push(blankOccurrence(next)); };
     const removeOccurrence = (index: number) => {
@@ -61,9 +61,9 @@ export default defineComponent({
       if (saving.value || !validate()) return;
       saving.value = true; error.value = ''; errorTitle.value = '保存できませんでした'; notice.value = '';
       try {
-        const payload: WorkshopInput = isWizard.value ? { title: form.title, summary: form.summary, prerequisiteIds: [], successorIds: [], occurrences: [] } : JSON.parse(JSON.stringify(form));
+        const payload: WorkshopInput = isFlow.value ? { title: form.title, summary: form.summary, prerequisiteIds: [], successorIds: [], occurrences: [] } : JSON.parse(JSON.stringify(form));
         const workshop = await saveWorkshop(payload, isEdit.value ? props.workshopId : undefined);
-        if (isWizard.value) sessionStorage.removeItem(draftKey.value);
+        if (isFlow.value) sessionStorage.removeItem(draftKey.value);
         if (isEdit.value) emit('navigate', `/workshops/${workshop.id}?manage=1&saved=1`);
         else emit('navigate', `/admin/workshops/${workshop.id}?created=1`);
       } catch (caught) {
@@ -85,8 +85,8 @@ export default defineComponent({
       catch (caught) { error.value = caught instanceof ApiClientError ? caught.message : '講習会を削除できませんでした。'; }
       finally { deleting.value = false; }
     };
-    onMounted(load); watch(form, () => { if (isWizard.value && !loading.value) sessionStorage.setItem(draftKey.value, JSON.stringify(form)); }, { deep: true });
-    return { form, options, loading, loadFailed, saving, deleting, copyingId, error, errorTitle, notice, fieldErrors, restored, isWizard, isEdit, toggleRelation, relationToggleStyle, addOccurrence, removeOccurrence, load, submit, copy, destroy };
+    onMounted(load); watch(form, () => { if (isFlow.value && !loading.value) sessionStorage.setItem(draftKey.value, JSON.stringify(form)); }, { deep: true });
+    return { form, options, loading, loadFailed, saving, deleting, copyingId, error, errorTitle, notice, fieldErrors, restored, isFlow, isEdit, toggleRelation, relationToggleStyle, addOccurrence, removeOccurrence, load, submit, copy, destroy };
   },
   template: `
     <main class="page editor-page" tabindex="-1">

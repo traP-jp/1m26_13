@@ -3,10 +3,11 @@ import { defineComponent, onMounted, ref } from 'vue/dist/vue.esm-bundler.js';
 import type { RoadmapManage } from '../../lib/contracts';
 import { ApiClientError, fetchManagedRoadmaps } from '../api';
 import AppIcon from '../components/AppIcon';
+import FlowManager from '../components/FlowManager';
 
 export default defineComponent({
   name: 'AdminHomeView',
-  components: { AppIcon, BasiqButton },
+  components: { AppIcon, BasiqButton, FlowManager },
   emits: ['navigate'],
   setup() {
     const roadmaps = ref<RoadmapManage[]>([]); const loading = ref(true); const error = ref('');
@@ -21,11 +22,13 @@ export default defineComponent({
   },
   template: `
     <main class="page admin-page" tabindex="-1">
-      <header class="page-heading"><div><h1>運営向けページ</h1><p>講習会とロードマップの作成・編集をここから行います。</p></div></header>
+      <header class="page-heading"><div><h1>運営向けページ</h1><p>講習会、フロー、ロードマップの作成・編集をここから行います。</p></div></header>
 
       <section class="admin-section" aria-labelledby="admin-workshop-title">
         <div class="section-heading"><div><h2 id="admin-workshop-title">講習会</h2><p>講習会を作成してから、開催ごとの内容を追加します。</p></div><BasiqButton type="button" @click="$emit('navigate', '/admin/workshops/new')">講習会を作成</BasiqButton></div>
       </section>
+
+      <FlowManager />
 
       <section class="admin-section" aria-labelledby="admin-roadmap-title">
         <div class="section-heading"><div><h2 id="admin-roadmap-title">ロードマップ</h2><p>閲覧用とは分けて、段階と講習会の並びを管理します。</p></div><a class="primary-link" href="/admin/roadmaps/new" data-route>新規作成<AppIcon name="chevron" :size="18" /></a></div>
