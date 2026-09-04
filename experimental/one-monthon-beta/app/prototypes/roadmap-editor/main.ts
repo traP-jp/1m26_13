@@ -32,6 +32,7 @@ type RoadmapItem = {
   id: number;
   workshopId: string;
   editing: boolean;
+  comment: string;
 };
 
 const workshops: Workshop[] = [
@@ -54,6 +55,7 @@ const Icon = defineComponent({
       <template v-else-if="name === 'chevron'"><path d="m9 18 6-6-6-6"/></template>
       <template v-else-if="name === 'up'"><path d="m6 15 6-6 6 6"/></template>
       <template v-else-if="name === 'down'"><path d="m6 9 6 6 6-6"/></template>
+      <template v-else-if="name === 'grip'"><circle cx="9" cy="7" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="7" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="9" cy="17" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="17" r="1" fill="currentColor" stroke="none"/></template>
       <template v-else-if="name === 'plus'"><path d="M12 5v14M5 12h14"/></template>
       <template v-else-if="name === 'trash'"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13"/></template>
       <template v-else><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></template>
@@ -77,10 +79,12 @@ const App = defineComponent({
     const summary = ref('Webサービスづくりに必要な基礎を、道具の使い方から順に学べるロードマップです。');
     const audience = ref('Web開発をこれから始めたい新入生');
     const published = ref(true);
+    const draggingItemId = ref<number | null>(null);
+    const dragOverItemId = ref<number | null>(null);
     const roadmapItems = ref<RoadmapItem[]>([
-      { id: 1, workshopId: 'git', editing: false },
-      { id: 2, workshopId: 'html-css', editing: false },
-      { id: 3, workshopId: 'typescript', editing: false },
+      { id: 1, workshopId: 'git', editing: false, comment: '' },
+      { id: 2, workshopId: 'html-css', editing: false, comment: '' },
+      { id: 3, workshopId: 'typescript', editing: false, comment: '' },
     ]);
 
     const getWorkshop = (id: string) => workshops.find((workshop) => workshop.id === id) ?? workshops[0];
@@ -104,15 +108,60 @@ const App = defineComponent({
       if (roadmapItems.value.length === 1) return;
       roadmapItems.value = roadmapItems.value.filter((item) => item.id !== id);
     };
+    const updatePointerTarget = (event: PointerEvent) => {
+      if (draggingItemId.value === null) return;
+      const item = (document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null)?.closest<HTMLElement>('[data-roadmap-item-id]');
+      dragOverItemId.value = item ? Number(item.dataset.roadmapItemId) : null;
+    };
+    const finishDrag = () => {
+      draggingItemId.value = null;
+      dragOverItemId.value = null;
+      window.removeEventListener('pointermove', updatePointerTarget);
+      window.removeEventListener('pointerup', finishPointerDrag);
+      window.removeEventListener('pointercancel', finishDrag);
+    };
+    const finishPointerDrag = (event: PointerEvent) => {
+      updatePointerTarget(event);
+      const targetId = dragOverItemId.value;
+      if (targetId !== null) dropWorkshop(targetId);
+      else finishDrag();
+    };
+    const startDrag = (id: number, event: PointerEvent) => {
+      event.preventDefault();
+      finishDrag();
+      draggingItemId.value = id;
+      dragOverItemId.value = id;
+      window.addEventListener('pointermove', updatePointerTarget);
+      window.addEventListener('pointerup', finishPointerDrag);
+      window.addEventListener('pointercancel', finishDrag);
+    };
+    const dropWorkshop = (targetId: number) => {
+      const sourceId = draggingItemId.value;
+      if (sourceId === null || sourceId === targetId) {
+        finishDrag();
+        return;
+      }
+      const nextItems = [...roadmapItems.value];
+      const sourceIndex = nextItems.findIndex((item) => item.id === sourceId);
+      const targetIndex = nextItems.findIndex((item) => item.id === targetId);
+      if (sourceIndex < 0 || targetIndex < 0) {
+        finishDrag();
+        return;
+      }
+      const [movedItem] = nextItems.splice(sourceIndex, 1);
+      nextItems.splice(targetIndex, 0, movedItem);
+      roadmapItems.value = nextItems;
+      finishDrag();
+    };
     const addWorkshop = () => {
       const selected = new Set(roadmapItems.value.map((item) => item.workshopId));
       const nextWorkshop = workshops.find((workshop) => !selected.has(workshop.id));
       if (!nextWorkshop) return;
       const nextId = Math.max(...roadmapItems.value.map((item) => item.id), 0) + 1;
-      roadmapItems.value.push({ id: nextId, workshopId: nextWorkshop.id, editing: true });
+      roadmapItems.value.push({ id: nextId, workshopId: nextWorkshop.id, editing: true, comment: '' });
     };
 
-    return { addWorkshop, audience, getWorkshop, moveWorkshop, published, removeWorkshop, roadmapItems, summary, title, workshops, workshopOptionsFor };
+    return { addWorkshop, audience, dragOverItemId, draggingItemId, getWorkshop, moveWorkshop, published, removeWorkshop, roadmapItems, startDrag, summary, title, workshops, workshopOptionsFor };
   },
   template: `
     <BasiqThemeProvider mode="light" class="prototype-theme">
@@ -179,9 +228,20 @@ const App = defineComponent({
                 </div>
 
                 <ol class="workshop-sequence">
-                  <li v-for="(item, itemIndex) in roadmapItems" :key="item.id">
+                  <li
+                    v-for="(item, itemIndex) in roadmapItems"
+                    :key="item.id"
+                    :data-roadmap-item-id="item.id"
+                    :class="{ 'is-dragging': draggingItemId === item.id, 'is-drop-target': dragOverItemId === item.id }"
+                  >
                     <BasiqCard>
                       <div class="sequence-item">
+                        <button
+                          class="drag-handle"
+                          type="button"
+                          :aria-label="getWorkshop(item.workshopId).title + 'をドラッグして並べ替え'"
+                          @pointerdown="startDrag(item.id, $event)"
+                        ><Icon name="grip" /></button>
                         <span class="sequence-number">{{ itemIndex + 1 }}</span>
                         <Icon name="map" />
                         <span class="workshop-copy"><strong>{{ getWorkshop(item.workshopId).title }}</strong><small>{{ getWorkshop(item.workshopId).team }} · {{ getWorkshop(item.workshopId).year }}</small></span>
@@ -192,6 +252,9 @@ const App = defineComponent({
                           <BasiqButton type="button" tone="danger" variant="outline" :disabled="roadmapItems.length === 1" :aria-label="getWorkshop(item.workshopId).title + 'を削除'" @click="removeWorkshop(item.id)"><Icon name="trash" /></BasiqButton>
                         </div>
                       </div>
+                      <BasiqFormField class="item-comment" label="コメント（任意）">
+                        <template #default="field"><BasiqTextarea v-model="item.comment" :id="field.id" :invalid="field.invalid" :aria-describedby="field.describedBy" :rows="2" resize="vertical" maxlength="300" placeholder="この講習会についての補足" /></template>
+                      </BasiqFormField>
                       <div v-if="item.editing" class="workshop-picker">
                         <BasiqRadioGroup v-model="item.workshopId" :items="workshopOptionsFor(item)" :name="'roadmap-item-' + item.id" label="講習会を選択" orientation="vertical" required />
                       </div>
