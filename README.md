@@ -36,6 +36,21 @@ READMEのコマンドはmiseをshellで有効化していない環境でも動�
 ローカル開発では`DEV_USER`に自分のtraQ IDを設定すると、NeoShowcaseを経由しなくても
 認証済みユーザーとして動作を確認できます。
 
+### Codex managed worktree
+
+ChatGPTデスクトップアプリのCodex managed worktreeを作成すると、ローカルcheckoutの
+`backend/.env`と、存在する場合はフロントエンドの`.env`系ファイルが
+[`.worktreeinclude`](.worktreeinclude)に従って自動的にコピーされます。トークンを
+worktreeごとに書き直す必要はなく、コピー先も引き続きGitの管理対象外です。
+
+worktree作成時にlocal environmentの`1m26_13`を選ぶと、
+`.codex/environments/environment.toml`のsetup scriptがmise経由でフロントエンドの依存を
+準備します。Codexの画面上から開発サーバーとcheckも実行できます。
+
+この自動コピーはCodexがローカルに作るmanaged worktreeだけが対象です。コマンドラインで
+作成したworktreeやremote worktreeには適用されません。また、作成済みworktreeへ後から
+自動反映はされません。
+
 ## ローカルデータベース
 
 MariaDBとAdminerだけをDocker Composeで起動します。GoとVueはコンテナに入れず、
