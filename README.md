@@ -2,8 +2,9 @@
 
 traP 1-Monthon 2026 13班のプロジェクトです。
 
-バックエンドはGo、フロントエンドはVueで開発します。UIには
-[BasiQ UI](https://github.com/traP-jp/basiq-ui)を使用する予定です。
+バックエンドはGo + Echo v4、フロントエンドはVue 3 + Vue Router + Piniaです。
+API契約はOpenAPIからGoのstrict serverとTypeScript型を生成し、UIには
+[BasiQ UI](https://github.com/traP-jp/basiq-ui)を使用します。
 
 ## 開発環境
 
@@ -54,8 +55,7 @@ worktree作成時にlocal environmentの`1m26_13`を選ぶと、
 ## ローカルデータベース
 
 MariaDBとAdminerだけをDocker Composeで起動します。GoとVueはコンテナに入れず、
-ホスト上で実行します。現在のGoバックエンドにはDB接続処理をまだ実装していないため、
-ここで用意するのはローカルDB環境と将来使用する接続設定までです。
+ホスト上で実行します。バックエンド起動時に接続確認と埋め込みmigrationを自動実行します。
 
 ```sh
 docker compose up -d
@@ -79,7 +79,8 @@ docker compose down
 ```
 
 データも含めて初期化するときだけ、`docker compose down --volumes`を使用してください。
-Adminerは内容の確認にのみ使用し、テーブル定義は今後導入するマイグレーションで管理します。
+Adminerは内容の確認にのみ使用し、テーブル定義は
+`backend/internal/database/migrations`のmigrationで管理します。
 
 WSLでDockerが利用できないという案内が出たら、まずDocker Desktopが起動しているか
 確認してください。起動後も利用できない場合は、Docker DesktopのSettingsからResources、
@@ -116,11 +117,23 @@ APIは`/api/v1`以下で提供します。API schemaとendpoint pathのsource of
 `servers`、Goルーターの`BaseURL`、フロントエンドAPIクライアントの`baseUrl`に
 それぞれ設定します。
 
+主要な実装範囲は次の通りです。
+
+- Lectureと、その下に独立したSessionを0件以上登録・編集
+- 公開Lectureのキーワード・学年度・分野検索と詳細表示
+- 再放送Sessionの直接URL表示と、通常導線・完了操作からの除外
+- Session単位の完了、Lecture完了、バッジ、ロードマップ進捗の導出
+- `lecture_pre`、`session_main`、`lecture_post`のFlowClassと適用時スナップショットFlow
+- 段階を持つ一本道ロードマップ
+- 楽観ロックと属性単位の更新イベント
+
+Lecture、Session、FlowClass、Flow、Roadmapの削除APIはありません。
+
 仕様を変更した場合は、GoとTypeScriptのコードを再生成します。
 
 ```sh
 cd backend
-mise exec -- go generate ./...
+GOCACHE=/tmp/1m26-go-cache mise exec -- go generate ./...
 
 cd ../frontend
 mise exec -- pnpm generate:api
@@ -171,6 +184,16 @@ mise exec -- go test ./...
 mise exec -- go build ./...
 ```
 
+起動済みのローカルAPIに対するMariaDB結合確認:
+
+```sh
+API_BASE_URL=http://127.0.0.1:8080/api/v1 ./scripts/smoke-api.sh
+```
+
+このスクリプトは、認証、Lecture/Session登録、再放送の完了拒否、通常Session完了、
+Flowの適用時スナップショット、Flow再開・完了、一本道ロードマップ、プロフィール・バッジ、
+属性更新イベントを一巡します。確認用レコードは削除しません。
+
 ## ディレクトリ構成
 
 ```text
@@ -178,6 +201,7 @@ mise exec -- go build ./...
 ├── api/       # OpenAPI仕様
 ├── backend/   # Goバックエンド
 ├── frontend/  # Vueフロントエンド
+├── scripts/   # 再現可能な結合スモークテスト
 └── compose.yaml  # ローカル開発用MariaDB・Adminer
 ```
 

@@ -12,7 +12,9 @@ import (
 	"time"
 
 	"github.com/traP-jp/1m26_13/backend/internal/config"
+	"github.com/traP-jp/1m26_13/backend/internal/database"
 	"github.com/traP-jp/1m26_13/backend/internal/httpapi"
+	"github.com/traP-jp/1m26_13/backend/internal/store"
 	"github.com/traP-jp/1m26_13/backend/internal/traq"
 )
 
@@ -32,31 +34,43 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	traqClient, err := traq.NewClient(
-		cfg.TraQAPIBaseURL,
-		cfg.TraQBotAccessToken,
-		&http.Client{Timeout: cfg.TraQAPITimeout},
-	)
+	db, err := database.Open(database.Config{Hostname: cfg.DatabaseHostname, Port: cfg.DatabasePort,
+		User: cfg.DatabaseUser, Password: cfg.DatabasePassword, Database: cfg.DatabaseName})
 	if err != nil {
-		return fmt.Errorf("create traQ client: %w", err)
+		return err
 	}
-	directory, err := traq.NewDirectoryCache(
-		traqClient,
-		cfg.TraQCacheRefreshInterval,
-		cfg.TraQCacheMaxStale,
-	)
-	if err != nil {
-		return fmt.Errorf("create traQ directory cache: %w", err)
+	defer db.Close()
+	if err := database.Ready(ctx, db); err != nil {
+		return err
 	}
-	if err := directory.Refresh(ctx); err != nil {
-		return fmt.Errorf("initialize traQ directory cache: %w", err)
+	if err := database.Migrate(ctx, db); err != nil {
+		return err
 	}
-	go directory.Run(ctx, slog.Default())
+
+	var directory traq.Directory
+	if cfg.TraQBotAccessToken == "" {
+		directory = traq.NewStaticDirectory(cfg.DevelopmentUser)
+	} else {
+		traqClient, err := traq.NewClient(cfg.TraQAPIBaseURL, cfg.TraQBotAccessToken, &http.Client{Timeout: cfg.TraQAPITimeout})
+		if err != nil {
+			return fmt.Errorf("create traQ client: %w", err)
+		}
+		cache, err := traq.NewDirectoryCache(traqClient, cfg.TraQCacheRefreshInterval, cfg.TraQCacheMaxStale)
+		if err != nil {
+			return fmt.Errorf("create traQ directory cache: %w", err)
+		}
+		if err := cache.Refresh(ctx); err != nil {
+			return fmt.Errorf("initialize traQ directory cache: %w", err)
+		}
+		go cache.Run(ctx, slog.Default())
+		directory = cache
+	}
 
 	server := &http.Server{
 		Addr: cfg.Address,
 		Handler: httpapi.NewHandler(httpapi.HandlerOptions{
 			Directory:       directory,
+			Repository:      store.NewMySQL(db),
 			DevelopmentUser: cfg.DevelopmentUser,
 			Logger:          slog.Default(),
 		}),

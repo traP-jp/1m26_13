@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/traP-jp/1m26_13/backend/internal/api"
@@ -23,7 +24,7 @@ type authenticatedUserContextKey struct{}
 
 func withAuthentication(next http.Handler, developmentUser string) http.Handler {
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		if request.URL.Path != apiBaseURL+"/users/me" {
+		if request.URL.Path == apiBaseURL+"/health" || !strings.HasPrefix(request.URL.Path, apiBaseURL+"/") {
 			next.ServeHTTP(response, request)
 			return
 		}

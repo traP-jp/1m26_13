@@ -1,80 +1,460 @@
 openapi: 3.1.0
 info:
-  title: 1m26_13 API
-  version: 0.1.0
+  title: 1-Monthon API
+  version: 1.0.0
 servers:
   - url: /api/v1
 paths:
   /health:
     get:
       operationId: getHealth
-      summary: Check whether the API is available
       responses:
-        "200":
-          description: The API is available
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HealthResponse"
+        "200": { description: OK, content: { application/json: { schema: { $ref: "#/components/schemas/HealthResponse" } } } }
   /users/me:
     get:
       operationId: getCurrentUser
-      summary: Get the authenticated user
-      description: Returns the traQ user identified by NeoShowcase authentication.
       responses:
-        "200":
-          description: The authenticated user
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CurrentUser"
-        "401":
-          description: Authentication is missing or the user is unknown
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "503":
-          description: The traQ user directory is temporarily unavailable
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+        "200": { description: Current user, content: { application/json: { schema: { $ref: "#/components/schemas/CurrentUser" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /directory:
+    get:
+      operationId: getDirectory
+      responses:
+        "200": { description: traQ users and groups, content: { application/json: { schema: { $ref: "#/components/schemas/Directory" } } } }
+        "503": { $ref: "#/components/responses/Error" }
+  /fields:
+    get:
+      operationId: listFields
+      responses:
+        "200": { description: Field master, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Field" } } } } }
+  /lectures:
+    get:
+      operationId: listLectures
+      parameters:
+        - { name: q, in: query, schema: { type: string, maxLength: 200 } }
+        - { name: year, in: query, schema: { type: integer, minimum: 2000, maximum: 2200 } }
+        - { name: fieldId, in: query, schema: { type: string } }
+        - { name: includeDraft, in: query, schema: { type: boolean, default: false } }
+      responses:
+        "200": { description: Lectures, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Lecture" } } } } }
+        "400": { $ref: "#/components/responses/Error" }
+    post:
+      operationId: createLecture
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/LectureWrite" } } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Lecture" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+  /lectures/{lectureId}:
+    parameters:
+      - { $ref: "#/components/parameters/LectureId" }
+    get:
+      operationId: getLecture
+      parameters:
+        - { name: includeDraft, in: query, schema: { type: boolean, default: false } }
+      responses:
+        "200": { description: Lecture, content: { application/json: { schema: { $ref: "#/components/schemas/Lecture" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      operationId: updateLecture
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/LectureWrite" } } } }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: "#/components/schemas/Lecture" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /lectures/{lectureId}/sessions:
+    parameters:
+      - { $ref: "#/components/parameters/LectureId" }
+    post:
+      operationId: createSession
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/SessionWrite" } } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Session" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /sessions/{sessionId}:
+    parameters:
+      - { $ref: "#/components/parameters/SessionId" }
+    get:
+      operationId: getSession
+      parameters:
+        - { name: includeDraft, in: query, schema: { type: boolean, default: false } }
+      responses:
+        "200": { description: Session, content: { application/json: { schema: { $ref: "#/components/schemas/Session" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      operationId: updateSession
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/SessionWrite" } } } }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: "#/components/schemas/Session" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /sessions/{sessionId}/completion:
+    parameters:
+      - { $ref: "#/components/parameters/SessionId" }
+    put:
+      operationId: completeSession
+      responses:
+        "200": { description: Completion, content: { application/json: { schema: { $ref: "#/components/schemas/SessionCompletion" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: uncompleteSession
+      responses:
+        "204": { description: Completion removed }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /flow-classes:
+    get:
+      operationId: listFlowClasses
+      parameters:
+        - { name: type, in: query, schema: { $ref: "#/components/schemas/FlowType" } }
+        - { name: includeUnlisted, in: query, schema: { type: boolean, default: false } }
+      responses:
+        "200": { description: Flow classes, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/FlowClass" } } } } }
+    post:
+      operationId: createFlowClass
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/FlowClassWrite" } } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/FlowClass" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+  /flow-classes/{flowClassId}:
+    parameters:
+      - { name: flowClassId, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: getFlowClass
+      responses:
+        "200": { description: Flow class, content: { application/json: { schema: { $ref: "#/components/schemas/FlowClass" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      operationId: updateFlowClass
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/FlowClassWrite" } } } }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: "#/components/schemas/FlowClass" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /flows:
+    get:
+      operationId: listFlows
+      parameters:
+        - { name: targetId, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/FlowStatus" } }
+      responses:
+        "200": { description: Applied flows, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Flow" } } } } }
+    post:
+      operationId: createFlow
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/FlowCreate" } } } }
+      responses:
+        "201": { description: Applied flow, content: { application/json: { schema: { $ref: "#/components/schemas/Flow" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /flows/{flowId}:
+    parameters:
+      - { name: flowId, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: getFlow
+      responses:
+        "200": { description: Flow, content: { application/json: { schema: { $ref: "#/components/schemas/Flow" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      operationId: updateFlow
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/FlowWrite" } } } }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: "#/components/schemas/Flow" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /roadmaps:
+    get:
+      operationId: listRoadmaps
+      parameters:
+        - { name: includeDraft, in: query, schema: { type: boolean, default: false } }
+      responses:
+        "200": { description: Roadmaps, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/Roadmap" } } } } }
+    post:
+      operationId: createRoadmap
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/RoadmapWrite" } } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Roadmap" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+  /roadmaps/{roadmapId}:
+    parameters:
+      - { name: roadmapId, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: getRoadmap
+      parameters:
+        - { name: includeDraft, in: query, schema: { type: boolean, default: false } }
+      responses:
+        "200": { description: Roadmap, content: { application/json: { schema: { $ref: "#/components/schemas/Roadmap" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      operationId: updateRoadmap
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/RoadmapWrite" } } } }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: "#/components/schemas/Roadmap" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /profiles/{traqId}:
+    parameters:
+      - { name: traqId, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: getProfile
+      responses:
+        "200": { description: Profile, content: { application/json: { schema: { $ref: "#/components/schemas/Profile" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /history/{entityType}/{entityId}:
+    parameters:
+      - { name: entityType, in: path, required: true, schema: { type: string, enum: [lecture, session, flow_class, flow, roadmap] } }
+      - { name: entityId, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: getAttributeHistory
+      responses:
+        "200": { description: Attribute history, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/AttributeUpdateEvent" } } } } }
+
 components:
+  parameters:
+    LectureId: { name: lectureId, in: path, required: true, schema: { type: string } }
+    SessionId: { name: sessionId, in: path, required: true, schema: { type: string } }
+  responses:
+    Error:
+      description: Error
+      content: { application/json: { schema: { $ref: "#/components/schemas/ErrorResponse" } } }
   schemas:
-    CurrentUser:
-      type: object
-      additionalProperties: false
-      required:
-        - id
-        - traqId
-        - displayName
-      properties:
-        id:
-          type: string
-          format: uuid
-        traqId:
-          type: string
-        displayName:
-          type: string
-    ErrorResponse:
-      type: object
-      additionalProperties: false
-      required:
-        - code
-        - message
-      properties:
-        code:
-          type: string
-        message:
-          type: string
     HealthResponse:
       type: object
-      additionalProperties: false
-      required:
-        - status
+      required: [status]
+      properties: { status: { type: string, const: ok } }
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties: { code: { type: string }, message: { type: string } }
+    CurrentUser:
+      type: object
+      required: [id, traqId, displayName]
+      properties: { id: { type: string }, traqId: { type: string }, displayName: { type: string } }
+    DirectoryUser:
+      type: object
+      required: [id, traqId, displayName]
+      properties: { id: { type: string }, traqId: { type: string }, displayName: { type: string } }
+    DirectoryGroup:
+      type: object
+      required: [id, name]
+      properties: { id: { type: string }, name: { type: string } }
+    Directory:
+      type: object
+      required: [users, groups]
       properties:
-        status:
-          type: string
-          enum:
-            - ok
+        users: { type: array, items: { $ref: "#/components/schemas/DirectoryUser" } }
+        groups: { type: array, items: { $ref: "#/components/schemas/DirectoryGroup" } }
+    Field:
+      type: object
+      required: [id, name]
+      properties: { id: { type: string }, name: { type: string } }
+    Resource:
+      type: object
+      required: [url]
+      properties:
+        title: { type: string, maxLength: 120 }
+        url: { type: string, format: uri, maxLength: 2048 }
+    RelationType:
+      type: string
+      enum: [prerequisite, previous_year, recommended_next]
+    LectureRelation:
+      type: object
+      required: [toLectureId, type]
+      properties:
+        toLectureId: { type: string }
+        type: { $ref: "#/components/schemas/RelationType" }
+    LectureWrite:
+      type: object
+      required: [name, academicYearStart, academicYearEnd, organizerGroupIds, organizerUserIds, contactGroupIds, contactUserIds, isIntroductory, resources, relations, expectedRevision]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 10000 }
+        academicYearStart: { type: integer, minimum: 2000, maximum: 2200 }
+        academicYearEnd: { type: integer, minimum: 2000, maximum: 2200 }
+        fieldId: { type: string }
+        organizerGroupIds: { type: array, items: { type: string }, maxItems: 100 }
+        organizerUserIds: { type: array, items: { type: string }, maxItems: 100 }
+        contactGroupIds: { type: array, items: { type: string }, maxItems: 100 }
+        contactUserIds: { type: array, items: { type: string }, maxItems: 100 }
+        targetAudience: { type: string, maxLength: 2000 }
+        isIntroductory: { type: boolean }
+        traqChannelId: { type: string }
+        resources: { type: array, items: { $ref: "#/components/schemas/Resource" }, maxItems: 100 }
+        relations: { type: array, items: { $ref: "#/components/schemas/LectureRelation" }, maxItems: 200 }
+        expectedRevision: { type: integer, minimum: 0 }
+    Lecture:
+      allOf:
+        - { $ref: "#/components/schemas/LectureWrite" }
+        - type: object
+          required: [id, sessions, isPublished, completedSessionCount, requiredSessionCount, isCompleted, revision, createdAt, updatedAt]
+          properties:
+            id: { type: string }
+            sessions: { type: array, items: { $ref: "#/components/schemas/Session" } }
+            isPublished: { type: boolean }
+            completedSessionCount: { type: integer }
+            requiredSessionCount: { type: integer }
+            isCompleted: { type: boolean }
+            revision: { type: integer }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    SessionStatus: { type: string, enum: [draft, published] }
+    SessionWrite:
+      type: object
+      required: [name, order, instructorIds, resources, replayOfSessionIds, status, expectedRevision]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 10000 }
+        order: { type: integer, minimum: 0 }
+        date: { type: string, format: date }
+        startTime: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }
+        location: { type: string, maxLength: 1000 }
+        knoqUrl: { type: string, format: uri, maxLength: 2048 }
+        instructorIds: { type: array, items: { type: string }, maxItems: 100 }
+        resources: { type: array, items: { $ref: "#/components/schemas/Resource" }, maxItems: 100 }
+        replayOfSessionIds: { type: array, items: { type: string }, maxItems: 100 }
+        status: { $ref: "#/components/schemas/SessionStatus" }
+        expectedRevision: { type: integer, minimum: 0 }
+    Session:
+      allOf:
+        - { $ref: "#/components/schemas/SessionWrite" }
+        - type: object
+          required: [id, lectureId, isReplay, isCompleted, revision, createdAt, updatedAt]
+          properties:
+            id: { type: string }
+            lectureId: { type: string }
+            isReplay: { type: boolean }
+            isCompleted: { type: boolean }
+            revision: { type: integer }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    SessionCompletion:
+      type: object
+      required: [userId, sessionId, completedAt]
+      properties:
+        userId: { type: string }
+        sessionId: { type: string }
+        completedAt: { type: string, format: date-time }
+    FlowType: { type: string, enum: [lecture_pre, session_main, lecture_post] }
+    FlowClassWrite:
+      type: object
+      required: [name, type, text, listed, expectedRevision]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        type: { $ref: "#/components/schemas/FlowType" }
+        text: { type: string, minLength: 1, maxLength: 100000 }
+        listed: { type: boolean }
+        expectedRevision: { type: integer, minimum: 0 }
+    FlowClass:
+      allOf:
+        - { $ref: "#/components/schemas/FlowClassWrite" }
+        - type: object
+          required: [id, formatVersion, revision, createdAt, updatedAt]
+          properties:
+            id: { type: string }
+            formatVersion: { type: integer, const: 1 }
+            revision: { type: integer }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    FlowCreate:
+      type: object
+      required: [flowClassId, targetId]
+      properties: { flowClassId: { type: string }, targetId: { type: string } }
+    FlowStatus: { type: string, enum: [active, completed, cancelled] }
+    FlowWrite:
+      type: object
+      required: [answers, tasks, currentPage, status, expectedRevision]
+      properties:
+        answers: { type: object, additionalProperties: { type: string } }
+        tasks: { type: object, additionalProperties: { type: boolean } }
+        currentPage: { type: integer, minimum: 0 }
+        status: { $ref: "#/components/schemas/FlowStatus" }
+        expectedRevision: { type: integer, minimum: 0 }
+    Flow:
+      allOf:
+        - { $ref: "#/components/schemas/FlowWrite" }
+        - type: object
+          required: [id, flowClassId, targetId, type, text, formatVersion, revision, createdAt, updatedAt]
+          properties:
+            id: { type: string }
+            flowClassId: { type: string }
+            targetId: { type: string }
+            type: { $ref: "#/components/schemas/FlowType" }
+            text: { type: string }
+            formatVersion: { type: integer, const: 1 }
+            revision: { type: integer }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    RoadmapItem:
+      type: object
+      required: [lectureId, note]
+      properties: { lectureId: { type: string }, note: { type: string, maxLength: 2000 } }
+    RoadmapStage:
+      type: object
+      required: [id, title, description, items]
+      properties:
+        id: { type: string }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 5000 }
+        items: { type: array, items: { $ref: "#/components/schemas/RoadmapItem" }, maxItems: 200 }
+    RoadmapWrite:
+      type: object
+      required: [title, description, audience, published, stages, expectedRevision]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 10000 }
+        audience: { type: string, maxLength: 2000 }
+        published: { type: boolean }
+        stages: { type: array, items: { $ref: "#/components/schemas/RoadmapStage" }, maxItems: 100 }
+        expectedRevision: { type: integer, minimum: 0 }
+    Roadmap:
+      allOf:
+        - { $ref: "#/components/schemas/RoadmapWrite" }
+        - type: object
+          required: [id, completedLectureIds, completedItemCount, totalItemCount, progressPercent, revision, createdAt, updatedAt]
+          properties:
+            id: { type: string }
+            completedLectureIds: { type: array, items: { type: string } }
+            nextLectureId: { type: string }
+            completedItemCount: { type: integer }
+            totalItemCount: { type: integer }
+            progressPercent: { type: integer, minimum: 0, maximum: 100 }
+            revision: { type: integer }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    Badge:
+      type: object
+      required: [lectureId, lectureName, academicYearStart, academicYearEnd, earnedAt]
+      properties:
+        lectureId: { type: string }
+        lectureName: { type: string }
+        academicYearStart: { type: integer }
+        academicYearEnd: { type: integer }
+        earnedAt: { type: string, format: date-time }
+    Profile:
+      type: object
+      required: [user, completions, badges, roadmaps]
+      properties:
+        user: { $ref: "#/components/schemas/DirectoryUser" }
+        completions: { type: array, items: { $ref: "#/components/schemas/SessionCompletion" } }
+        badges: { type: array, items: { $ref: "#/components/schemas/Badge" } }
+        roadmaps: { type: array, items: { $ref: "#/components/schemas/Roadmap" } }
+    AttributeUpdateEvent:
+      type: object
+      required: [id, entityType, entityId, attributePath, previousValue, nextValue, actorId, occurredAt, changeSetId]
+      properties:
+        id: { type: string }
+        entityType: { type: string, enum: [lecture, session, flow_class, flow, roadmap] }
+        entityId: { type: string }
+        attributePath: { type: string }
+        previousValue: {}
+        nextValue: {}
+        actorId: { type: string }
+        occurredAt: { type: string, format: date-time }
+        changeSetId: { type: string }

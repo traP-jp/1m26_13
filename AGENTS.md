@@ -2,7 +2,7 @@
 
 ## Architecture
 
-- The backend is Go and uses the standard `net/http` server.
+- The backend is Go and uses Echo v4. The generated oapi-codegen strict server is registered on Echo.
 - The frontend is Vue with Vue Router and Pinia.
 - `api/openapi.yaml` is the source of truth for API paths and schemas.
 - Keep the `/api/v1` prefix aligned across the OpenAPI `servers` entry, the Go router's `BaseURL`, and the frontend API client's `baseUrl`.
@@ -15,7 +15,7 @@
 - NeoShowcase and the local environment expose MariaDB connection settings through `NS_MARIADB_*` variables. Keep this naming aligned instead of inventing a production-only mapping.
 - Bind local MariaDB and Adminer ports to loopback only.
 - Treat Adminer as an inspection tool. Do not rely on manual Adminer operations to establish application schema or seed data.
-- Do not add initialization SQL, migrations, or a fixed schema until the product model decisions below have been made.
+- Manage the decided schema only through embedded migrations under `backend/internal/database/migrations`.
 
 ## traQ directory
 
@@ -33,13 +33,12 @@
 
 ## Product model
 
-- Do not commit a database schema or fixed domain model until the data units, lifecycle, and permissions in sections A1-A3 of the detailed design worksheet have been decided.
-- Treat a workshop completion record as the underlying fact. Derive badges and roadmap progress from it instead of storing duplicate client-side truth.
+- Treat a Session completion record as the underlying fact. Derive Lecture completion, badges, and roadmap progress from it instead of storing duplicate truth.
 - Preserve completion history by default. If deletion or hiding is introduced, decide its history and derivation behavior explicitly first.
 
 ## Frontend
 
-- Prefer BasiQ UI components once the package is released and installable. BasiQ UI is not installed yet.
+- Prefer the installed BasiQ UI components for shared controls and use local CSS for product layout.
 - Do not introduce Tailwind CSS as a default styling foundation. Use component styles and design tokens.
 - Use URL query parameters for shareable search and filter state.
 - Use Pinia only for genuinely cross-route client state, such as the signed-in user, transient multi-step form state, or global notifications. Do not mirror server-owned workshop, completion, badge, or progress data into Pinia without a concrete need.

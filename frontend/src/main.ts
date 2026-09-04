@@ -5,6 +5,7 @@ import App from "./App.vue";
 import { createAppRouter } from "./router";
 
 import "./styles/index.css";
+import "basiq-ui/styles.css";
 
 const app = createApp(App);
 
