@@ -45,6 +45,8 @@ const sectionTabs = [
   { label: '設定', value: 'settings' },
 ];
 
+const tabItems = [sectionTabs[0], sectionTabs[1], sectionTabs[2], { label: '開催を追加', value: 'add' }, sectionTabs[3]];
+
 const occurrenceTypes = [
   { label: '通常開催', value: 'standard', description: '新しい回として開催' },
   { label: '再放送', value: 'rebroadcast', description: '同じ回をもう一度開催' },
@@ -68,8 +70,10 @@ const WorkshopEditorPrototype = defineComponent({
   },
   setup() {
     const activeTab = ref('general');
+    const modalOpen = ref(false);
     const published = reactive({ round1: true, round2: false });
     const kinds = reactive({ round1: 'standard', round2: 'standard' });
+    const newKind = ref('standard');
     const prerequisiteGit = ref(true);
     const prerequisiteWeb = ref(false);
     const successorTs = ref(true);
@@ -78,19 +82,30 @@ const WorkshopEditorPrototype = defineComponent({
     const goToTab = (index: number) => {
       activeTab.value = sectionTabs[Math.min(sectionTabs.length - 1, Math.max(0, index))].value;
     };
+    const selectTab = (value: string) => {
+      if (value === 'add') {
+        modalOpen.value = true;
+        return;
+      }
+      activeTab.value = value;
+    };
     watch(activeTab, () => window.scrollTo({ top: 0, behavior: 'smooth' }));
     return {
       activeTab,
+      modalOpen,
       published,
       kinds,
+      newKind,
       prerequisiteGit,
       prerequisiteWeb,
       successorTs,
       successorDeploy,
       tabIndex,
       sectionTabs,
+      tabItems,
       occurrenceTypes,
       goToTab,
+      selectTab,
     };
   },
   template: `
@@ -108,7 +123,8 @@ const WorkshopEditorPrototype = defineComponent({
             <div class="breadcrumb"><span>運営向けページ</span><b>/</b><span>講習会を編集</span></div>
             <header class="page-header"><h1>講習会を編集</h1><span class="header-status"><span></span>公開中</span></header>
 
-            <BasiqTabs v-model="activeTab" class="section-tabs" :items="sectionTabs" aria-label="講習会の編集項目" list-width="100%">
+            <BasiqTabs :model-value="activeTab" @update:model-value="selectTab" class="section-tabs" :items="tabItems" aria-label="講習会の編集項目" list-width="100%">
+              <template #trigger="{ item: triggerItem }"><span v-if="triggerItem.value === 'add'" class="add-tab-control"><AppIcon name="plus" :size="16" /><span class="add-tab-text">開催を追加</span></span><template v-else>{{ triggerItem.label }}</template></template>
               <template #content="{ item }">
                 <div class="tab-content">
                   <section v-if="item.value === 'general'" class="tab-panel general-panel">
@@ -163,7 +179,7 @@ const WorkshopEditorPrototype = defineComponent({
 
                   <section v-else class="tab-panel settings-panel">
                     <BasiqCard class="section-card">
-                      <template #header><div class="settings-heading"><h2>開催</h2><BasiqButton type="button"><AppIcon name="plus" :size="18" />開催を追加</BasiqButton></div></template>
+                      <template #header><div class="settings-heading"><h2>開催</h2></div></template>
                       <div class="round-list"><div><span class="round-number">第1回</span><div><strong>Webページの仕組みとHTML</strong><small>公開中</small></div></div><div><span class="round-number muted">第2回</span><div><strong>CSSレイアウトの基本</strong><small>下書き</small></div></div></div>
                     </BasiqCard>
                     <div class="danger-zone"><div><strong>講習会を削除</strong><p>開催・完了記録・ロードマップ上の配置も削除されます。</p></div><BasiqButton tone="danger" variant="outline" type="button"><AppIcon name="trash" :size="17" />講習会を削除</BasiqButton></div>
@@ -177,6 +193,18 @@ const WorkshopEditorPrototype = defineComponent({
         </div>
 
         <nav class="mobile-nav" aria-label="モバイルナビゲーション"><a href="#"><AppIcon name="home" />ホーム</a><a href="#"><AppIcon name="map" />ロードマップ</a><a href="#"><AppIcon name="user" />プロフィール</a><a class="active" href="#" aria-current="page"><AppIcon name="edit" />運営</a></nav>
+
+        <div v-if="modalOpen" class="modal-backdrop" @click.self="modalOpen = false">
+          <BasiqCard class="add-modal" role="dialog" aria-modal="true" aria-labelledby="add-modal-title">
+            <template #header><div class="modal-heading"><h2 id="add-modal-title">開催を追加</h2><BasiqButton tone="neutral" variant="outline" type="button" @click="modalOpen = false">閉じる</BasiqButton></div></template>
+            <div class="modal-fields">
+              <BasiqFormField label="回番号"><BasiqInput model-value="3" inputmode="numeric" /></BasiqFormField>
+              <BasiqFormField label="回のタイトル" required><BasiqInput placeholder="例：JavaScriptの基本" required /></BasiqFormField>
+              <BasiqRadioGroup v-model="newKind" label="開催種別" :items="occurrenceTypes" />
+            </div>
+            <div class="modal-actions"><BasiqButton tone="neutral" variant="outline" type="button" @click="modalOpen = false">キャンセル</BasiqButton><BasiqButton type="button" @click="modalOpen = false">追加</BasiqButton></div>
+          </BasiqCard>
+        </div>
       </div>
     </BasiqThemeProvider>`,
 });

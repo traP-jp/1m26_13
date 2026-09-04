@@ -38,6 +38,8 @@ h1 { font-size: 30px; line-height: 1.3; letter-spacing: -.025em; }
 .header-status { display: inline-flex; align-items: center; gap: 7px; margin-top: 9px; padding: 5px 10px; border-radius: 999px; color: var(--success); background: var(--success-soft); font-size: 12px; font-weight: 700; white-space: nowrap; }
 .header-status span { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .section-tabs { display: block; }
+.section-tabs [id$="-trigger-add"] { color: var(--basiq-color-content-accent); }
+.add-tab-control { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
 .tab-content { min-height: 680px; padding-top: 20px; }
 .tab-panel { display: grid; align-content: start; gap: 16px; }
 .section-card, .occurrence-card { border: 1px solid var(--basiq-color-border-separator); }
@@ -78,6 +80,12 @@ h1 { font-size: 30px; line-height: 1.3; letter-spacing: -.025em; }
 .danger-zone { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px; border: 1px solid color-mix(in srgb, var(--basiq-color-content-danger) 40%, white); border-radius: var(--basiq-radius-sm); }
 .danger-zone p { color: var(--basiq-color-content-subtle); font-size: 11px; }
 .tab-actions { position: sticky; z-index: 20; bottom: 0; min-height: 70px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 18px; padding: 12px 0; border-top: 1px solid var(--basiq-color-border-separator); background: color-mix(in srgb, var(--basiq-color-surface-base) 96%, transparent); backdrop-filter: blur(8px); }
+.modal-backdrop { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; padding: 24px; background: rgb(19 27 38 / 48%); }
+.add-modal { width: min(560px, 100%); max-height: calc(100dvh - 48px); overflow: auto; border: 1px solid var(--basiq-color-border-control); box-shadow: 0 18px 60px rgb(19 27 38 / 24%); }
+.modal-heading { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.modal-heading h2 { font-size: 19px; }
+.modal-fields { display: grid; gap: 16px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 18px; }
 
 @media (max-width: 900px) and (min-width: 761px) {
   :root { --sidebar-width: 208px; }
@@ -99,6 +107,8 @@ h1 { font-size: 30px; line-height: 1.3; letter-spacing: -.025em; }
   .page-header { gap: 10px; margin-bottom: 17px; }
   h1 { font-size: 22px; }
   .header-status { flex: none; margin-top: 2px; padding-inline: 8px; font-size: 10px; }
+  .section-tabs [id$="-trigger-add"] { min-width: 42px; padding-inline: 10px; }
+  .add-tab-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .tab-content { min-height: 620px; padding-top: 16px; }
   .field-grid, .connection-columns, .round-subgrid { grid-template-columns: 1fr; }
   .field-wide { grid-column: auto; }
@@ -108,6 +118,9 @@ h1 { font-size: 30px; line-height: 1.3; letter-spacing: -.025em; }
   .card-actions { flex-direction: column; }
   .danger-zone { align-items: flex-start; flex-direction: column; }
   .danger-zone button { width: 100%; }
+  .modal-backdrop { align-items: end; padding: 16px; }
+  .add-modal { max-height: calc(100dvh - 32px); }
+  .modal-actions button { flex: 1; }
   .tab-actions { position: fixed; left: 0; right: 0; bottom: 63px; min-height: 58px; margin: 0; padding: 8px 16px; background: color-mix(in srgb, var(--basiq-color-surface-base) 96%, transparent); }
   .tab-actions button:last-child { flex: 1; }
   .mobile-nav { position: fixed; z-index: 40; inset: auto 0 0; height: 64px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--basiq-color-border-separator); background: var(--basiq-color-surface-base); }
