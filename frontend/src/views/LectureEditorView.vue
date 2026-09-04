@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { BasiqButton } from "basiq-ui";
+import {
+  BasiqButton,
+  BasiqCard,
+  BasiqFormField,
+  BasiqInput,
+  BasiqSwitch,
+  BasiqTabs,
+  BasiqTextarea,
+} from "basiq-ui";
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
@@ -23,6 +31,7 @@ import {
   type Session,
   type SessionWrite,
 } from "@/api/resources";
+import AppIcon from "@/components/AppIcon.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -38,6 +47,13 @@ const lectures = ref<Lecture[]>([]);
 const flowClasses = ref<FlowClass[]>([]);
 const appliedFlows = ref<Flow[]>([]);
 const selectedFlowClassId = ref("");
+const activeTab = ref("general");
+const editorTabs = [
+  { label: "全般", value: "general" },
+  { label: "開催", value: "sessions" },
+  { label: "Flow", value: "flows" },
+  { label: "設定", value: "settings" },
+];
 const current = ref<Lecture>();
 const preFlowClasses = computed(() =>
   flowClasses.value.filter((item) => item.type === "lecture_pre"),
@@ -48,9 +64,6 @@ const lectureFlowClasses = computed(() =>
 const sessionFlowClasses = computed(() =>
   flowClasses.value.filter((item) => item.type === "session_main"),
 );
-function flowClassName(id: string) {
-  return flowClasses.value.find((item) => item.id === id)?.name || "Flow";
-}
 function targetFlows(targetId: string) {
   return appliedFlows.value.filter((flow) => flow.targetId === targetId);
 }
@@ -299,277 +312,755 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="page">
-    <header class="page-heading">
+  <div class="page editor-page">
+    <div class="breadcrumb">
+      <RouterLink to="/admin">運営向けページ</RouterLink><b>/</b
+      ><span>{{ isNew ? "講習会を登録" : "講習会を編集" }}</span>
+    </div>
+    <header class="editor-header">
       <div>
-        <p class="eyebrow">LECTURE EDITOR</p>
         <h1>{{ isNew ? "講習会を登録" : "講習会を編集" }}</h1>
-        <p>Lectureの共通情報を保存し、開催とFlowを追加します。</p>
+        <p>講習会の情報、開催、Flowをひとつの画面で管理します。</p>
       </div>
-      <RouterLink
-        v-if="current?.isPublished"
-        class="button secondary"
-        :to="`/lectures/${current.id}`"
-        >公開画面を見る</RouterLink
-      >
+      <div class="header-actions">
+        <span v-if="current" :class="['header-status', current.isPublished ? '' : 'draft']"
+          ><span></span>{{ current.isPublished ? "公開中" : "下書き" }}</span
+        >
+        <BasiqButton
+          v-if="current?.isPublished"
+          tone="neutral"
+          variant="outline"
+          @click="router.push(`/lectures/${current.id}`)"
+          >公開画面を見る</BasiqButton
+        >
+      </div>
     </header>
+
     <div v-if="loading" class="loading-state">編集データを読み込んでいます</div>
-    <div v-else class="editor-stack">
+    <template v-else>
       <p v-if="notice" class="notice" role="status">{{ notice }}</p>
       <p v-if="error" class="notice error" role="alert">{{ error }}</p>
-      <form class="surface panel" @submit.prevent="saveLecture">
-        <div class="form-grid">
-          <label class="field full"
-            ><span>講習会名 *</span
-            ><input v-model="form.name" class="input" required maxlength="200" /></label
-          ><label class="field full"
-            ><span>説明</span
-            ><textarea v-model="form.description" class="textarea"></textarea></label
-          ><label class="field"
-            ><span>開始学年度 *</span
-            ><input
-              v-model.number="form.academicYearStart"
-              class="input"
-              type="number"
-              min="2000"
-              max="2200"
-              required /></label
-          ><label class="field"
-            ><span>終了学年度 *</span
-            ><input
-              v-model.number="form.academicYearEnd"
-              class="input"
-              type="number"
-              min="2000"
-              max="2200"
-              required /></label
-          ><label class="field"
-            ><span>分野</span
-            ><select v-model="form.fieldId" class="select">
-              <option value="">未指定</option>
-              <option v-for="field in fields" :key="field.id" :value="field.id">
-                {{ field.name }}
-              </option>
-            </select></label
-          ><label class="checkbox"
-            ><input v-model="form.isIntroductory" type="checkbox" />その分野の0→1講習</label
-          ><label class="field full"
-            ><span>対象者</span
-            ><textarea v-model="form.targetAudience" class="textarea"></textarea></label
-          ><label class="field"
-            ><span>運営グループ</span
-            ><select v-model="form.organizerGroupIds" class="select" multiple>
-              <option v-for="group in directory.groups" :key="group.id" :value="group.id">
-                {{ group.name }}
-              </option>
-            </select></label
-          ><label class="field"
-            ><span>運営メンバー</span
-            ><select v-model="form.organizerUserIds" class="select" multiple>
-              <option v-for="user in directory.users" :key="user.id" :value="user.id">
-                {{ user.displayName }} (@{{ user.traqId }})
-              </option>
-            </select></label
-          ><label class="field"
-            ><span>問い合わせグループ</span
-            ><select v-model="form.contactGroupIds" class="select" multiple>
-              <option v-for="group in directory.groups" :key="group.id" :value="group.id">
-                {{ group.name }}
-              </option>
-            </select></label
-          ><label class="field"
-            ><span>問い合わせメンバー</span
-            ><select v-model="form.contactUserIds" class="select" multiple>
-              <option v-for="user in directory.users" :key="user.id" :value="user.id">
-                {{ user.displayName }}
-              </option>
-            </select></label
-          ><label class="field full"
-            ><span>traQチャンネルID</span
-            ><input v-model="form.traqChannelId" class="input" /></label
-          ><label class="field full"
-            ><span>資料（1行ごとに「タイトル | https://...」）</span
-            ><textarea
-              v-model="form.resourcesText"
-              class="textarea"
-              placeholder="講義資料 | https://example.com/slides"
-            ></textarea></label
-          ><label class="field full"
-            ><span>講習会の関係（1行ごとに「prerequisite, Lecture ID」）</span
-            ><textarea v-model="form.relationsText" class="textarea"></textarea></label
-          ><label v-if="isNew" class="field full"
-            ><span>保存後に始める事前Flow</span
-            ><select v-model="selectedFlowClassId" class="select">
-              <option value="">Flowを使わず保存</option>
-              <option v-for="flowClass in preFlowClasses" :key="flowClass.id" :value="flowClass.id">
-                {{ flowClass.name }}
-              </option>
-            </select></label
-          >
-        </div>
-        <div class="form-actions">
-          <BasiqButton type="submit" :disabled="saving">{{
-            saving ? "保存中…" : isNew ? "Lectureを作成" : "変更を保存"
-          }}</BasiqButton>
-        </div>
-      </form>
-      <template v-if="current"
-        ><section class="surface panel">
-          <div class="section-heading">
-            <h2>開催</h2>
-            <button class="button secondary" type="button" @click="resetSession">新しい開催</button>
-          </div>
-          <div v-if="current.sessions.length" class="editor-list">
-            <div v-for="session in current.sessions" :key="session.id" class="editor-row">
-              <button class="editor-main-action" type="button" @click="editSession(session)">
-                <strong>{{ session.name }}</strong>
-                <p>
-                  {{ session.date || "日時未定" }} · {{ session.isReplay ? "再放送" : "通常開催" }}
-                </p></button
-              ><span :class="['pill', session.status === 'published' ? 'success' : 'draft']">{{
-                session.status === "published" ? "公開" : "下書き"
-              }}</span>
-            </div>
-          </div>
-          <p v-else>開催はまだありません。</p>
-        </section>
-        <form id="session-editor" class="surface panel" @submit.prevent="saveSession">
-          <h2>{{ sessionEditingId ? "開催を編集" : "開催を追加" }}</h2>
-          <div class="form-grid">
-            <label class="field full"
-              ><span>開催名 *</span
-              ><input v-model="sessionForm.name" class="input" required /></label
-            ><label class="field full"
-              ><span>説明</span
-              ><textarea v-model="sessionForm.description" class="textarea"></textarea></label
-            ><label class="field"
-              ><span>表示順</span
-              ><input
-                v-model.number="sessionForm.order"
-                class="input"
-                type="number"
-                min="0" /></label
-            ><label class="field"
-              ><span>公開状態</span
-              ><select v-model="sessionForm.status" class="select">
-                <option value="draft">下書き</option>
-                <option value="published">公開</option>
-              </select></label
-            ><label class="field"
-              ><span>日付</span
-              ><input v-model="sessionForm.date" class="input" type="date" /></label
-            ><label class="field"
-              ><span>開始時刻</span
-              ><input
-                v-model="sessionForm.startTime"
-                class="input"
-                type="time"
-                :disabled="!sessionForm.date" /></label
-            ><label class="field full"
-              ><span>場所</span><input v-model="sessionForm.location" class="input" /></label
-            ><label class="field full"
-              ><span>knoQ URL</span
-              ><input v-model="sessionForm.knoqUrl" class="input" type="url" /></label
-            ><label class="field"
-              ><span>講師</span
-              ><select v-model="sessionForm.instructorIds" class="select" multiple>
-                <option v-for="user in directory.users" :key="user.id" :value="user.id">
-                  {{ user.displayName }}
-                </option>
-              </select></label
-            ><label class="field"
-              ><span>再放送元（同じLectureの通常開催）</span
-              ><select v-model="sessionForm.replayOfSessionIds" class="select" multiple>
-                <option
-                  v-for="session in current.sessions.filter(
-                    (item) => !item.isReplay && item.id !== sessionEditingId,
-                  )"
-                  :key="session.id"
-                  :value="session.id"
-                >
-                  {{ session.name }}
-                </option>
-              </select></label
-            ><label class="field full"
-              ><span>教材（1行ごとに「タイトル | URL」）</span
-              ><textarea v-model="sessionForm.resourcesText" class="textarea"></textarea>
-            </label>
-          </div>
-          <div class="form-actions">
-            <button
-              v-if="sessionEditingId"
-              class="button secondary"
-              type="button"
-              @click="resetSession"
-            >
-              新規入力へ戻す</button
-            ><BasiqButton type="submit" :disabled="saving">{{
-              saving ? "保存中…" : "開催を保存"
-            }}</BasiqButton>
-          </div>
-        </form>
-        <section class="surface panel">
-          <div class="section-heading">
-            <h2>講習会の事前・事後Flow</h2>
-            <RouterLink to="/stock">Stockを開く</RouterLink>
-          </div>
-          <div class="editor-list">
-            <div v-for="flowClass in lectureFlowClasses" :key="flowClass.id" class="editor-row">
-              <span
-                ><strong>{{ flowClass.name }}</strong>
-                <p>{{ flowClass.type === "lecture_pre" ? "事前" : "事後" }}</p></span
-              ><button
-                class="button secondary"
-                type="button"
-                @click="startFlow(flowClass.id, current.id)"
-              >
-                {{
-                  targetFlows(current.id).some((flow) => flow.flowClassId === flowClass.id)
-                    ? "再開"
-                    : "開始"
-                }}
-              </button>
-            </div>
-          </div>
-          <div v-if="targetFlows(current.id).length" class="applied-flow-list">
-            <RouterLink
-              v-for="flow in targetFlows(current.id)"
-              :key="flow.id"
-              :to="`/flows/${flow.id}`"
-              >{{ flowClassName(flow.flowClassId) }} · {{ flow.status }}</RouterLink
-            >
-          </div>
-        </section>
-        <section class="surface panel">
-          <h2>各開催のメインFlow</h2>
-          <div v-for="session in current.sessions" :key="session.id" class="session-flow-group">
-            <strong>{{ session.name }}</strong>
-            <div class="inline-actions">
-              <button
-                v-for="flowClass in sessionFlowClasses"
-                :key="flowClass.id"
-                class="button secondary compact"
-                type="button"
-                @click="startFlow(flowClass.id, session.id)"
-              >
-                {{ flowClass.name }}を{{
-                  targetFlows(session.id).some((flow) => flow.flowClassId === flowClass.id)
-                    ? "再開"
-                    : "開始"
-                }}
-              </button>
-            </div>
-            <div class="applied-flow-list">
-              <RouterLink
-                v-for="flow in targetFlows(session.id)"
-                :key="flow.id"
-                :to="`/flows/${flow.id}`"
-                >{{ flowClassName(flow.flowClassId) }} · {{ flow.status }}</RouterLink
-              >
-            </div>
-          </div>
-        </section></template
+
+      <BasiqTabs
+        v-model="activeTab"
+        class="section-tabs"
+        :items="editorTabs"
+        aria-label="講習会の編集項目"
+        list-width="100%"
       >
-    </div>
+        <template #content="{ item }">
+          <div class="tab-content">
+            <form v-if="item.value === 'general'" @submit.prevent="saveLecture">
+              <BasiqCard class="editor-card">
+                <template #header
+                  ><div>
+                    <p class="card-kicker">全般</p>
+                    <h2>講習会の基本情報</h2>
+                  </div></template
+                >
+                <div class="form-stack">
+                  <p class="step-lead">講習会そのものに共通する名前、概要、対象を設定します。</p>
+                  <BasiqFormField label="講習会名" required
+                    ><BasiqInput v-model="form.name" required maxlength="200"
+                  /></BasiqFormField>
+                  <BasiqFormField label="概要"
+                    ><BasiqTextarea v-model="form.description" :rows="4"
+                  /></BasiqFormField>
+                  <div class="field-grid">
+                    <label class="native-field"
+                      ><span>開始学年度 *</span
+                      ><input
+                        v-model.number="form.academicYearStart"
+                        type="number"
+                        min="2000"
+                        max="2200"
+                        required
+                    /></label>
+                    <label class="native-field"
+                      ><span>終了学年度 *</span
+                      ><input
+                        v-model.number="form.academicYearEnd"
+                        type="number"
+                        min="2000"
+                        max="2200"
+                        required
+                    /></label>
+                  </div>
+                  <div class="field-grid">
+                    <label class="native-field"
+                      ><span>分野</span
+                      ><select v-model="form.fieldId">
+                        <option value="">未指定</option>
+                        <option v-for="field in fields" :key="field.id" :value="field.id">
+                          {{ field.name }}
+                        </option>
+                      </select></label
+                    >
+                    <div class="switch-field">
+                      <BasiqSwitch v-model="form.isIntroductory">その分野の0→1講習</BasiqSwitch
+                      ><small>初めて学ぶ人向けの入口として表示します。</small>
+                    </div>
+                  </div>
+                  <BasiqFormField label="対象者"
+                    ><BasiqTextarea v-model="form.targetAudience" :rows="3"
+                  /></BasiqFormField>
+                  <label v-if="isNew" class="native-field"
+                    ><span>保存後に始める事前Flow</span
+                    ><select v-model="selectedFlowClassId">
+                      <option value="">Flowを使わず保存</option>
+                      <option
+                        v-for="flowClass in preFlowClasses"
+                        :key="flowClass.id"
+                        :value="flowClass.id"
+                      >
+                        {{ flowClass.name }}
+                      </option>
+                    </select></label
+                  >
+                </div>
+              </BasiqCard>
+              <footer class="sticky-actions">
+                <BasiqButton type="submit" :disabled="saving">{{
+                  saving ? "保存中…" : isNew ? "講習会を作成" : "変更を保存"
+                }}</BasiqButton>
+              </footer>
+            </form>
+
+            <section v-else-if="item.value === 'sessions'" class="tab-panel">
+              <BasiqCard class="editor-card">
+                <template #header
+                  ><div class="card-heading">
+                    <div>
+                      <p class="card-kicker">開催</p>
+                      <h2>開催の一覧</h2>
+                    </div>
+                    <BasiqButton tone="neutral" variant="outline" @click="resetSession"
+                      ><AppIcon name="plus" :size="16" />開催を追加</BasiqButton
+                    >
+                  </div></template
+                >
+                <div v-if="current?.sessions.length" class="round-list">
+                  <button
+                    v-for="(session, index) in current.sessions"
+                    :key="session.id"
+                    type="button"
+                    :class="{ selected: sessionEditingId === session.id }"
+                    @click="editSession(session)"
+                  >
+                    <span class="round-number">{{ index + 1 }}</span
+                    ><span
+                      ><strong>{{ session.name }}</strong
+                      ><small
+                        >{{ session.date || "日時未定" }} ·
+                        {{ session.isReplay ? "再放送" : "通常開催" }}</small
+                      ></span
+                    ><span
+                      :class="['pill', session.status === 'published' ? 'success' : 'draft']"
+                      >{{ session.status === "published" ? "公開" : "下書き" }}</span
+                    ><AppIcon name="chevron" :size="16" />
+                  </button>
+                </div>
+                <p v-else class="empty-copy">講習会を保存すると開催を追加できます。</p>
+              </BasiqCard>
+
+              <form id="session-editor" @submit.prevent="saveSession">
+                <BasiqCard class="editor-card">
+                  <template #header
+                    ><div>
+                      <p class="card-kicker">
+                        {{ sessionEditingId ? "開催を編集" : "新しい開催" }}
+                      </p>
+                      <h2>開催内容</h2>
+                    </div></template
+                  >
+                  <div v-if="current" class="form-stack">
+                    <BasiqFormField label="開催名" required
+                      ><BasiqInput v-model="sessionForm.name" required
+                    /></BasiqFormField>
+                    <BasiqFormField label="説明"
+                      ><BasiqTextarea v-model="sessionForm.description" :rows="4"
+                    /></BasiqFormField>
+                    <div class="field-grid three">
+                      <label class="native-field"
+                        ><span>表示順</span
+                        ><input v-model.number="sessionForm.order" type="number" min="0"
+                      /></label>
+                      <label class="native-field"
+                        ><span>日付</span><input v-model="sessionForm.date" type="date"
+                      /></label>
+                      <label class="native-field"
+                        ><span>開始時刻</span
+                        ><input
+                          v-model="sessionForm.startTime"
+                          type="time"
+                          :disabled="!sessionForm.date"
+                      /></label>
+                    </div>
+                    <div class="field-grid">
+                      <BasiqFormField label="場所"
+                        ><BasiqInput v-model="sessionForm.location" /></BasiqFormField
+                      ><BasiqFormField label="knoQ URL"
+                        ><BasiqInput
+                          v-model="sessionForm.knoqUrl"
+                          type="url"
+                          placeholder="https://"
+                      /></BasiqFormField>
+                    </div>
+                    <div class="field-grid">
+                      <label class="native-field"
+                        ><span>公開状態</span
+                        ><select v-model="sessionForm.status">
+                          <option value="draft">下書き</option>
+                          <option value="published">公開</option>
+                        </select></label
+                      ><label class="native-field"
+                        ><span>講師</span
+                        ><select v-model="sessionForm.instructorIds" multiple>
+                          <option v-for="user in directory.users" :key="user.id" :value="user.id">
+                            {{ user.displayName }}
+                          </option>
+                        </select></label
+                      >
+                    </div>
+                    <label class="native-field"
+                      ><span>再放送元（同じ講習会の通常開催）</span
+                      ><select v-model="sessionForm.replayOfSessionIds" multiple>
+                        <option
+                          v-for="session in current.sessions.filter(
+                            (entry) => !entry.isReplay && entry.id !== sessionEditingId,
+                          )"
+                          :key="session.id"
+                          :value="session.id"
+                        >
+                          {{ session.name }}
+                        </option>
+                      </select></label
+                    >
+                    <BasiqFormField label="教材（1行ごとに「タイトル | URL」）"
+                      ><BasiqTextarea v-model="sessionForm.resourcesText" :rows="4"
+                    /></BasiqFormField>
+                  </div>
+                  <p v-else class="empty-copy">先に全般タブで講習会を保存してください。</p>
+                </BasiqCard>
+                <footer v-if="current" class="sticky-actions">
+                  <BasiqButton
+                    v-if="sessionEditingId"
+                    tone="neutral"
+                    variant="outline"
+                    type="button"
+                    @click="resetSession"
+                    >新規入力へ戻す</BasiqButton
+                  ><BasiqButton type="submit" :disabled="saving">{{
+                    saving ? "保存中…" : "開催を保存"
+                  }}</BasiqButton>
+                </footer>
+              </form>
+            </section>
+
+            <section v-else-if="item.value === 'flows'" class="tab-panel">
+              <BasiqCard class="editor-card">
+                <template #header
+                  ><div class="card-heading">
+                    <div>
+                      <p class="card-kicker">講習会</p>
+                      <h2>事前・事後Flow</h2>
+                    </div>
+                    <BasiqButton tone="neutral" variant="outline" @click="router.push('/stock')"
+                      >Stockを開く</BasiqButton
+                    >
+                  </div></template
+                >
+                <div v-if="current" class="flow-list">
+                  <div v-for="flowClass in lectureFlowClasses" :key="flowClass.id" class="flow-row">
+                    <span
+                      ><strong>{{ flowClass.name }}</strong
+                      ><small>{{
+                        flowClass.type === "lecture_pre" ? "講習会の事前" : "講習会の事後"
+                      }}</small></span
+                    ><BasiqButton
+                      tone="neutral"
+                      variant="outline"
+                      @click="startFlow(flowClass.id, current.id)"
+                      >{{
+                        targetFlows(current.id).some((flow) => flow.flowClassId === flowClass.id)
+                          ? "再開"
+                          : "開始"
+                      }}</BasiqButton
+                    >
+                  </div>
+                </div>
+                <p v-else class="empty-copy">講習会を保存するとFlowを適用できます。</p>
+              </BasiqCard>
+              <BasiqCard v-if="current" class="editor-card"
+                ><template #header
+                  ><div>
+                    <p class="card-kicker">各開催</p>
+                    <h2>メインFlow</h2>
+                  </div></template
+                >
+                <div class="session-flow-list">
+                  <section v-for="session in current.sessions" :key="session.id">
+                    <div>
+                      <strong>{{ session.name }}</strong
+                      ><small>{{ session.date || "日時未定" }}</small>
+                    </div>
+                    <div class="flow-buttons">
+                      <BasiqButton
+                        v-for="flowClass in sessionFlowClasses"
+                        :key="flowClass.id"
+                        tone="neutral"
+                        variant="outline"
+                        @click="startFlow(flowClass.id, session.id)"
+                        >{{ flowClass.name }}を{{
+                          targetFlows(session.id).some((flow) => flow.flowClassId === flowClass.id)
+                            ? "再開"
+                            : "開始"
+                        }}</BasiqButton
+                      >
+                    </div>
+                  </section>
+                </div></BasiqCard
+              >
+            </section>
+
+            <form v-else class="settings-overview" @submit.prevent="saveLecture">
+              <header>
+                <h2>すべての設定</h2>
+                <p>必要な項目を開いて編集します。</p>
+              </header>
+              <div class="settings-accordion">
+                <details open>
+                  <summary>
+                    <span
+                      ><strong>運営と問い合わせ</strong><small>担当グループ・メンバー</small></span
+                    >
+                  </summary>
+                  <div class="accordion-content">
+                    <div class="field-grid">
+                      <label class="native-field"
+                        ><span>運営グループ</span
+                        ><select v-model="form.organizerGroupIds" multiple>
+                          <option
+                            v-for="group in directory.groups"
+                            :key="group.id"
+                            :value="group.id"
+                          >
+                            {{ group.name }}
+                          </option>
+                        </select></label
+                      ><label class="native-field"
+                        ><span>運営メンバー</span
+                        ><select v-model="form.organizerUserIds" multiple>
+                          <option v-for="user in directory.users" :key="user.id" :value="user.id">
+                            {{ user.displayName }}
+                          </option>
+                        </select></label
+                      ><label class="native-field"
+                        ><span>問い合わせグループ</span
+                        ><select v-model="form.contactGroupIds" multiple>
+                          <option
+                            v-for="group in directory.groups"
+                            :key="group.id"
+                            :value="group.id"
+                          >
+                            {{ group.name }}
+                          </option>
+                        </select></label
+                      ><label class="native-field"
+                        ><span>問い合わせメンバー</span
+                        ><select v-model="form.contactUserIds" multiple>
+                          <option v-for="user in directory.users" :key="user.id" :value="user.id">
+                            {{ user.displayName }}
+                          </option>
+                        </select></label
+                      >
+                    </div>
+                    <BasiqFormField label="traQチャンネルID"
+                      ><BasiqInput v-model="form.traqChannelId"
+                    /></BasiqFormField>
+                  </div>
+                </details>
+                <details>
+                  <summary>
+                    <span><strong>資料</strong><small>講習会共通のリンク</small></span>
+                  </summary>
+                  <div class="accordion-content">
+                    <BasiqFormField label="1行ごとに「タイトル | URL」"
+                      ><BasiqTextarea
+                        v-model="form.resourcesText"
+                        :rows="6"
+                        placeholder="講義資料 | https://example.com/slides"
+                    /></BasiqFormField>
+                  </div>
+                </details>
+                <details>
+                  <summary>
+                    <span
+                      ><strong>関連する講習会</strong
+                      ><small>前提・前年度・次におすすめ</small></span
+                    >
+                  </summary>
+                  <div class="accordion-content">
+                    <BasiqFormField label="1行ごとに「prerequisite, Lecture ID」"
+                      ><BasiqTextarea v-model="form.relationsText" :rows="6"
+                    /></BasiqFormField>
+                  </div>
+                </details>
+              </div>
+              <footer class="sticky-actions">
+                <BasiqButton type="submit" :disabled="saving">{{
+                  saving ? "保存中…" : "変更を保存"
+                }}</BasiqButton>
+              </footer>
+            </form>
+          </div>
+        </template>
+      </BasiqTabs>
+    </template>
   </div>
 </template>
+
+<style scoped>
+/* stylelint-disable no-descending-specificity */
+.editor-page {
+  width: min(1160px, 100%);
+}
+
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  margin-bottom: 22px;
+}
+
+.editor-header h1 {
+  font-size: 30px;
+  letter-spacing: -0.025em;
+}
+
+.editor-header p,
+.step-lead,
+.empty-copy,
+.settings-overview > header p {
+  color: var(--basiq-color-content-subtle);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  color: #24734a;
+  background: #edf7f1;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.header-status.draft {
+  color: var(--basiq-color-content-subtle);
+  background: var(--basiq-color-surface-muted);
+}
+
+.header-status > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentcolor;
+}
+
+.tab-content {
+  min-height: 650px;
+  padding-top: 20px;
+}
+
+.tab-content > form,
+.tab-panel,
+.settings-overview {
+  width: min(900px, 100%);
+  margin: auto;
+}
+
+.tab-panel,
+.form-stack,
+.settings-overview {
+  display: grid;
+  gap: 16px;
+}
+
+.editor-card {
+  border: 1px solid var(--basiq-color-border-separator);
+}
+
+.editor-card h2 {
+  font-size: 18px;
+}
+
+.card-kicker {
+  margin-bottom: 3px;
+  color: var(--basiq-color-content-accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.card-heading {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.field-grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.native-field {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.native-field > span {
+  font-size: 12px;
+}
+
+.native-field select,
+.native-field input {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 11px;
+  border: 1px solid var(--basiq-color-border-control);
+  border-radius: var(--basiq-radius-sm);
+  color: var(--basiq-color-content-default);
+  background: var(--basiq-color-surface-base);
+  font: inherit;
+}
+
+.native-field select[multiple] {
+  min-height: 94px;
+}
+
+.switch-field {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  padding-top: 20px;
+}
+
+.switch-field small {
+  color: var(--basiq-color-content-subtle);
+}
+
+.sticky-actions {
+  position: sticky;
+  z-index: 20;
+  bottom: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--basiq-color-border-separator);
+  background: color-mix(in srgb, var(--basiq-color-surface-base) 96%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.round-list,
+.flow-list,
+.session-flow-list {
+  display: grid;
+  gap: 9px;
+}
+
+.round-list > button,
+.flow-row,
+.session-flow-list > section {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px;
+  border: 1px solid var(--basiq-color-border-separator);
+  border-radius: var(--basiq-radius-sm);
+  color: inherit;
+  background: var(--basiq-color-surface-base);
+  text-align: left;
+}
+
+.round-list > button {
+  cursor: pointer;
+}
+
+.round-list > button:hover,
+.round-list > button.selected {
+  border-color: var(--basiq-color-accent-default);
+  background: var(--accent-soft);
+}
+
+.round-list > button > span:nth-child(2),
+.flow-row > span,
+.session-flow-list > section > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  flex: 1;
+}
+
+.round-list small,
+.flow-row small,
+.session-flow-list small {
+  color: var(--basiq-color-content-subtle);
+}
+
+.round-number {
+  width: 42px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border-radius: var(--basiq-radius-sm);
+  color: var(--basiq-color-content-accent);
+  background: var(--accent-soft);
+  font-weight: 700;
+}
+
+.flow-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.settings-overview > header {
+  display: grid;
+  gap: 3px;
+}
+
+.settings-accordion {
+  display: grid;
+  gap: 10px;
+}
+
+.settings-accordion details {
+  overflow: hidden;
+  border: 1px solid var(--basiq-color-border-separator);
+  border-radius: var(--basiq-radius-sm);
+  background: var(--basiq-color-surface-base);
+}
+
+.settings-accordion summary {
+  min-height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.settings-accordion summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-accordion summary::after {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--basiq-color-border-control);
+  border-radius: 50%;
+  content: "+";
+}
+
+.settings-accordion details[open] summary::after {
+  content: "−";
+}
+
+.settings-accordion summary > span {
+  display: grid;
+  gap: 2px;
+}
+
+.settings-accordion summary small {
+  color: var(--basiq-color-content-subtle);
+}
+
+.accordion-content {
+  display: grid;
+  gap: 18px;
+  padding: 18px 16px;
+  border-top: 1px solid var(--basiq-color-border-separator);
+  background: var(--basiq-color-surface-container);
+}
+
+@media (width <= 760px) {
+  .editor-header {
+    gap: 10px;
+  }
+
+  .editor-header h1 {
+    font-size: 22px;
+  }
+
+  .editor-header p {
+    display: none;
+  }
+
+  .header-actions button {
+    display: none;
+  }
+
+  .tab-content {
+    padding-top: 16px;
+  }
+
+  .field-grid,
+  .field-grid.three {
+    grid-template-columns: 1fr;
+  }
+
+  .card-heading {
+    align-items: flex-start;
+  }
+
+  .round-list > button {
+    padding: 9px;
+  }
+
+  .flow-row,
+  .session-flow-list > section {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .sticky-actions {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 63px;
+    min-height: 58px;
+    align-items: center;
+    margin: 0;
+    padding: 8px 16px;
+  }
+
+  .sticky-actions button:last-child {
+    flex: 1;
+  }
+}
+</style>

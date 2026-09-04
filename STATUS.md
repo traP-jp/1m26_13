@@ -1,7 +1,7 @@
 # Status
 
 更新日: 2026-09-04
-フェーズ: 本番初期実装 完了。内部試用待ち。
+フェーズ: 本番初期実装と確定画面設計の反映 完了。内部試用待ち。
 
 ## 現在地
 
@@ -27,6 +27,8 @@
 - プロフィールのbadge、完了Session、Roadmapの3タブ。矢印/Home/End操作に対応した。
 - `badge-alpha-v1:${lectureId}`による決定論的なソリッド幾何学SVGとモーション低減。
 - Lecture、Session、FlowClass、Flow、Roadmapの削除API・画面は実装していない。
+- BasiQ UI beta.3のCard、Tabs、FormField、Input、Textarea、Switch、Checkboxを使い、確定した画面設計を全導線へ反映した。
+- デスクトップは固定サイドバー、モバイルは上部ヘッダーと下部ナビゲーションを共通化した。画面設計の削除操作だけは、確定済み製品仕様に従って除外した。
 
 ## 最終検証
 
@@ -36,6 +38,7 @@
 - 実ブラウザ: ホーム検索、Lecture詳細、通常Session、再放送直接URL、プロフィールbadge、Roadmap編集、完了Flowを確認。
 - 390×844: ホームとRoadmap編集で`documentElement.scrollWidth === innerWidth === 390`。console warning/error 0件。
 - プロフィールtabは右矢印で選択、focus、tabpanelが同時に切り替わることを確認。
+- 画面設計反映後のfrontendで、API型生成check、oxfmt、oxlint、ESLint、stylelint、Vue型検査、Vitest 6/6、Vite buildを再実行して成功。
 
 ## 再現手順
 

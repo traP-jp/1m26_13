@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { BasiqButton, BasiqCard } from "basiq-ui";
-import { onMounted, ref, watch } from "vue";
+import { BasiqButton, BasiqCard, BasiqFormField, BasiqInput } from "basiq-ui";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 import {
@@ -11,6 +11,7 @@ import {
   type Lecture,
   type Roadmap,
 } from "@/api/resources";
+import AppIcon from "@/components/AppIcon.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -22,6 +23,20 @@ const roadmaps = ref<Roadmap[]>([]);
 const fields = ref<Field[]>([]);
 const loading = ref(true);
 const error = ref("");
+
+const visibleRoadmaps = computed(() => {
+  const query = q.value.trim().toLocaleLowerCase("ja");
+  if (!query) return roadmaps.value;
+  return roadmaps.value.filter((roadmap) =>
+    `${roadmap.title} ${roadmap.description}`.toLocaleLowerCase("ja").includes(query),
+  );
+});
+
+function academicYear(lecture: Lecture) {
+  return lecture.academicYearStart === lecture.academicYearEnd
+    ? `${lecture.academicYearStart}年度`
+    : `${lecture.academicYearStart}–${lecture.academicYearEnd}年度`;
+}
 
 async function load() {
   loading.value = true;
@@ -55,6 +70,13 @@ async function search() {
   await load();
 }
 
+async function clearFilters() {
+  q.value = "";
+  year.value = "";
+  fieldId.value = "";
+  await search();
+}
+
 watch(
   () => route.query,
   () => {
@@ -68,109 +90,396 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="page">
-    <header class="page-heading">
-      <div>
-        <p class="eyebrow">DISCOVER</p>
-        <h1>次に学ぶ講習会を探す</h1>
-        <p>開催資料と運営の知見を、年度を越えて探し、たどり、学び終えた記録まで残せます。</p>
+  <div class="page discovery-page">
+    <h1 class="visually-hidden">講習会とロードマップを探す</h1>
+
+    <section aria-labelledby="lecture-results-heading">
+      <BasiqCard class="filter-card">
+        <template #header>
+          <div class="filter-header">
+            <div>
+              <span class="filter-icon"><AppIcon name="search" /></span>
+              <div>
+                <strong>講習会とロードマップを探す</strong
+                ><small>キーワードで両方を検索できます</small>
+              </div>
+            </div>
+            <button class="clear-button" type="button" @click="clearFilters">条件をクリア</button>
+          </div>
+        </template>
+        <form class="filter-grid" @submit.prevent="search">
+          <BasiqFormField label="キーワード" class="keyword-field">
+            <BasiqInput v-model="q" type="search" placeholder="例：Web、Git、インフラ" />
+          </BasiqFormField>
+          <BasiqFormField label="分野">
+            <template #default="{ id, describedBy }">
+              <select :id="id" v-model="fieldId" :aria-describedby="describedBy">
+                <option value="">すべての分野</option>
+                <option v-for="field in fields" :key="field.id" :value="field.id">
+                  {{ field.name }}
+                </option>
+              </select>
+            </template>
+          </BasiqFormField>
+          <BasiqFormField label="年度">
+            <BasiqInput v-model="year" inputmode="numeric" placeholder="すべての年度" />
+          </BasiqFormField>
+          <BasiqButton type="submit" class="search-button"
+            ><AppIcon name="search" :size="18" />この条件で検索</BasiqButton
+          >
+        </form>
+      </BasiqCard>
+
+      <div v-if="loading" class="loading-state" aria-live="polite">講習会を読み込んでいます</div>
+      <div v-else-if="error" class="error-state" role="alert">
+        <p>{{ error }}</p>
+        <BasiqButton tone="neutral" variant="outline" @click="load">再試行</BasiqButton>
       </div>
-      <RouterLink class="button secondary" to="/admin/lectures/new">講習会をつくる</RouterLink>
-    </header>
-
-    <form class="surface search-panel" aria-label="講習会を検索" @submit.prevent="search">
-      <label class="field"
-        ><span>キーワード</span
-        ><input v-model="q" class="input" type="search" placeholder="講習会名・説明から検索"
-      /></label>
-      <label class="field"
-        ><span>学年度</span
-        ><input v-model="year" class="input" inputmode="numeric" placeholder="2026"
-      /></label>
-      <label class="field"
-        ><span>分野</span
-        ><select v-model="fieldId" class="select">
-          <option value="">すべて</option>
-          <option v-for="field in fields" :key="field.id" :value="field.id">
-            {{ field.name }}
-          </option>
-        </select></label
-      >
-      <BasiqButton type="submit">検索</BasiqButton>
-    </form>
-
-    <div v-if="loading" class="loading-state" aria-live="polite">講習会を読み込んでいます</div>
-    <div v-else-if="error" class="error-state" role="alert">
-      <p>{{ error }}</p>
-      <button class="button secondary" type="button" @click="load">再試行</button>
-    </div>
-    <template v-else>
-      <div class="section-heading">
-        <div>
-          <h2>講習会</h2>
-          <p>{{ lectures.length }}件</p>
+      <template v-else>
+        <div id="lecture-results-heading" class="results-heading">
+          <div>
+            <h2>講習会</h2>
+            <span>見つかった教材を新しい順に表示</span>
+          </div>
+          <strong>{{ lectures.length }}件</strong>
         </div>
-      </div>
-      <div v-if="lectures.length" class="card-grid">
-        <RouterLink
-          v-for="lecture in lectures"
-          :key="lecture.id"
-          class="lecture-card"
-          :to="`/lectures/${lecture.id}`"
-        >
-          <div class="card-meta">
-            <span class="pill">{{
-              lecture.academicYearStart === lecture.academicYearEnd
-                ? `${lecture.academicYearStart}年度`
-                : `${lecture.academicYearStart}–${lecture.academicYearEnd}年度`
-            }}</span
-            ><span v-if="lecture.isIntroductory" class="pill success">0→1</span>
-          </div>
-          <h2>{{ lecture.name }}</h2>
-          <p>{{ lecture.description || "説明はまだありません。" }}</p>
-          <div class="card-footer">
-            <span>{{ lecture.sessions.length }}開催</span
-            ><span
-              >{{ lecture.completedSessionCount }}/{{ lecture.requiredSessionCount }} 完了</span
-            >
-          </div>
-        </RouterLink>
-      </div>
-      <div v-else class="empty-state">
-        <h2>条件に合う講習会はありません</h2>
-        <p>検索語や絞り込みを減らしてみてください。</p>
-      </div>
 
-      <div class="section-heading">
+        <ul v-if="lectures.length" class="discovery-grid">
+          <li v-for="lecture in lectures" :key="lecture.id">
+            <RouterLink :to="`/lectures/${lecture.id}`" class="card-link">
+              <BasiqCard class="discovery-card">
+                <article class="discovery-card-content">
+                  <div class="card-tags"><span v-if="lecture.isIntroductory">初心者向け</span></div>
+                  <h3>{{ lecture.name }}</h3>
+                  <div class="card-description">
+                    <p>{{ lecture.description || "説明はまだありません。" }}</p>
+                    <AppIcon name="chevron" :size="19" />
+                  </div>
+                  <p class="card-meta">
+                    {{ lecture.sessions.length }}開催 · {{ academicYear(lecture) }}
+                  </p>
+                </article>
+              </BasiqCard>
+            </RouterLink>
+          </li>
+        </ul>
+        <div v-else class="empty-state">
+          <strong>条件に合う講習会はありません</strong>
+          <p>検索語や絞り込みを減らしてみてください。</p>
+        </div>
+      </template>
+    </section>
+
+    <section class="roadmap-section" aria-labelledby="roadmap-results-heading">
+      <div id="roadmap-results-heading" class="results-heading">
         <div>
           <h2>ロードマップ</h2>
-          <p>目的別の一本道</p>
+          <span>目的に合った学ぶ順番を表示</span>
         </div>
-        <RouterLink to="/roadmaps">すべて見る</RouterLink>
+        <strong>{{ visibleRoadmaps.length }}件</strong>
       </div>
-      <div v-if="roadmaps.length" class="card-grid">
-        <RouterLink
-          v-for="roadmap in roadmaps.slice(0, 3)"
-          :key="roadmap.id"
-          class="roadmap-card"
-          :to="`/roadmaps/${roadmap.id}`"
-        >
-          <div class="card-meta">
-            <span class="pill">{{ roadmap.progressPercent }}%</span>
-          </div>
-          <h2>{{ roadmap.title }}</h2>
-          <p>{{ roadmap.description }}</p>
-          <div class="card-footer">
-            <span>{{ roadmap.completedItemCount }}/{{ roadmap.totalItemCount }} 講習会</span
-            ><span>順番を見る →</span>
-          </div>
-        </RouterLink>
-      </div>
-      <BasiqCard
-        v-else
-        title="公開中のロードマップはありません"
-        description="運営ページから最初の学習経路を作成できます。"
-      />
-    </template>
+      <ul v-if="visibleRoadmaps.length" class="discovery-grid">
+        <li v-for="roadmap in visibleRoadmaps" :key="roadmap.id">
+          <RouterLink :to="`/roadmaps/${roadmap.id}`" class="card-link">
+            <BasiqCard class="discovery-card">
+              <article class="discovery-card-content">
+                <h3>{{ roadmap.title }}</h3>
+                <div class="card-description">
+                  <p>{{ roadmap.description }}</p>
+                  <AppIcon name="chevron" :size="19" />
+                </div>
+                <p class="card-meta">
+                  {{ roadmap.totalItemCount }}講習会 · {{ roadmap.progressPercent }}% 完了
+                </p>
+              </article>
+            </BasiqCard>
+          </RouterLink>
+        </li>
+      </ul>
+      <div v-else-if="!loading" class="empty-state">公開中のロードマップはありません。</div>
+    </section>
   </div>
 </template>
+
+<style scoped>
+/* stylelint-disable no-descending-specificity */
+.discovery-page {
+  --discovery-content: 1120px;
+
+  width: min(100%, calc(var(--discovery-content) + 80px));
+}
+
+.roadmap-section {
+  margin-top: 64px;
+  padding-top: 48px;
+  border-top: 1px solid var(--basiq-color-border-separator);
+}
+
+.filter-card {
+  border: 1px solid var(--basiq-color-border-separator);
+
+  --basiq-color-card-background: var(--basiq-color-surface-base);
+}
+
+.filter-header,
+.filter-header > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.filter-header > div > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.filter-header small {
+  margin-top: 1px;
+  color: var(--basiq-color-content-subtle);
+}
+
+.filter-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  color: var(--basiq-color-content-accent);
+  background: var(--app-accent-soft);
+}
+
+.clear-button {
+  border: 0;
+  padding: 8px;
+  color: var(--basiq-color-content-accent);
+  background: transparent;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(160px, 0.8fr) minmax(140px, 0.65fr) auto;
+  gap: 16px;
+  align-items: end;
+}
+
+.filter-grid select {
+  width: 100%;
+  height: 40px;
+  padding: 0 34px 0 12px;
+  border: var(--basiq-border-width-strong) solid var(--basiq-color-text-control-border);
+  border-radius: var(--basiq-radius-sm);
+  color: var(--basiq-color-text-control-content);
+  background: var(--basiq-color-text-control-background);
+}
+
+.search-button {
+  min-width: 172px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.results-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  margin: 40px 0 16px;
+}
+
+.results-heading > div {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 12px;
+  align-items: baseline;
+}
+
+.results-heading h2 {
+  font-size: 1.45rem;
+  line-height: 1.35;
+}
+
+.results-heading span {
+  color: var(--basiq-color-content-subtle);
+  font-size: 0.82rem;
+}
+
+.results-heading > strong {
+  min-width: 52px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  color: var(--basiq-color-content-accent);
+  background: var(--app-accent-soft);
+  text-align: center;
+}
+
+.discovery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  list-style: none;
+}
+
+.discovery-grid > li,
+.card-link,
+.discovery-card {
+  height: 100%;
+}
+
+.card-link {
+  display: block;
+  text-decoration: none;
+}
+
+.discovery-card {
+  border: 1px solid transparent;
+
+  --basiq-color-card-background: var(--basiq-color-surface-container);
+
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
+}
+
+.card-link:hover .discovery-card {
+  border-color: var(--basiq-color-accent-default);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--basiq-color-content-default) 9%, transparent);
+  transform: translateY(-2px);
+}
+
+.discovery-card-content {
+  min-height: 170px;
+  display: flex;
+  flex-direction: column;
+}
+
+.card-tags {
+  min-height: 18px;
+  margin-bottom: 4px;
+}
+
+.card-tags span {
+  color: var(--app-success);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.discovery-card-content h3 {
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.card-description {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.card-description p {
+  font-size: 0.86rem;
+  line-height: 1.75;
+}
+
+.card-description :deep(.app-icon) {
+  color: var(--basiq-color-content-accent);
+}
+
+.card-meta {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--basiq-color-border-separator);
+  color: var(--basiq-color-content-subtle);
+  font-size: 0.74rem;
+}
+
+.empty-state p {
+  margin-top: 4px;
+}
+
+@media (width <= 1120px) {
+  .discovery-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filter-grid {
+    grid-template-columns: minmax(0, 1.3fr) minmax(150px, 0.8fr) minmax(130px, 0.6fr);
+  }
+
+  .search-button {
+    grid-column: 1 / -1;
+    width: max-content;
+  }
+}
+
+@media (width <= 760px) {
+  .discovery-page {
+    width: 100%;
+  }
+
+  .roadmap-section {
+    margin-top: 48px;
+    padding-top: 40px;
+  }
+
+  .filter-header {
+    align-items: flex-start;
+  }
+
+  .clear-button {
+    display: none;
+  }
+
+  .filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .keyword-field,
+  .search-button {
+    grid-column: 1 / -1;
+  }
+
+  .search-button {
+    width: 100%;
+  }
+
+  .results-heading {
+    margin-top: 32px;
+  }
+
+  .results-heading > div {
+    display: block;
+  }
+
+  .results-heading span {
+    display: block;
+    margin-top: 2px;
+  }
+
+  .discovery-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .discovery-card-content {
+    min-height: 148px;
+  }
+
+  .card-link:hover .discovery-card {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .discovery-card {
+    transition: none;
+  }
+}
+</style>

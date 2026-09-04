@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BasiqButton } from "basiq-ui";
+import { BasiqButton, BasiqCard, BasiqCheckbox, BasiqFormField, BasiqTextarea } from "basiq-ui";
 import { computed, onMounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
@@ -156,65 +156,268 @@ async function copy(value: string) {
 onMounted(load);
 </script>
 <template>
-  <div class="page narrow">
+  <div class="page flow-runner-page">
     <div v-if="loading" class="loading-state">Flowを読み込んでいます</div>
     <div v-else-if="error && !flow" class="error-state">{{ error }}</div>
-    <template v-else-if="flow && page"
-      ><header class="page-heading">
+    <template v-else-if="flow && page">
+      <div class="breadcrumb">
+        <RouterLink :to="lecture ? `/admin/lectures/${lecture.id}` : '/admin'"
+          >講習会を編集</RouterLink
+        ><b>/</b><span>Flow</span>
+      </div>
+      <header class="runner-header">
         <div>
           <p class="eyebrow">FLOW · {{ pageIndex + 1 }}/{{ pages.length }}</p>
           <h1>{{ page.title }}</h1>
-          <p>{{ flow.type }} · 適用時の本文を実行しています</p>
+          <p>
+            {{
+              flow.type === "lecture_pre"
+                ? "講習会の事前"
+                : flow.type === "lecture_post"
+                  ? "講習会の事後"
+                  : "各開催のメイン"
+            }}
+          </p>
         </div>
         <span v-if="isCompleted" class="pill success">完了済み</span>
       </header>
+      <ol
+        class="flow-progress"
+        :style="{ gridTemplateColumns: `repeat(${pages.length}, minmax(0, 1fr))` }"
+        aria-label="Flowの進捗"
+      >
+        <li
+          v-for="(entry, index) in pages"
+          :key="entry.title"
+          :class="{ current: index === pageIndex, complete: index < pageIndex || isCompleted }"
+        >
+          <span>{{ index < pageIndex || isCompleted ? "✓" : index + 1 }}</span
+          ><small>{{ entry.title }}</small>
+        </li>
+      </ol>
       <p v-if="notice" class="notice">{{ notice }}</p>
       <p v-if="error" class="notice error">{{ error }}</p>
-      <section class="surface flow-page">
+      <BasiqCard class="flow-card">
         <div class="flow-content">
-          <template v-for="(node, index) in page.nodes" :key="index"
-            ><p v-if="node.kind === 'paragraph'" class="prose">
+          <template v-for="(node, index) in page.nodes" :key="index">
+            <p v-if="node.kind === 'paragraph'" class="prose">
               {{ expandValues(node.text, answers) }}
             </p>
-            <label v-else-if="node.kind === 'input'" class="field"
-              ><span>{{ labels[node.key || ""] || node.key }}</span
-              ><textarea
-                v-model="answers[node.key || '']"
-                class="textarea"
-                :disabled="isCompleted"
-              ></textarea></label
-            ><label v-else-if="node.kind === 'task'" class="flow-task"
-              ><input
-                v-model="tasks[node.key || '']"
-                type="checkbox"
-                :disabled="isCompleted"
-              /><span>{{ expandValues(node.text, answers) }}</span></label
+            <BasiqFormField
+              v-else-if="node.kind === 'input'"
+              :label="labels[node.key || ''] || node.key"
+              ><BasiqTextarea v-model="answers[node.key || '']" :rows="4" :disabled="isCompleted"
+            /></BasiqFormField>
+            <label v-else-if="node.kind === 'task'" class="flow-task"
+              ><BasiqCheckbox v-model="tasks[node.key || '']" :disabled="isCompleted" /><span>{{
+                expandValues(node.text, answers)
+              }}</span></label
             >
-            <div v-else-if="node.kind === 'copy'" class="copy-block">
+            <div v-else-if="node.kind === 'copy'" class="copy-panel">
               <pre>{{ expandValues(node.text, answers) }}</pre>
-              <button class="button secondary" type="button" @click="copy(node.text)">
-                コピー
-              </button>
+              <BasiqButton tone="neutral" variant="outline" type="button" @click="copy(node.text)"
+                >コピー</BasiqButton
+              >
             </div>
-            <pre v-else-if="node.kind === 'code'" class="copy-block">{{ node.text }}</pre>
+            <pre v-else-if="node.kind === 'code'" class="copy-panel">{{ node.text }}</pre>
           </template>
         </div>
-        <div class="form-actions">
-          <BasiqButton
-            v-if="pageIndex > 0"
-            variant="outline"
-            tone="neutral"
-            :disabled="saving"
-            @click="previous"
-            >前へ</BasiqButton
-          ><BasiqButton v-if="pageIndex < pages.length - 1" :disabled="saving" @click="next">{{
-            isCompleted ? "次へ" : "保存して次へ"
-          }}</BasiqButton
-          ><BasiqButton v-else :disabled="saving || isCompleted" @click="complete">{{
-            isCompleted ? "完了済み" : "Flowを完了"
-          }}</BasiqButton>
-        </div>
-      </section></template
-    >
+      </BasiqCard>
+      <footer class="runner-actions">
+        <BasiqButton
+          v-if="pageIndex > 0"
+          variant="outline"
+          tone="neutral"
+          :disabled="saving"
+          @click="previous"
+          >前へ</BasiqButton
+        ><BasiqButton v-if="pageIndex < pages.length - 1" :disabled="saving" @click="next">{{
+          isCompleted ? "次へ" : "保存して次へ"
+        }}</BasiqButton
+        ><BasiqButton v-else :disabled="saving || isCompleted" @click="complete">{{
+          isCompleted ? "完了済み" : "Flowを完了"
+        }}</BasiqButton>
+      </footer>
+    </template>
   </div>
 </template>
+
+<style scoped>
+.flow-runner-page {
+  width: min(820px, 100%);
+}
+
+.runner-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+
+.runner-header h1 {
+  font-size: 30px;
+  letter-spacing: -0.025em;
+}
+
+.runner-header p:last-child {
+  margin-top: 5px;
+  color: var(--basiq-color-content-subtle);
+}
+
+.flow-progress {
+  display: grid;
+  margin: 0 0 22px;
+  list-style: none;
+}
+
+.flow-progress li {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  color: var(--basiq-color-content-subtle);
+  text-align: center;
+}
+
+.flow-progress li::before {
+  position: absolute;
+  z-index: 0;
+  top: 13px;
+  right: 50%;
+  width: 100%;
+  height: 2px;
+  content: "";
+  background: var(--basiq-color-border-separator);
+}
+
+.flow-progress li:first-child::before {
+  display: none;
+}
+
+.flow-progress li > span {
+  position: relative;
+  z-index: 1;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--basiq-color-border-control);
+  border-radius: 50%;
+  background: var(--basiq-color-surface-base);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.flow-progress li.current,
+.flow-progress li.complete {
+  color: var(--basiq-color-content-accent);
+}
+
+.flow-progress li.current > span {
+  border-color: var(--basiq-color-accent-default);
+  color: var(--basiq-color-content-on-accent);
+  background: var(--basiq-color-accent-default);
+}
+
+.flow-progress li.complete > span {
+  border-color: #24734a;
+  color: #24734a;
+  background: #edf7f1;
+}
+
+.flow-progress li.current::before,
+.flow-progress li.complete::before {
+  background: color-mix(in srgb, var(--basiq-color-accent-default) 44%, white);
+}
+
+.flow-progress small {
+  max-width: 130px;
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notice {
+  margin-bottom: 12px;
+}
+
+.flow-card {
+  border: 1px solid var(--basiq-color-border-separator);
+}
+
+.flow-content {
+  min-height: 300px;
+  display: grid;
+  align-content: start;
+  gap: 18px;
+}
+
+.flow-task {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 13px;
+  border: 1px solid var(--basiq-color-border-separator);
+  border-radius: var(--basiq-radius-sm);
+  background: var(--basiq-color-surface-muted);
+}
+
+.copy-panel {
+  display: grid;
+  gap: 10px;
+  padding: 15px;
+  border-radius: var(--basiq-radius-sm);
+  background: var(--basiq-color-surface-muted);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+.copy-panel button {
+  justify-self: end;
+}
+
+.runner-actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--basiq-color-border-separator);
+  background: color-mix(in srgb, var(--basiq-color-surface-base) 96%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.runner-actions button:last-child {
+  margin-left: auto;
+}
+
+@media (width <= 760px) {
+  .runner-header h1 {
+    font-size: 22px;
+  }
+
+  .flow-progress small {
+    max-width: 64px;
+  }
+
+  .runner-actions {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 63px;
+    min-height: 58px;
+    align-items: center;
+    padding: 8px 16px;
+  }
+
+  .runner-actions button:last-child {
+    flex: 1;
+  }
+}
+</style>

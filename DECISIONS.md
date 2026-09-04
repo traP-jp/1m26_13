@@ -875,12 +875,23 @@
 
 ## D-20260904-070 — BasiQ UIの利用可能な固定版を限定採用する
 
-- 状態: decided
+- 状態: superseded by D-20260904-071
 - 判断が必要だった理由: mainはBasiQ UI利用を予定していたが、最新betaは依存の公開経過時間制限により取得できなかった。
 - 決定: MITライセンスとpostinstall内容を確認した`basiq-ui@0.1.0-beta.0`をexact versionで導入し、ButtonとThemeProviderを中心に使う。product layoutは通常CSSで実装する。
 - 根拠: セキュリティ設定を緩めず、mainのUI方針を初期画面へ反映できる。
 - 影響: `pnpm-workspace.yaml`で公開経過時間、exotic subdependency、exact saveを維持し、許可したbuild scriptを明示する。
 - 再検討する条件: 制限を満たす安定版または互換betaが利用可能になった場合。
+
+## D-20260904-071 — 確定画面設計をBasiQ UI beta.3で本番へ実装する
+
+- 状態: decided
+- 判断が必要だった理由: 本人が、別途設計した画面をBasiQ UIで本番実装へ忠実に反映する方針を明示した。D-20260904-070のbeta.0では設計に使われたTabs、FormField、Input、Textarea、Switch、Checkboxを利用できなかった。
+- 選択肢: beta.0の限定コンポーネントで近似する／監査済みのbeta.3を固定して設計と同じコンポーネント構成を使う。
+- 決定: 後者。リポジトリ内の監査済み`basiq-ui@0.1.0-beta.3` tarballをvendorとしてexact固定し、InterとM PLUS 1pも固定する。ホーム、講習会詳細・編集、開催詳細、Roadmap一覧・詳細・編集、プロフィール、運営、Flow Stock、Flow実行を共通ナビゲーションとBasiQ UI部品で統一する。
+- 根拠: 画面設計で使われた部品とトークンをそのまま利用でき、外部取得の再現性にも依存しない。
+- 影響: 画面プロトタイプをレイアウト、密度、レスポンシブ動作の正本として扱う。製品仕様を優先し、プロトタイプにあった削除操作は入れず、Flow、Session完了、Roadmap段階など本番データ構造へ接続する。
+- 再検討する条件: BasiQ UIの安定版が公開され、同じ画面を互換性を保って移行できる場合。
+- 参照: 本人の「basiQ UI 使って、設計した画面と全く同様の画面にして」という2026-09-04の明示依頼。
 
 ---
 
