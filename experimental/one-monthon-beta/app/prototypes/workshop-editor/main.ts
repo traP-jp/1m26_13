@@ -19,7 +19,7 @@ import {
   BasiqTextarea,
   BasiqThemeProvider,
 } from 'basiq-ui';
-import { computed, createApp, defineComponent, ref, watch } from 'vue/dist/vue.esm-bundler.js';
+import { computed, createApp, defineComponent, reactive, ref, watch } from 'vue/dist/vue.esm-bundler.js';
 
 const AppIcon = defineComponent({
   name: 'AppIcon',
@@ -38,17 +38,11 @@ const AppIcon = defineComponent({
     </svg>`,
 });
 
-const editorTabs = [
-  { label: '編集', value: 'edit' },
-  { label: '新規登録', value: 'new' },
-];
-
-const flowSteps = [
-  { number: 1, label: '基本情報' },
-  { number: 2, label: '開催' },
-  { number: 3, label: '公開・教材' },
-  { number: 4, label: 'つながり' },
-  { number: 5, label: '確認' },
+const sectionTabs = [
+  { label: '全般', value: 'general' },
+  { label: '第1回', value: 'round1' },
+  { label: '第2回', value: 'round2' },
+  { label: '設定', value: 'settings' },
 ];
 
 const occurrenceTypes = [
@@ -73,39 +67,30 @@ const WorkshopEditorPrototype = defineComponent({
     BasiqThemeProvider,
   },
   setup() {
-    const mode = ref('edit');
-    const currentStep = ref(1);
-    const published = ref(true);
-    const kind = ref('standard');
+    const activeTab = ref('general');
+    const published = reactive({ round1: true, round2: false });
+    const kinds = reactive({ round1: 'standard', round2: 'standard' });
     const prerequisiteGit = ref(true);
     const prerequisiteWeb = ref(false);
     const successorTs = ref(true);
     const successorDeploy = ref(false);
-    const step = computed(() => flowSteps[currentStep.value - 1]);
-    const progress = computed(() => `${currentStep.value * 20}%`);
-    const goToStep = (next: number) => {
-      currentStep.value = Math.min(5, Math.max(1, next));
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+    const tabIndex = computed(() => sectionTabs.findIndex((tab) => tab.value === activeTab.value));
+    const goToTab = (index: number) => {
+      activeTab.value = sectionTabs[Math.min(sectionTabs.length - 1, Math.max(0, index))].value;
     };
-    watch(mode, () => {
-      currentStep.value = 1;
-      published.value = mode.value === 'edit';
-    });
+    watch(activeTab, () => window.scrollTo({ top: 0, behavior: 'smooth' }));
     return {
-      mode,
-      currentStep,
-      step,
-      progress,
+      activeTab,
       published,
-      kind,
+      kinds,
       prerequisiteGit,
       prerequisiteWeb,
       successorTs,
       successorDeploy,
-      editorTabs,
-      flowSteps,
+      tabIndex,
+      sectionTabs,
       occurrenceTypes,
-      goToStep,
+      goToTab,
     };
   },
   template: `
@@ -120,70 +105,23 @@ const WorkshopEditorPrototype = defineComponent({
         <div class="site-workspace">
           <header class="mobile-header"><div class="mobile-brand"><span class="brand-mark">1M</span><strong>1-Monthon</strong></div><span>講習会管理</span></header>
           <main>
-            <div class="breadcrumb"><span>運営向けページ</span><b>/</b><span>{{ mode === 'edit' ? '講習会を編集' : '講習会を登録' }}</span></div>
-            <header class="page-header">
-              <h1>{{ mode === 'edit' ? '講習会を編集' : '講習会を登録' }}</h1>
-              <span class="header-status" :class="{ draft: mode === 'new' }"><span></span>{{ mode === 'edit' ? '公開中' : '未保存' }}</span>
-            </header>
+            <div class="breadcrumb"><span>運営向けページ</span><b>/</b><span>講習会を編集</span></div>
+            <header class="page-header"><h1>講習会を編集</h1><span class="header-status"><span></span>公開中</span></header>
 
-            <BasiqTabs v-model="mode" class="mode-tabs" :items="editorTabs" aria-label="編集状態" list-width="100%">
+            <BasiqTabs v-model="activeTab" class="section-tabs" :items="sectionTabs" aria-label="講習会の編集項目" list-width="100%">
               <template #content="{ item }">
-                <div class="flow-shell">
-                  <nav class="flow-navigation" aria-label="講習会登録の進捗">
-                    <div class="progress-track"><span :style="{ width: progress }"></span></div>
-                    <ol>
-                      <li v-for="flowStep in flowSteps" :key="flowStep.number" :class="{ active: currentStep === flowStep.number, complete: currentStep > flowStep.number }">
-                        <button type="button" :aria-current="currentStep === flowStep.number ? 'step' : undefined" @click="goToStep(flowStep.number)">
-                          <span class="step-marker">{{ currentStep > flowStep.number ? '✓' : flowStep.number }}</span><strong>{{ flowStep.label }}</strong>
-                        </button>
-                      </li>
-                    </ol>
-                  </nav>
-
-                  <div class="step-context"><span>{{ currentStep }} / 5</span><h2>{{ step.label }}</h2></div>
-
-                  <section v-if="currentStep === 1" class="step-panel">
+                <div class="tab-content">
+                  <section v-if="item.value === 'general'" class="tab-panel general-panel">
                     <BasiqCard class="section-card">
-                      <template #header><div class="card-heading"><div><span class="step-number">1</span><h2>講習会名と概要</h2></div></div></template>
+                      <template #header><div class="card-heading"><span class="section-icon">全</span><h2>講習会名と概要</h2></div></template>
                       <div class="field-grid">
-                        <BasiqFormField class="field-wide" label="講習会名" required description="シリーズの場合は、シリーズ全体の名前を書きます。"><BasiqInput :model-value="item.value === 'edit' ? 'Webフロントエンド入門' : ''" placeholder="例：Webフロントエンド入門" required /></BasiqFormField>
-                        <BasiqFormField class="field-wide" label="概要" required description="どんな人に、何を学んでもらう講習会かを短くまとめます。"><BasiqTextarea :model-value="item.value === 'edit' ? 'HTML・CSS・JavaScriptの基本を、手を動かしながら学ぶ全3回の講習会です。' : ''" placeholder="講習会で扱う内容を短くまとめます" :rows="4" required /></BasiqFormField>
+                        <BasiqFormField class="field-wide" label="講習会名" required description="シリーズの場合は、シリーズ全体の名前を書きます。"><BasiqInput model-value="Webフロントエンド入門" required /></BasiqFormField>
+                        <BasiqFormField class="field-wide" label="概要" required description="どんな人に、何を学んでもらう講習会かを短くまとめます。"><BasiqTextarea model-value="HTML・CSS・JavaScriptの基本を、手を動かしながら学ぶ全3回の講習会です。" :rows="4" required /></BasiqFormField>
                       </div>
                     </BasiqCard>
-                  </section>
 
-                  <section v-else-if="currentStep === 2" class="step-panel">
-                    <div class="section-toolbar"><BasiqButton type="button"><AppIcon name="plus" :size="18" />開催を追加</BasiqButton></div>
-                    <BasiqCard class="occurrence-card">
-                      <template #header><div class="occurrence-heading"><div><span class="occurrence-index">第1回</span><div><h3>{{ item.value === 'edit' ? 'Webページの仕組みとHTML' : '開催内容' }}</h3><p>通常開催</p></div></div><div class="card-actions"><BasiqButton v-if="item.value === 'edit'" tone="neutral" variant="outline" type="button"><AppIcon name="copy" :size="17" />複製</BasiqButton><BasiqButton tone="danger" variant="outline" type="button" aria-label="第1回を削除"><AppIcon name="trash" :size="17" /></BasiqButton></div></div></template>
-                      <div class="field-grid">
-                        <BasiqFormField label="回のタイトル" required><BasiqInput :model-value="item.value === 'edit' ? 'Webページの仕組みとHTML' : ''" placeholder="例：HTMLの基本" required /></BasiqFormField>
-                        <BasiqFormField label="回番号"><BasiqInput model-value="1" inputmode="numeric" /></BasiqFormField>
-                        <BasiqRadioGroup class="field-wide" v-model="kind" label="開催種別" :items="occurrenceTypes" orientation="horizontal" />
-                        <BasiqFormField class="field-wide" label="この回で学べること" required><BasiqTextarea :model-value="item.value === 'edit' ? 'ブラウザがWebページを表示する仕組みと、意味のあるHTMLの書き方を学びます。' : ''" :rows="3" required /></BasiqFormField>
-                        <BasiqFormField label="日時"><BasiqInput :model-value="item.value === 'edit' ? '2026-09-18 18:00' : ''" placeholder="未定でも保存できます" /></BasiqFormField>
-                        <BasiqFormField label="場所"><BasiqInput :model-value="item.value === 'edit' ? '部室' : ''" /></BasiqFormField>
-                        <BasiqFormField label="開催する組織・班" required><BasiqInput :model-value="item.value === 'edit' ? 'Webエンジニア班' : ''" required /></BasiqFormField>
-                        <BasiqFormField label="対象者" required><BasiqInput :model-value="item.value === 'edit' ? 'プログラミング初学者' : ''" required /></BasiqFormField>
-                      </div>
-                    </BasiqCard>
-                    <BasiqCard v-if="item.value === 'edit'" class="occurrence-card compact-occurrence"><template #header><div class="occurrence-heading"><div><span class="occurrence-index muted">第2回</span><div><h3>CSSレイアウトの基本</h3><p>通常開催 · 下書き</p></div></div><div class="card-actions"><BasiqButton tone="neutral" variant="outline" type="button"><AppIcon name="copy" :size="17" />複製</BasiqButton><BasiqButton tone="danger" variant="outline" type="button" aria-label="第2回を削除"><AppIcon name="trash" :size="17" /></BasiqButton></div></div></template><div class="summary-row"><span><AppIcon name="calendar" :size="17" />2026年9月25日 18:00</span><span>部室</span><span>教材は未設定</span><BasiqButton tone="neutral" variant="outline" type="button">内容を開く</BasiqButton></div></BasiqCard>
-                  </section>
-
-                  <section v-else-if="currentStep === 3" class="step-panel split-panel">
-                    <BasiqCard class="section-card publish-card">
-                      <template #header><div class="card-heading"><div><span class="step-number">3</span><h2>公開状態</h2></div><span class="completion-chip" :class="{ empty: !published }">{{ published ? '公開' : '下書き' }}</span></div></template>
-                      <div class="publish-control"><BasiqSwitch v-model="published">学習者に公開する</BasiqSwitch><p>公開すると、検索・ロードマップ・講習会詳細に表示されます。</p></div>
-                    </BasiqCard>
-                    <BasiqCard class="section-card materials-card">
-                      <template #header><div class="card-heading"><div><span class="material-icon"><AppIcon name="book" :size="20" /></span><h2>第1回の教材</h2></div><span class="completion-chip" :class="{ empty: item.value === 'new' }">{{ item.value === 'edit' ? '設定済み' : '未設定' }}</span></div></template>
-                      <div class="field-grid"><BasiqFormField class="field-wide" label="教材URL"><BasiqInput type="url" :model-value="item.value === 'edit' ? 'https://example.com/web-basics/01' : ''" placeholder="https://" /></BasiqFormField><BasiqFormField class="field-wide" label="教材の説明文"><BasiqInput :model-value="item.value === 'edit' ? '第1回 スライドと演習問題' : ''" placeholder="例：スライドと演習問題" /></BasiqFormField></div>
-                    </BasiqCard>
-                  </section>
-
-                  <section v-else-if="currentStep === 4" class="step-panel">
                     <BasiqCard class="section-card connections-card">
-                      <template #header><div class="card-heading"><div><span class="step-number">4</span><h2>関連する講習会</h2></div></div></template>
+                      <template #header><div class="card-heading"><span class="section-icon"><AppIcon name="map" :size="18" /></span><h2>関連する講習会</h2></div></template>
                       <div class="connection-columns">
                         <section><div class="connection-label"><h3>先に学ぶ</h3><span>1件選択</span></div><label class="choice-row selected"><BasiqCheckbox v-model="prerequisiteGit" /><span><strong>Git入門</strong><small>変更履歴と共同作業の基本</small></span></label><label class="choice-row"><BasiqCheckbox v-model="prerequisiteWeb" /><span><strong>Webシステム入門</strong><small>Webの全体像をつかむ</small></span></label></section>
                         <section><div class="connection-label"><h3>次に学ぶ</h3><span>1件選択</span></div><label class="choice-row selected"><BasiqCheckbox v-model="successorTs" /><span><strong>TypeScript入門</strong><small>型を使ったフロントエンド開発</small></span></label><label class="choice-row"><BasiqCheckbox v-model="successorDeploy" /><span><strong>Webサービス公開入門</strong><small>作ったサービスを公開する</small></span></label></section>
@@ -191,17 +129,47 @@ const WorkshopEditorPrototype = defineComponent({
                     </BasiqCard>
                   </section>
 
-                  <section v-else class="step-panel review-panel">
-                    <p class="review-intro">入力内容を確認して、{{ item.value === 'edit' ? '変更を保存' : '講習会を作成' }}してください。</p>
-                    <div class="review-grid">
-                      <BasiqCard><template #header><h3>講習会基本情報</h3></template><dl><div><dt>講習会名</dt><dd>{{ item.value === 'edit' ? 'Webフロントエンド入門' : '未入力' }}</dd></div><div><dt>開催</dt><dd>{{ item.value === 'edit' ? '2回（公開1・下書き1）' : '1回（未入力）' }}</dd></div></dl></BasiqCard>
-                      <BasiqCard><template #header><h3>公開と教材</h3></template><dl><div><dt>公開状態</dt><dd>{{ published ? '学習者に公開' : '下書き' }}</dd></div><div><dt>教材</dt><dd>{{ item.value === 'edit' ? '第1回に設定済み' : '未設定' }}</dd></div></dl></BasiqCard>
-                      <BasiqCard><template #header><h3>学びのつながり</h3></template><dl><div><dt>先に学ぶ</dt><dd>Git入門</dd></div><div><dt>次に学ぶ</dt><dd>TypeScript入門</dd></div></dl></BasiqCard>
+                  <section v-else-if="item.value === 'round1' || item.value === 'round2'" class="tab-panel round-panel">
+                    <div class="round-heading">
+                      <div><span class="occurrence-index">{{ item.label }}</span><div><h2>{{ item.value === 'round1' ? 'Webページの仕組みとHTML' : 'CSSレイアウトの基本' }}</h2><p>{{ published[item.value] ? '公開中' : '下書き' }}</p></div></div>
+                      <div class="card-actions"><BasiqButton tone="neutral" variant="outline" type="button"><AppIcon name="copy" :size="17" />複製</BasiqButton><BasiqButton tone="danger" variant="outline" type="button" :aria-label="item.label + 'を削除'"><AppIcon name="trash" :size="17" /></BasiqButton></div>
                     </div>
-                    <div v-if="item.value === 'edit'" class="danger-zone"><div><strong>講習会を削除</strong><p>開催・完了記録・ロードマップ上の配置も削除されます。</p></div><BasiqButton tone="danger" variant="outline" type="button"><AppIcon name="trash" :size="17" />講習会を削除</BasiqButton></div>
+
+                    <BasiqCard class="occurrence-card">
+                      <template #header><h2>開催内容</h2></template>
+                      <div class="field-grid">
+                        <BasiqFormField label="回のタイトル" required><BasiqInput :model-value="item.value === 'round1' ? 'Webページの仕組みとHTML' : 'CSSレイアウトの基本'" required /></BasiqFormField>
+                        <BasiqFormField label="回番号"><BasiqInput :model-value="item.value === 'round1' ? '1' : '2'" inputmode="numeric" /></BasiqFormField>
+                        <BasiqRadioGroup class="field-wide" :model-value="kinds[item.value]" @update:model-value="kinds[item.value] = $event" label="開催種別" :items="occurrenceTypes" orientation="horizontal" />
+                        <BasiqFormField class="field-wide" label="この回で学べること" required><BasiqTextarea :model-value="item.value === 'round1' ? 'ブラウザがWebページを表示する仕組みと、意味のあるHTMLの書き方を学びます。' : 'FlexboxとGridを使い、画面幅に合わせたレイアウトを作ります。'" :rows="3" required /></BasiqFormField>
+                        <BasiqFormField label="日時"><BasiqInput :model-value="item.value === 'round1' ? '2026-09-18 18:00' : '2026-09-25 18:00'" /></BasiqFormField>
+                        <BasiqFormField label="場所"><BasiqInput model-value="部室" /></BasiqFormField>
+                        <BasiqFormField label="開催する組織・班" required><BasiqInput model-value="Webエンジニア班" required /></BasiqFormField>
+                        <BasiqFormField label="対象者" required><BasiqInput :model-value="item.value === 'round1' ? 'プログラミング初学者' : '第1回を終えた人'" required /></BasiqFormField>
+                      </div>
+                    </BasiqCard>
+
+                    <div class="round-subgrid">
+                      <BasiqCard class="section-card publish-card">
+                        <template #header><h2>公開状態</h2></template>
+                        <div class="publish-control"><BasiqSwitch :model-value="published[item.value]" @update:model-value="published[item.value] = $event">学習者に公開する</BasiqSwitch><p>公開すると検索と講習会詳細に表示されます。</p></div>
+                      </BasiqCard>
+                      <BasiqCard class="section-card materials-card">
+                        <template #header><div class="card-heading"><span class="section-icon"><AppIcon name="book" :size="18" /></span><h2>教材</h2></div></template>
+                        <div class="field-grid"><BasiqFormField class="field-wide" label="教材URL"><BasiqInput type="url" :model-value="item.value === 'round1' ? 'https://example.com/web-basics/01' : ''" placeholder="https://" /></BasiqFormField><BasiqFormField class="field-wide" label="教材の説明文"><BasiqInput :model-value="item.value === 'round1' ? 'スライドと演習問題' : ''" /></BasiqFormField></div>
+                      </BasiqCard>
+                    </div>
                   </section>
 
-                  <footer class="flow-actions"><div><BasiqButton v-if="currentStep > 1" tone="neutral" variant="outline" type="button" @click="goToStep(currentStep - 1)">戻る</BasiqButton><BasiqButton v-if="currentStep < 5" type="button" @click="goToStep(currentStep + 1)">次へ：{{ flowSteps[currentStep].label }}</BasiqButton><BasiqButton v-else type="button">{{ item.value === 'edit' ? '変更を保存' : '講習会を作成' }}</BasiqButton></div></footer>
+                  <section v-else class="tab-panel settings-panel">
+                    <BasiqCard class="section-card">
+                      <template #header><div class="settings-heading"><h2>開催</h2><BasiqButton type="button"><AppIcon name="plus" :size="18" />開催を追加</BasiqButton></div></template>
+                      <div class="round-list"><div><span class="round-number">第1回</span><div><strong>Webページの仕組みとHTML</strong><small>公開中</small></div></div><div><span class="round-number muted">第2回</span><div><strong>CSSレイアウトの基本</strong><small>下書き</small></div></div></div>
+                    </BasiqCard>
+                    <div class="danger-zone"><div><strong>講習会を削除</strong><p>開催・完了記録・ロードマップ上の配置も削除されます。</p></div><BasiqButton tone="danger" variant="outline" type="button"><AppIcon name="trash" :size="17" />講習会を削除</BasiqButton></div>
+                  </section>
+
+                  <footer class="tab-actions"><BasiqButton v-if="tabIndex > 0" tone="neutral" variant="outline" type="button" @click="goToTab(tabIndex - 1)">戻る</BasiqButton><BasiqButton v-if="tabIndex < sectionTabs.length - 1" type="button" @click="goToTab(tabIndex + 1)">次へ：{{ sectionTabs[tabIndex + 1].label }}</BasiqButton><BasiqButton v-else type="button">変更を保存</BasiqButton></footer>
                 </div>
               </template>
             </BasiqTabs>
