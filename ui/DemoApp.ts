@@ -36,6 +36,7 @@ import {
   type WorkshopOperator,
   type WorkshopRelationRef,
 } from "./data";
+import { searchTextScore } from "./search";
 
 type Route =
   | { name: "home" }
@@ -200,6 +201,8 @@ export default defineComponent({
     const editorStep = ref(0);
     const activeBasicInfoSection = ref("basic-name");
     const operatorQuery = ref("");
+    const traqDirectory = ref<TraqDirectoryCandidate[]>(TRAQ_DIRECTORY);
+    const traqDirectoryRequested = ref(false);
     const relationQuery = ref<Record<RelationKind, string>>({ previous: "", prerequisite: "", recommended: "" });
     const noticeKind = ref<"traq" | "knoq">("traq");
     const toast = ref("");
@@ -378,23 +381,27 @@ export default defineComponent({
     });
 
     const operatorSuggestions = computed(() => {
-      const needle = operatorQuery.value.trim().toLowerCase().replace(/^@/, "");
+      const needle = operatorQuery.value.trim();
       if (!needle) return [];
       const selectedIds = new Set(editorDraft.value.operators.map((operator) => operator.id));
-      return TRAQ_DIRECTORY
+      return traqDirectory.value
         .filter((candidate) => !selectedIds.has(candidate.id))
-        .filter((candidate) => [candidate.name, candidate.label, candidate.detail]
-          .join(" ")
-          .toLowerCase()
-          .includes(needle))
-        .sort((left, right) => Number(left.kind === "group") - Number(right.kind === "group"))
+        .map((candidate) => ({
+          candidate,
+          score: searchTextScore([candidate.name, candidate.label, candidate.detail], needle),
+        }))
+        .filter(({ score }) => score >= 0)
+        .sort((left, right) => right.score - left.score
+          || Number(left.candidate.kind === "group") - Number(right.candidate.kind === "group")
+          || left.candidate.label.localeCompare(right.candidate.label, "ja"))
+        .map(({ candidate }) => candidate)
         .slice(0, 8);
     });
 
-    const zeroToOneValue = computed<string | null>({
-      get: () => editorDraft.value.isZeroToOne === null ? null : String(editorDraft.value.isZeroToOne),
+    const zeroToOneEnabled = computed<boolean>({
+      get: () => editorDraft.value.isZeroToOne === true,
       set: (value) => {
-        editorDraft.value.isZeroToOne = value === null ? null : value === "true";
+        editorDraft.value.isZeroToOne = value;
       },
     });
 
@@ -614,9 +621,17 @@ export default defineComponent({
     }
 
     async function setEditorStep(index: number) {
+      const scrollX = window.scrollX;
+      const scrollY = window.scrollY;
       editorStep.value = index;
       await nextTick();
-      document.querySelector<HTMLElement>(".editor-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      requestAnimationFrame(() => {
+        const root = document.documentElement;
+        const previousBehavior = root.style.scrollBehavior;
+        root.style.scrollBehavior = "auto";
+        window.scrollTo(scrollX, Math.min(scrollY, Math.max(0, root.scrollHeight - window.innerHeight)));
+        root.style.scrollBehavior = previousBehavior;
+      });
     }
 
     async function scrollToEditorSection(id: string) {
@@ -642,7 +657,7 @@ export default defineComponent({
     }
 
     function operatorDirectoryEntry(operator: WorkshopOperator) {
-      return TRAQ_DIRECTORY.find((candidate) => candidate.id === operator.id);
+      return traqDirectory.value.find((candidate) => candidate.id === operator.id);
     }
 
     function operatorLabel(operator: WorkshopOperator) {
@@ -655,6 +670,32 @@ export default defineComponent({
 
     function operatorAvatar(candidate: TraqDirectoryCandidate) {
       return candidate.kind === "user" ? `https://q.trap.jp/api/v3/public/icon/${encodeURIComponent(candidate.name)}` : "";
+    }
+
+    async function loadTraqDirectory() {
+      if (traqDirectoryRequested.value) return;
+      traqDirectoryRequested.value = true;
+      try {
+        const response = await fetch("/api/traq/directory", {
+          method: "GET",
+          headers: { Accept: "application/json" },
+        });
+        if (!response.ok) return;
+        const payload = await response.json() as { candidates?: unknown };
+        if (!Array.isArray(payload.candidates)) return;
+        const candidates = payload.candidates.filter((candidate): candidate is TraqDirectoryCandidate => {
+          if (!candidate || typeof candidate !== "object") return false;
+          const value = candidate as Partial<TraqDirectoryCandidate>;
+          return (value.kind === "user" || value.kind === "group")
+            && typeof value.id === "string"
+            && typeof value.name === "string"
+            && typeof value.label === "string"
+            && typeof value.detail === "string";
+        });
+        if (candidates.length) traqDirectory.value = candidates;
+      } catch {
+        // 読み取りに失敗した場合は、安全な同梱スナップショットを使う。
+      }
     }
 
     function setRelationQuery(kind: RelationKind, value: string) {
@@ -764,6 +805,7 @@ export default defineComponent({
       if (currentRoute.name === "edit") {
         const existing = workshops.value.find((workshop) => workshop.id === currentRoute.id);
         if (existing) editorDraft.value = cloneWorkshop(normalizeWorkshop(existing));
+        void loadTraqDirectory();
       }
       await nextTick();
       document.title = `${routeTitle(route.value, selectedWorkshop.value)} | LeQtures`;
@@ -1063,7 +1105,7 @@ export default defineComponent({
       typeLabel,
       videoUrl,
       workshopLatestDate,
-      zeroToOneValue,
+      zeroToOneEnabled,
       addOccurrence,
       addOperator,
       addRelationText,
@@ -1295,14 +1337,14 @@ export default defineComponent({
                 <section class="editor-form">
                   <template v-if="editorStep === 0">
                     <section id="basic-name" class="editor-subsection">
-                      <div class="subsection-heading"><h3>① 講習会の名称を決めよう</h3></div>
+                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">1</span><h3>講習会の名称を決めよう</h3></div>
                       <BasiqFormField class="full" label="講習会名" required>
                         <BasiqInput id="workshop-title" v-model="editorDraft.title" />
                       </BasiqFormField>
                     </section>
 
                     <section id="basic-overview" class="editor-subsection">
-                      <div class="subsection-heading"><h3>② 講習会の概要を決めよう</h3></div>
+                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">2</span><h3>講習会の概要を決めよう</h3></div>
                       <div class="form-grid">
                         <BasiqFormField label="年度" description="年ではなく年度" control-id="workshop-year"><input id="workshop-year" v-model.number="editorDraft.year" type="number" min="2000" max="2100"></BasiqFormField>
                         <BasiqFormField class="full" label="説明" description="この講習会は何について学べる講習会ですか？"><BasiqTextarea v-model="editorDraft.summary" :rows="4" /></BasiqFormField>
@@ -1310,7 +1352,7 @@ export default defineComponent({
                     </section>
 
                     <section id="basic-operations" class="editor-subsection">
-                      <div class="subsection-heading"><h3>③ 運営を決めよう</h3></div>
+                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">3</span><h3>運営を決めよう</h3></div>
                       <BasiqFormField class="full" label="運営元">
                         <BasiqRadioGroup v-model="editorDraft.team" class="compact-radio-group" name="organizer-source" orientation="horizontal" :items="organizerSources" />
                       </BasiqFormField>
@@ -1319,7 +1361,7 @@ export default defineComponent({
                           <BasiqInput v-model="operatorQuery" type="search" placeholder="traQ ID・グループ" />
                           <div v-if="operatorQuery.trim()" class="suggestion-list" role="listbox" aria-label="運営候補">
                             <button v-for="candidate in operatorSuggestions" :key="candidate.kind + candidate.id" type="button" role="option" @click="addOperator(candidate)">
-                              <img v-if="candidate.kind === 'user'" :src="operatorAvatar(candidate)" alt="">
+                              <img v-if="candidate.kind === 'user'" :src="operatorAvatar(candidate)" alt="" referrerpolicy="no-referrer">
                               <span v-else class="group-avatar" aria-hidden="true">G</span>
                               <span><strong>{{ candidate.label }}</strong><small>{{ candidate.detail }}・{{ candidate.kind === 'user' ? 'ユーザー' : 'グループ' }}</small></span>
                               <em>追加</em>
@@ -1334,7 +1376,7 @@ export default defineComponent({
                     </section>
 
                     <section id="basic-target" class="editor-subsection">
-                      <div class="subsection-heading"><h3>④ 対象を決めよう</h3></div>
+                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">4</span><h3>対象を決めよう</h3></div>
                       <div class="form-grid">
                         <BasiqFormField class="full" label="対象者" description="例：プログラミング未経験者・初心者 / ゲームの作り方を学びたい人"><BasiqInput v-model="editorDraft.audience" /></BasiqFormField>
                         <fieldset class="compact-checkbox-field">
@@ -1345,14 +1387,14 @@ export default defineComponent({
                     </section>
 
                     <section id="basic-attributes" class="editor-subsection">
-                      <div class="subsection-heading"><h3>⑤ 属性を決めよう</h3></div>
+                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">5</span><h3>属性を決めよう</h3></div>
                       <BasiqFormField class="full" label="0→1講習会ですか？">
-                        <BasiqRadioGroup v-model="zeroToOneValue" name="zero-to-one" orientation="horizontal" :items="[{ label: 'はい', value: 'true' }, { label: 'いいえ', value: 'false' }]" />
+                        <BasiqSwitch v-model="zeroToOneEnabled" aria-label="0→1講習会" />
                       </BasiqFormField>
                     </section>
 
                     <section id="basic-relations" class="editor-subsection">
-                      <div class="subsection-heading"><h3>⑥ 関連する講習会を登録しよう</h3></div>
+                      <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">6</span><h3>関連する講習会を登録しよう</h3></div>
                       <div class="relation-editors">
                         <section v-for="relation in relationSections" :key="relation.kind" class="relation-editor">
                           <header><h4>{{ relation.label }}</h4></header>

@@ -114,7 +114,7 @@ export const normalizeWorkshop = (workshop: WorkshopWithOptionalStepOneFields): 
   targetTeams: Array.isArray(workshop.targetTeams)
     ? workshop.targetTeams.filter((team): team is string => typeof team === "string")
     : [],
-  isZeroToOne: typeof workshop.isZeroToOne === "boolean" ? workshop.isZeroToOne : null,
+  isZeroToOne: typeof workshop.isZeroToOne === "boolean" ? workshop.isZeroToOne : false,
   previousTextRefs: Array.isArray(workshop.previousTextRefs)
     ? workshop.previousTextRefs.filter(
       (reference): reference is Extract<WorkshopRelationRef, { kind: "text" }> => (
@@ -509,7 +509,7 @@ export const makeBlankWorkshop = (): Workshop => ({
   team: "",
   operators: [],
   targetTeams: [],
-  isZeroToOne: null,
+  isZeroToOne: false,
   previousTextRefs: [],
   prerequisiteRefs: [],
   recommendedRefs: [],
