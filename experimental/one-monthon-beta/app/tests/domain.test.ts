@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { assertRelations, DomainError, hasCycle, parsePositiveId, validateRoadmapInput, validateWorkshopInput } from '../lib/domain.ts';
+import { assertRelations, DomainError, hasCycle, parsePositiveId, validateFlowInput, validateRoadmapInput, validateWorkshopInput } from '../lib/domain.ts';
 import type { OccurrenceInput } from '../lib/contracts.ts';
 import { renumberOccurrenceGroups } from '../ui/forms/workshopForm.ts';
 
@@ -19,3 +19,5 @@ test('先に学ぶ・次に学ぶをそれぞれ複数選択できる', () => { 
 test('ロードマップ入力をboolean公開状態と講習会の順序として正規化する', () => { const result = validateRoadmapInput({ title: ' Web入門 ', summary: ' 基礎から進む ', audience: ' 初心者 ', published: true, stages: [{ items: [{ workshopId: 1, note: ' 先に受ける ' }] }] }); assert.equal(result.title, 'Web入門'); assert.equal(result.published, true); assert.equal(result.stages[0].items[0].note, '先に受ける'); });
 test('ロードマップ内の講習会重複、空の段階、非boolean公開状態を拒否する', () => { assert.throws(() => validateRoadmapInput({ title: '重複', summary: '概要', audience: '対象', published: false, stages: [{ items: [{ workshopId: 1 }] }, { items: [{ workshopId: 1 }] }] }), (error: unknown) => error instanceof DomainError && error.fields?.stages.includes('重複') === true); assert.throws(() => validateRoadmapInput({ title: '空', summary: '概要', audience: '対象', published: false, stages: [] }), (error: unknown) => error instanceof DomainError && error.fields?.stages.includes('1件') === true); assert.throws(() => validateRoadmapInput({ title: '公開状態不正', summary: '概要', audience: '対象', published: 'published', stages: [{ items: [{ workshopId: 1 }] }] }), (error: unknown) => error instanceof DomainError && Boolean(error.fields?.published)); });
 test('開催削除後は残る回と再放送を先頭から連番へ振り直す', () => { const result = renumberOccurrenceGroups([{ ...occurrence, sequenceNumber: 2 }, { ...occurrence, sequenceNumber: 2, kind: 'rebroadcast' }, { ...occurrence, sequenceNumber: 4 }]); assert.deepEqual(result.map((item) => item.sequenceNumber), [1, 1, 2]); });
+test('フロー属性ごとに講習会または開催を正規化する', () => { assert.deepEqual(validateFlowInput({ name: ' 事前準備 ', description: '', category: 'lecture_pre', lectureId: 1, sessionId: null }), { name: '事前準備', description: '', category: 'lecture_pre', lectureId: 1, sessionId: null }); assert.equal(validateFlowInput({ name: '当日進行', category: 'session_main', lectureId: null, sessionId: 2 }).sessionId, 2); });
+test('フロー属性と対象の不一致を拒否する', () => { assert.throws(() => validateFlowInput({ name: '不正', category: 'lecture_post', lectureId: null, sessionId: 2 }), (error: unknown) => error instanceof DomainError && Boolean(error.fields?.target)); });

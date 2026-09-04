@@ -168,3 +168,14 @@ export const betaSeedState = sqliteTable('beta_seed_state', {
   id: text('id').primaryKey(),
   seededAt: text('seeded_at').notNull(),
 });
+
+export const betaFlows = sqliteTable('beta_flows', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  description: text('description').notNull(),
+  category: text('category').notNull(),
+  lectureId: integer('lecture_id').references(() => betaWorkshops.id, { onDelete: 'cascade' }),
+  sessionId: integer('session_id').references(() => betaOccurrences.id, { onDelete: 'cascade' }),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});

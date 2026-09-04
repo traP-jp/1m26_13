@@ -1,4 +1,32 @@
 export type PublicationStatus = 'draft' | 'published';
+export type FlowCategory = 'lecture_pre' | 'session_main' | 'lecture_post';
+export type Flow = {
+  id: number;
+  name: string;
+  description: string;
+  category: FlowCategory;
+  lectureId: number | null;
+  sessionId: number | null;
+  createdAt: string;
+  updatedAt: string;
+};
+export type FlowInput = Pick<Flow, 'name' | 'description' | 'category' | 'lectureId' | 'sessionId'>;
+
+// UI compatibility aliases. The canonical product model is Lecture -> Session.
+export type Resource = { title?: string; url: string };
+export type LectureRelationType = 'prerequisite' | 'previous_year' | 'recommended_next';
+export type Lecture = {
+  id: string; name: string; description?: string; academicYearStart: number; academicYearEnd: number;
+  fieldId?: string; organizerGroupIds: string[]; organizerUserIds: string[];
+  contactGroupIds: string[]; contactUserIds: string[]; targetAudience?: string;
+  isIntroductory: boolean; traqChannelId?: string; resources: Resource[];
+};
+export type Session = {
+  id: string; lectureId: string; name: string; description?: string; order: number;
+  date?: Date; startTime?: string; location?: string; knoqUrl?: string;
+  instructorIds: string[]; resources: Resource[]; replayOfSessionIds: string[]; status: PublicationStatus;
+};
+export type LectureRelation = { fromLectureId: string; toLectureId: string; type: LectureRelationType };
 export type OccurrenceKind = 'standard' | 'rebroadcast' | 'digest';
 
 export type WorkshopOccurrence = {

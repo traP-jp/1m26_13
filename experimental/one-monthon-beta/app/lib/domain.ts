@@ -1,4 +1,4 @@
-import type { OccurrenceInput, OccurrenceKind, PublicationStatus, RoadmapInput, RoadmapInputStage, WorkshopInput } from './contracts';
+import type { FlowCategory, FlowInput, OccurrenceInput, OccurrenceKind, PublicationStatus, RoadmapInput, RoadmapInputStage, WorkshopInput } from './contracts';
 
 export class DomainError extends Error {
   readonly status: number;
@@ -11,6 +11,25 @@ export class DomainError extends Error {
 
 const kinds = new Set<OccurrenceKind>(['standard', 'rebroadcast', 'digest']);
 const statuses = new Set<PublicationStatus>(['draft', 'published']);
+const flowCategories = new Set<FlowCategory>(['lecture_pre', 'session_main', 'lecture_post']);
+
+export function validateFlowInput(value: unknown): FlowInput {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new DomainError(422, 'validation_error', '入力内容を確認してください。', { form: '入力形式が正しくありません。' });
+  const input = value as Record<string, unknown>; const fields: Record<string, string> = {};
+  const name = requiredText(input.name, 'name', 'フロー名', 100, fields);
+  const description = optionalText(input.description, 1000) ?? '';
+  const category = flowCategories.has(input.category as FlowCategory) ? input.category as FlowCategory : 'lecture_pre';
+  if (!flowCategories.has(input.category as FlowCategory)) fields.category = 'フロー属性を選択してください。';
+  const lectureId = input.lectureId == null ? null : Number(input.lectureId);
+  const sessionId = input.sessionId == null ? null : Number(input.sessionId);
+  const validLecture = Number.isSafeInteger(lectureId) && Number(lectureId) > 0;
+  const validSession = Number.isSafeInteger(sessionId) && Number(sessionId) > 0;
+  if (category === 'session_main') {
+    if (!validSession || lectureId !== null) fields.target = 'メインフローは開催を1件だけ指定してください。';
+  } else if (!validLecture || sessionId !== null) fields.target = '事前・事後フローは講習会を1件だけ指定してください。';
+  if (Object.keys(fields).length) throw new DomainError(422, 'validation_error', '入力内容を確認してください。', fields);
+  return { name, description, category, lectureId: validLecture ? lectureId : null, sessionId: validSession ? sessionId : null };
+}
 
 export function parsePositiveId(raw: string, label = 'ID'): number {
   if (!/^\d+$/.test(raw)) throw new DomainError(404, 'not_found', `${label}が見つかりません。`);

@@ -1,4 +1,4 @@
-import type { DiscoveryResponse, OccurrenceInput, RoadmapDetail, RoadmapInput, RoadmapManage, RoadmapProgress, RoadmapSummary, UserProfile, WorkshopDetail, WorkshopInput, WorkshopOccurrence, WorkshopSummary } from '../lib/contracts';
+import type { DiscoveryResponse, Flow, FlowInput, OccurrenceInput, RoadmapDetail, RoadmapInput, RoadmapManage, RoadmapProgress, RoadmapSummary, UserProfile, WorkshopDetail, WorkshopInput, WorkshopOccurrence, WorkshopSummary } from '../lib/contracts';
 import { assertRelations, DomainError } from '../lib/domain';
 import { getD1 } from './index';
 import { databaseConstants, ensureDatabase } from './setup';
@@ -55,6 +55,46 @@ export async function updateWorkshop(id: number, input: WorkshopInput): Promise<
 export async function deleteWorkshop(id: number): Promise<void> {
   await ensureDatabase(); await requireWorkshop(id);
   await getD1().prepare('DELETE FROM beta_workshops WHERE id = ?').bind(id).run();
+}
+
+export async function listFlows(): Promise<Flow[]> {
+  await ensureDatabase();
+  const rows = await getD1().prepare('SELECT id, name, description, category, lecture_id, session_id, created_at, updated_at FROM beta_flows ORDER BY category, updated_at DESC, id DESC').all<Record<string, unknown>>();
+  return rows.results.map(toFlow);
+}
+
+export async function createFlow(input: FlowInput): Promise<Flow> {
+  await ensureDatabase(); await assertFlowTarget(input); const now = new Date().toISOString();
+  const row = await getD1().prepare('INSERT INTO beta_flows (name, description, category, lecture_id, session_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id, name, description, category, lecture_id, session_id, created_at, updated_at').bind(input.name, input.description, input.category, input.lectureId, input.sessionId, now, now).first<Record<string, unknown>>();
+  if (!row) throw new DomainError(500, 'save_failed', 'フローを保存できませんでした。');
+  return toFlow(row);
+}
+
+export async function updateFlow(id: number, input: FlowInput): Promise<Flow> {
+  await ensureDatabase(); await assertFlowTarget(input); const now = new Date().toISOString();
+  const row = await getD1().prepare('UPDATE beta_flows SET name = ?, description = ?, category = ?, lecture_id = ?, session_id = ?, updated_at = ? WHERE id = ? RETURNING id, name, description, category, lecture_id, session_id, created_at, updated_at').bind(input.name, input.description, input.category, input.lectureId, input.sessionId, now, id).first<Record<string, unknown>>();
+  if (!row) throw new DomainError(404, 'flow_not_found', 'フローが見つかりません。');
+  return toFlow(row);
+}
+
+export async function deleteFlow(id: number): Promise<void> {
+  await ensureDatabase(); const result = await getD1().prepare('DELETE FROM beta_flows WHERE id = ?').bind(id).run();
+  if (!result.meta.changes) throw new DomainError(404, 'flow_not_found', 'フローが見つかりません。');
+}
+
+async function assertFlowTarget(input: FlowInput) {
+  if (input.lectureId !== null) {
+    const row = await getD1().prepare('SELECT id FROM beta_workshops WHERE id = ?').bind(input.lectureId).first();
+    if (!row) throw new DomainError(422, 'unknown_flow_target', '対象を選び直してください。', { target: '指定した講習会が見つかりません。' });
+  }
+  if (input.sessionId !== null) {
+    const row = await getD1().prepare('SELECT id FROM beta_occurrences WHERE id = ?').bind(input.sessionId).first();
+    if (!row) throw new DomainError(422, 'unknown_flow_target', '対象を選び直してください。', { target: '指定した開催が見つかりません。' });
+  }
+}
+
+function toFlow(row: Record<string, unknown>): Flow {
+  return { id: Number(row.id), name: String(row.name), description: String(row.description), category: row.category as Flow['category'], lectureId: row.lecture_id == null ? null : Number(row.lecture_id), sessionId: row.session_id == null ? null : Number(row.session_id), createdAt: String(row.created_at), updatedAt: String(row.updated_at) };
 }
 
 async function replaceWorkshopData(id: number, input: WorkshopInput, now: string, creating: boolean) {

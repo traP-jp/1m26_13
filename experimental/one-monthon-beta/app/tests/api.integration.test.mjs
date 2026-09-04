@@ -39,6 +39,12 @@ test('β中心導線を隔離D1で登録・公開・発見・複製・完了・�
     const hiddenBeforeOccurrence = await json(server.baseUrl, `/api/workshops/${id}`); assert.equal(hiddenBeforeOccurrence.response.status, 404); const manageableBeforeOccurrence = await json(server.baseUrl, `/api/workshops/${id}?manage=1`); assert.equal(manageableBeforeOccurrence.response.status, 200);
     const payload = { title, summary, prerequisiteIds: [1, 3], successorIds: [5], occurrences: [occurrence()] };
     const firstOccurrence = await json(server.baseUrl, `/api/workshops/${id}`, { method: 'PUT', body: JSON.stringify(payload) }); assert.equal(firstOccurrence.response.status, 200); const occurrenceId = firstOccurrence.body.workshop.occurrences[0].id;
+    const preFlow = await json(server.baseUrl, '/api/flows', { method: 'POST', body: JSON.stringify({ name: '開催前の準備', description: '準備事項', category: 'lecture_pre', lectureId: id, sessionId: null }) }); assert.equal(preFlow.response.status, 201); assert.equal(preFlow.body.flow.lectureId, id);
+    const mainFlow = await json(server.baseUrl, '/api/flows', { method: 'POST', body: JSON.stringify({ name: '当日の進行', description: '進行手順', category: 'session_main', lectureId: null, sessionId: occurrenceId }) }); assert.equal(mainFlow.response.status, 201); assert.equal(mainFlow.body.flow.sessionId, occurrenceId);
+    const invalidFlow = await json(server.baseUrl, '/api/flows', { method: 'POST', body: JSON.stringify({ name: '不正', category: 'lecture_post', lectureId: null, sessionId: occurrenceId }) }); assert.equal(invalidFlow.response.status, 422);
+    const listedFlows = await json(server.baseUrl, '/api/flows'); assert.equal(listedFlows.body.flows.length, 2);
+    const updatedFlow = await json(server.baseUrl, `/api/flows/${preFlow.body.flow.id}`, { method: 'PUT', body: JSON.stringify({ name: '更新済み事前フロー', description: '', category: 'lecture_pre', lectureId: id, sessionId: null }) }); assert.equal(updatedFlow.body.flow.name, '更新済み事前フロー');
+    const deletedFlow = await fetch(`${server.baseUrl}/api/flows/${mainFlow.body.flow.id}`, { method: 'DELETE' }); assert.equal(deletedFlow.status, 204);
 
     await stop(server); server = await start(port, persist);
     const persisted = await json(server.baseUrl, `/api/workshops/${id}`); assert.equal(persisted.body.workshop.title, title); assert.deepEqual(persisted.body.workshop.prerequisites.map((item) => item.id).sort((a, b) => a - b), [1, 3]); assert.deepEqual(persisted.body.workshop.successors.map((item) => item.id), [5]);
