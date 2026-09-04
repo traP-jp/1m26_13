@@ -19,7 +19,7 @@ import {
   BasiqTextarea,
   BasiqThemeProvider,
 } from 'basiq-ui';
-import { computed, createApp, defineComponent, reactive, ref, watch } from 'vue/dist/vue.esm-bundler.js';
+import { createApp, defineComponent, reactive, ref, watch } from 'vue/dist/vue.esm-bundler.js';
 
 const AppIcon = defineComponent({
   name: 'AppIcon',
@@ -32,11 +32,11 @@ const AppIcon = defineComponent({
       <template v-else-if="name === 'edit'"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></template>
       <template v-else-if="name === 'copy'"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></template>
       <template v-else-if="name === 'trash'"><path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6"/></template>
-      <template v-else-if="name === 'calendar'"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></template>
-      <template v-else-if="name === 'book'"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v17H6.5A2.5 2.5 0 0 0 4 22Z"/><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v17h4.5A2.5 2.5 0 0 1 20 22Z"/></template>
       <template v-else><path d="M12 3v18M3 12h18"/></template>
     </svg>`,
 });
+
+type SectionKey = 'general' | 'round1' | 'round2' | 'settings';
 
 const sectionTabs = [
   { label: '全般', value: 'general' },
@@ -44,9 +44,13 @@ const sectionTabs = [
   { label: '第2回', value: 'round2' },
   { label: '設定', value: 'settings' },
 ];
-
 const tabItems = [sectionTabs[0], sectionTabs[1], sectionTabs[2], { label: '開催を追加', value: 'add' }, sectionTabs[3]];
-
+const wizardSteps: Record<SectionKey, string[]> = {
+  general: ['基本情報', '対象とゴール', '関連する講習会'],
+  round1: ['開催内容', '開催準備', '公開と教材'],
+  round2: ['開催内容', '開催準備', '公開と教材'],
+  settings: ['開催の管理', '削除の設定'],
+};
 const occurrenceTypes = [
   { label: '通常開催', value: 'standard', description: '新しい回として開催' },
   { label: '再放送', value: 'rebroadcast', description: '同じ回をもう一度開催' },
@@ -55,58 +59,50 @@ const occurrenceTypes = [
 
 const WorkshopEditorPrototype = defineComponent({
   name: 'WorkshopEditorPrototype',
-  components: {
-    AppIcon,
-    BasiqButton,
-    BasiqCard,
-    BasiqCheckbox,
-    BasiqFormField,
-    BasiqInput,
-    BasiqRadioGroup,
-    BasiqSwitch,
-    BasiqTabs,
-    BasiqTextarea,
-    BasiqThemeProvider,
-  },
+  components: { AppIcon, BasiqButton, BasiqCard, BasiqCheckbox, BasiqFormField, BasiqInput, BasiqRadioGroup, BasiqSwitch, BasiqTabs, BasiqTextarea, BasiqThemeProvider },
   setup() {
-    const activeTab = ref('general');
+    const activeTab = ref<SectionKey>('general');
     const modalOpen = ref(false);
+    const copiedRound = ref('');
+    const course = reactive({ name: 'Webフロントエンド入門', description: 'HTML・CSS・JavaScriptの基本を、手を動かしながら学ぶ全3回の講習会です。', target: 'Web開発を始めたい人', goal: '簡単なWebページを自分で組み立てられる' });
+    const rounds = reactive({
+      round1: { title: 'Webページの仕組みとHTML', number: '1', kind: 'standard', learning: 'ブラウザがWebページを表示する仕組みと、意味のあるHTMLの書き方を学びます。', datetime: '2026-09-18 18:00', location: '部室', group: 'Webエンジニア班', target: 'プログラミング初学者', materialUrl: 'https://example.com/web-basics/01', materialDescription: 'スライドと演習問題' },
+      round2: { title: 'CSSレイアウトの基本', number: '2', kind: 'standard', learning: 'FlexboxとGridを使い、画面幅に合わせたレイアウトを作ります。', datetime: '2026-09-25 18:00', location: '部室', group: 'Webエンジニア班', target: '第1回を終えた人', materialUrl: '', materialDescription: '' },
+    });
     const published = reactive({ round1: true, round2: false });
-    const kinds = reactive({ round1: 'standard', round2: 'standard' });
-    const newKind = ref('standard');
+    const preparation = reactive({ round1: { knoq: true, office: false, ta: false }, round2: { knoq: false, office: false, ta: false } });
     const prerequisiteGit = ref(true);
     const prerequisiteWeb = ref(false);
     const successorTs = ref(true);
     const successorDeploy = ref(false);
-    const tabIndex = computed(() => sectionTabs.findIndex((tab) => tab.value === activeTab.value));
-    const goToTab = (index: number) => {
-      activeTab.value = sectionTabs[Math.min(sectionTabs.length - 1, Math.max(0, index))].value;
-    };
+    const newKind = ref('standard');
+    const wizardPosition = reactive<Record<SectionKey, number>>({ general: 0, round1: 0, round2: 0, settings: 0 });
+    const wizardCompleted = reactive<Record<SectionKey, boolean>>({ general: false, round1: false, round2: false, settings: false });
+
     const selectTab = (value: string) => {
-      if (value === 'add') {
-        modalOpen.value = true;
-        return;
-      }
-      activeTab.value = value;
+      if (value === 'add') { modalOpen.value = true; return; }
+      activeTab.value = value as SectionKey;
+    };
+    const stepTitle = (tab: SectionKey) => wizardSteps[tab][wizardPosition[tab]];
+    const stepCount = (tab: SectionKey) => wizardSteps[tab].length;
+    const goWizard = (tab: SectionKey, delta: number) => {
+      wizardCompleted[tab] = false;
+      wizardPosition[tab] = Math.min(stepCount(tab) - 1, Math.max(0, wizardPosition[tab] + delta));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    const finishWizard = (tab: SectionKey) => { wizardCompleted[tab] = true; window.scrollTo({ top: 0, behavior: 'smooth' }); };
+    const reopenWizard = (tab: SectionKey) => { wizardCompleted[tab] = false; };
+    const nextSection = (tab: SectionKey) => {
+      const next = sectionTabs[sectionTabs.findIndex((section) => section.value === tab) + 1];
+      if (next) activeTab.value = next.value as SectionKey;
+    };
+    const announcement = (tab: 'round1' | 'round2') => `# ${course.name} ${tab === 'round1' ? '第1回' : '第2回'}\n\n${rounds[tab].datetime}に${rounds[tab].location}で「${rounds[tab].title}」を開催します。\n\n対象：${rounds[tab].target}\n内容：${rounds[tab].learning}`;
+    const copyAnnouncement = async (tab: 'round1' | 'round2') => {
+      try { await navigator.clipboard.writeText(announcement(tab)); copiedRound.value = tab; }
+      catch { copiedRound.value = ''; }
     };
     watch(activeTab, () => window.scrollTo({ top: 0, behavior: 'smooth' }));
-    return {
-      activeTab,
-      modalOpen,
-      published,
-      kinds,
-      newKind,
-      prerequisiteGit,
-      prerequisiteWeb,
-      successorTs,
-      successorDeploy,
-      tabIndex,
-      sectionTabs,
-      tabItems,
-      occurrenceTypes,
-      goToTab,
-      selectTab,
-    };
+    return { activeTab, announcement, copiedRound, copyAnnouncement, course, finishWizard, goWizard, modalOpen, newKind, nextSection, occurrenceTypes, preparation, prerequisiteGit, prerequisiteWeb, published, reopenWizard, rounds, sectionTabs, selectTab, stepCount, stepTitle, successorDeploy, successorTs, tabItems, wizardCompleted, wizardPosition, wizardSteps };
   },
   template: `
     <BasiqThemeProvider mode="light" class="theme-root">
@@ -116,95 +112,68 @@ const WorkshopEditorPrototype = defineComponent({
           <nav aria-label="メインナビゲーション"><p>学ぶ</p><a href="#"><AppIcon name="home" />ホーム</a><a href="#"><AppIcon name="map" />ロードマップ</a><a href="#"><AppIcon name="user" />プロフィール</a></nav>
           <div class="sidebar-admin"><p>運営</p><a class="active" href="#" aria-current="page"><AppIcon name="edit" />運営向けページ</a></div>
         </aside>
-
         <div class="site-workspace">
           <header class="mobile-header"><div class="mobile-brand"><span class="brand-mark">1M</span><strong>1-Monthon</strong></div><span>講習会管理</span></header>
           <main>
             <div class="breadcrumb"><span>運営向けページ</span><b>/</b><span>講習会を編集</span></div>
             <header class="page-header"><h1>講習会を編集</h1><span class="header-status"><span></span>公開中</span></header>
-
             <BasiqTabs :model-value="activeTab" @update:model-value="selectTab" class="section-tabs" :items="tabItems" aria-label="講習会の編集項目" list-width="100%">
               <template #trigger="{ item: triggerItem }"><span v-if="triggerItem.value === 'add'" class="add-tab-control"><AppIcon name="plus" :size="16" /><span class="add-tab-text">開催を追加</span></span><template v-else>{{ triggerItem.label }}</template></template>
               <template #content="{ item }">
-                <div class="tab-content">
-                  <section v-if="item.value === 'general'" class="tab-panel general-panel">
-                    <BasiqCard class="section-card">
-                      <template #header><div class="card-heading"><span class="section-icon">全</span><h2>講習会名と概要</h2></div></template>
-                      <div class="field-grid">
-                        <BasiqFormField class="field-wide" label="講習会名" required description="シリーズの場合は、シリーズ全体の名前を書きます。"><BasiqInput model-value="Webフロントエンド入門" required /></BasiqFormField>
-                        <BasiqFormField class="field-wide" label="概要" required description="どんな人に、何を学んでもらう講習会かを短くまとめます。"><BasiqTextarea model-value="HTML・CSS・JavaScriptの基本を、手を動かしながら学ぶ全3回の講習会です。" :rows="4" required /></BasiqFormField>
-                      </div>
-                    </BasiqCard>
-
-                    <BasiqCard class="section-card connections-card">
-                      <template #header><div class="card-heading"><span class="section-icon"><AppIcon name="map" :size="18" /></span><h2>関連する講習会</h2></div></template>
-                      <div class="connection-columns">
-                        <section><div class="connection-label"><h3>先に学ぶ</h3><span>1件選択</span></div><label class="choice-row selected"><BasiqCheckbox v-model="prerequisiteGit" /><span><strong>Git入門</strong><small>変更履歴と共同作業の基本</small></span></label><label class="choice-row"><BasiqCheckbox v-model="prerequisiteWeb" /><span><strong>Webシステム入門</strong><small>Webの全体像をつかむ</small></span></label></section>
-                        <section><div class="connection-label"><h3>次に学ぶ</h3><span>1件選択</span></div><label class="choice-row selected"><BasiqCheckbox v-model="successorTs" /><span><strong>TypeScript入門</strong><small>型を使ったフロントエンド開発</small></span></label><label class="choice-row"><BasiqCheckbox v-model="successorDeploy" /><span><strong>Webサービス公開入門</strong><small>作ったサービスを公開する</small></span></label></section>
-                      </div>
-                    </BasiqCard>
-                  </section>
-
-                  <section v-else-if="item.value === 'round1' || item.value === 'round2'" class="tab-panel round-panel">
-                    <div class="round-heading">
-                      <div><span class="occurrence-index">{{ item.label }}</span><div><h2>{{ item.value === 'round1' ? 'Webページの仕組みとHTML' : 'CSSレイアウトの基本' }}</h2><p>{{ published[item.value] ? '公開中' : '下書き' }}</p></div></div>
-                      <div class="card-actions"><BasiqButton tone="neutral" variant="outline" type="button"><AppIcon name="copy" :size="17" />複製</BasiqButton><BasiqButton tone="danger" variant="outline" type="button" :aria-label="item.label + 'を削除'"><AppIcon name="trash" :size="17" /></BasiqButton></div>
+                <div v-if="item.value !== 'add'" class="tab-content">
+                  <section v-if="!wizardCompleted[item.value]" class="wizard-panel" :aria-labelledby="item.value + '-wizard-title'">
+                    <div class="wizard-progress">
+                      <div class="progress-copy"><span>ステップ {{ wizardPosition[item.value] + 1 }} / {{ stepCount(item.value) }}</span><strong :id="item.value + '-wizard-title'">{{ stepTitle(item.value) }}</strong></div>
+                      <ol :aria-label="item.label + 'の進捗'" :style="{ gridTemplateColumns: 'repeat(' + stepCount(item.value) + ', minmax(0, 1fr))' }"><li v-for="(label, index) in wizardSteps[item.value]" :key="label" :class="{ current: index === wizardPosition[item.value], complete: index < wizardPosition[item.value] }"><span>{{ index < wizardPosition[item.value] ? '✓' : index + 1 }}</span><small>{{ label }}</small></li></ol>
                     </div>
 
-                    <BasiqCard class="occurrence-card">
-                      <template #header><h2>開催内容</h2></template>
-                      <div class="field-grid">
-                        <BasiqFormField label="回のタイトル" required><BasiqInput :model-value="item.value === 'round1' ? 'Webページの仕組みとHTML' : 'CSSレイアウトの基本'" required /></BasiqFormField>
-                        <BasiqFormField label="回番号"><BasiqInput :model-value="item.value === 'round1' ? '1' : '2'" inputmode="numeric" /></BasiqFormField>
-                        <BasiqRadioGroup class="field-wide" :model-value="kinds[item.value]" @update:model-value="kinds[item.value] = $event" label="開催種別" :items="occurrenceTypes" orientation="horizontal" />
-                        <BasiqFormField class="field-wide" label="この回で学べること" required><BasiqTextarea :model-value="item.value === 'round1' ? 'ブラウザがWebページを表示する仕組みと、意味のあるHTMLの書き方を学びます。' : 'FlexboxとGridを使い、画面幅に合わせたレイアウトを作ります。'" :rows="3" required /></BasiqFormField>
-                        <BasiqFormField label="日時"><BasiqInput :model-value="item.value === 'round1' ? '2026-09-18 18:00' : '2026-09-25 18:00'" /></BasiqFormField>
-                        <BasiqFormField label="場所"><BasiqInput model-value="部室" /></BasiqFormField>
-                        <BasiqFormField label="開催する組織・班" required><BasiqInput model-value="Webエンジニア班" required /></BasiqFormField>
-                        <BasiqFormField label="対象者" required><BasiqInput :model-value="item.value === 'round1' ? 'プログラミング初学者' : '第1回を終えた人'" required /></BasiqFormField>
-                      </div>
+                    <BasiqCard v-if="item.value === 'general' && wizardPosition.general === 0" class="wizard-card">
+                      <template #header><div><p class="card-kicker">全般</p><h2>講習会の基本情報</h2></div></template>
+                      <div class="wizard-content"><p class="step-lead">まず、講習会の名前と概要を入力します。</p><BasiqFormField label="講習会名" required><BasiqInput v-model="course.name" required /></BasiqFormField><BasiqFormField label="概要" required><BasiqTextarea v-model="course.description" :rows="4" required /></BasiqFormField></div>
+                    </BasiqCard>
+                    <BasiqCard v-else-if="item.value === 'general' && wizardPosition.general === 1" class="wizard-card">
+                      <template #header><div><p class="card-kicker">全般</p><h2>対象とゴール</h2></div></template>
+                      <div class="wizard-content"><p class="step-lead">誰に向けた講習会か、受講後に何ができるようになるかを決めます。</p><BasiqFormField label="対象者" required><BasiqInput v-model="course.target" required /></BasiqFormField><BasiqFormField label="受講後のゴール" required><BasiqTextarea v-model="course.goal" :rows="3" required /></BasiqFormField><div class="value-preview"><strong>{{ course.name }}</strong><span>対象：{{ course.target }}</span><span>ゴール：{{ course.goal }}</span></div></div>
+                    </BasiqCard>
+                    <BasiqCard v-else-if="item.value === 'general'" class="wizard-card">
+                      <template #header><div><p class="card-kicker">全般</p><h2>関連する講習会</h2></div></template>
+                      <div class="wizard-content"><p class="step-lead">学ぶ順番につながる講習会を選びます。</p><div class="connection-columns"><section><div class="connection-label"><h3>先に学ぶ</h3></div><label class="choice-row" :class="{ selected: prerequisiteGit }"><BasiqCheckbox v-model="prerequisiteGit" /><span><strong>Git入門</strong><small>変更履歴と共同作業の基本</small></span></label><label class="choice-row" :class="{ selected: prerequisiteWeb }"><BasiqCheckbox v-model="prerequisiteWeb" /><span><strong>Webシステム入門</strong><small>Webの全体像をつかむ</small></span></label></section><section><div class="connection-label"><h3>次に学ぶ</h3></div><label class="choice-row" :class="{ selected: successorTs }"><BasiqCheckbox v-model="successorTs" /><span><strong>TypeScript入門</strong><small>型を使ったフロントエンド開発</small></span></label><label class="choice-row" :class="{ selected: successorDeploy }"><BasiqCheckbox v-model="successorDeploy" /><span><strong>Webサービス公開入門</strong><small>作ったサービスを公開する</small></span></label></section></div></div>
                     </BasiqCard>
 
-                    <div class="round-subgrid">
-                      <BasiqCard class="section-card publish-card">
-                        <template #header><h2>公開状態</h2></template>
-                        <div class="publish-control"><BasiqSwitch :model-value="published[item.value]" @update:model-value="published[item.value] = $event">学習者に公開する</BasiqSwitch><p>公開すると検索と講習会詳細に表示されます。</p></div>
+                    <template v-else-if="item.value === 'round1' || item.value === 'round2'">
+                      <BasiqCard v-if="wizardPosition[item.value] === 0" class="wizard-card">
+                        <template #header><div><p class="card-kicker">{{ item.label }}</p><h2>開催内容</h2></div></template>
+                        <div class="wizard-content"><p class="step-lead">この回で扱う内容を入力します。</p><div class="field-grid"><BasiqFormField label="回のタイトル" required><BasiqInput v-model="rounds[item.value].title" required /></BasiqFormField><BasiqFormField label="回番号"><BasiqInput v-model="rounds[item.value].number" inputmode="numeric" /></BasiqFormField><BasiqRadioGroup class="field-wide" v-model="rounds[item.value].kind" label="開催種別" :items="occurrenceTypes" orientation="horizontal" /><BasiqFormField class="field-wide" label="この回で学べること" required><BasiqTextarea v-model="rounds[item.value].learning" :rows="4" required /></BasiqFormField></div></div>
                       </BasiqCard>
-                      <BasiqCard class="section-card materials-card">
-                        <template #header><div class="card-heading"><span class="section-icon"><AppIcon name="book" :size="18" /></span><h2>教材</h2></div></template>
-                        <div class="field-grid"><BasiqFormField class="field-wide" label="教材URL"><BasiqInput type="url" :model-value="item.value === 'round1' ? 'https://example.com/web-basics/01' : ''" placeholder="https://" /></BasiqFormField><BasiqFormField class="field-wide" label="教材の説明文"><BasiqInput :model-value="item.value === 'round1' ? 'スライドと演習問題' : ''" /></BasiqFormField></div>
+                      <BasiqCard v-else-if="wizardPosition[item.value] === 1" class="wizard-card">
+                        <template #header><div><p class="card-kicker">{{ item.label }}</p><h2>開催準備</h2></div></template>
+                        <div class="wizard-content"><p class="step-lead">日時と対象者を決め、必要な準備を確認します。</p><div class="field-grid"><BasiqFormField label="日時"><BasiqInput v-model="rounds[item.value].datetime" /></BasiqFormField><BasiqFormField label="場所"><BasiqInput v-model="rounds[item.value].location" /></BasiqFormField><BasiqFormField label="開催する組織・班" required><BasiqInput v-model="rounds[item.value].group" required /></BasiqFormField><BasiqFormField label="対象者" required><BasiqInput v-model="rounds[item.value].target" required /></BasiqFormField></div><section class="task-list"><h3>準備チェック</h3><label><BasiqCheckbox v-model="preparation[item.value].knoq" /><span :class="{ done: preparation[item.value].knoq }">knoQに開催ページを作成する</span></label><label><BasiqCheckbox v-model="preparation[item.value].office" /><span :class="{ done: preparation[item.value].office }">庶務連絡を投稿する</span></label><label><BasiqCheckbox v-model="preparation[item.value].ta" /><span :class="{ done: preparation[item.value].ta }">TA募集を投稿する</span></label></section></div>
                       </BasiqCard>
-                    </div>
-                  </section>
+                      <BasiqCard v-else class="wizard-card">
+                        <template #header><div><p class="card-kicker">{{ item.label }}</p><h2>公開と教材</h2></div></template>
+                        <div class="wizard-content"><div class="publish-control"><BasiqSwitch v-model="published[item.value]">学習者に公開する</BasiqSwitch><p>公開すると検索と講習会詳細に表示されます。</p></div><div class="field-grid"><BasiqFormField class="field-wide" label="教材URL"><BasiqInput v-model="rounds[item.value].materialUrl" type="url" placeholder="https://" /></BasiqFormField><BasiqFormField class="field-wide" label="教材の説明文"><BasiqInput v-model="rounds[item.value].materialDescription" /></BasiqFormField></div><section class="copy-block"><div><h3>告知文</h3><BasiqButton tone="neutral" variant="outline" type="button" @click="copyAnnouncement(item.value)"><AppIcon name="copy" :size="16" />{{ copiedRound === item.value ? 'コピーしました' : 'コピー' }}</BasiqButton></div><pre>{{ announcement(item.value) }}</pre></section></div>
+                      </BasiqCard>
+                    </template>
 
-                  <section v-else class="tab-panel settings-panel">
-                    <BasiqCard class="section-card">
-                      <template #header><div class="settings-heading"><h2>開催</h2></div></template>
-                      <div class="round-list"><div><span class="round-number">第1回</span><div><strong>Webページの仕組みとHTML</strong><small>公開中</small></div></div><div><span class="round-number muted">第2回</span><div><strong>CSSレイアウトの基本</strong><small>下書き</small></div></div></div>
+                    <BasiqCard v-else-if="item.value === 'settings' && wizardPosition.settings === 0" class="wizard-card">
+                      <template #header><div><p class="card-kicker">設定</p><h2>開催の管理</h2></div></template>
+                      <div class="wizard-content"><p class="step-lead">登録済みの開催と公開状態を確認します。</p><div class="round-list"><div><span class="round-number">第1回</span><div><strong>{{ rounds.round1.title }}</strong><small>{{ published.round1 ? '公開中' : '下書き' }}</small></div></div><div><span class="round-number muted">第2回</span><div><strong>{{ rounds.round2.title }}</strong><small>{{ published.round2 ? '公開中' : '下書き' }}</small></div></div></div></div>
                     </BasiqCard>
-                    <div class="danger-zone"><div><strong>講習会を削除</strong><p>開催・完了記録・ロードマップ上の配置も削除されます。</p></div><BasiqButton tone="danger" variant="outline" type="button"><AppIcon name="trash" :size="17" />講習会を削除</BasiqButton></div>
-                  </section>
+                    <BasiqCard v-else class="wizard-card">
+                      <template #header><div><p class="card-kicker">設定</p><h2>削除の設定</h2></div></template>
+                      <div class="wizard-content"><p class="step-lead">講習会全体を削除する操作です。必要な場合だけ実行します。</p><div class="danger-zone"><div><strong>講習会を削除</strong><p>開催・完了記録・ロードマップ上の配置も削除されます。</p></div><BasiqButton tone="danger" variant="outline" type="button"><AppIcon name="trash" :size="17" />講習会を削除</BasiqButton></div></div>
+                    </BasiqCard>
 
-                  <footer class="tab-actions"><BasiqButton v-if="tabIndex > 0" tone="neutral" variant="outline" type="button" @click="goToTab(tabIndex - 1)">戻る</BasiqButton><BasiqButton v-if="tabIndex < sectionTabs.length - 1" type="button" @click="goToTab(tabIndex + 1)">次へ：{{ sectionTabs[tabIndex + 1].label }}</BasiqButton><BasiqButton v-else type="button">変更を保存</BasiqButton></footer>
+                    <nav class="wizard-navigation" :aria-label="item.label + 'のステップ移動'"><BasiqButton tone="neutral" variant="outline" type="button" :disabled="wizardPosition[item.value] === 0" @click="goWizard(item.value, -1)">前へ</BasiqButton><BasiqButton v-if="wizardPosition[item.value] < stepCount(item.value) - 1" type="button" @click="goWizard(item.value, 1)">次へ</BasiqButton><BasiqButton v-else type="button" @click="finishWizard(item.value)">保存する</BasiqButton></nav>
+                  </section>
+                  <section v-else class="wizard-complete" aria-live="polite"><BasiqCard class="wizard-card"><template #header><div><p class="completion-mark">✓</p><h2>{{ item.label }}を保存しました</h2></div></template><p>このタブの入力内容を保存しました。</p><template #footer><div class="completion-actions"><BasiqButton tone="neutral" variant="outline" type="button" @click="reopenWizard(item.value)">内容に戻る</BasiqButton><BasiqButton v-if="item.value !== 'settings'" type="button" @click="nextSection(item.value)">次のタブへ</BasiqButton></div></template></BasiqCard></section>
                 </div>
               </template>
             </BasiqTabs>
           </main>
         </div>
-
         <nav class="mobile-nav" aria-label="モバイルナビゲーション"><a href="#"><AppIcon name="home" />ホーム</a><a href="#"><AppIcon name="map" />ロードマップ</a><a href="#"><AppIcon name="user" />プロフィール</a><a class="active" href="#" aria-current="page"><AppIcon name="edit" />運営</a></nav>
-
-        <div v-if="modalOpen" class="modal-backdrop" @click.self="modalOpen = false">
-          <BasiqCard class="add-modal" role="dialog" aria-modal="true" aria-labelledby="add-modal-title">
-            <template #header><div class="modal-heading"><h2 id="add-modal-title">開催を追加</h2><BasiqButton tone="neutral" variant="outline" type="button" @click="modalOpen = false">閉じる</BasiqButton></div></template>
-            <div class="modal-fields">
-              <BasiqFormField label="回番号"><BasiqInput model-value="3" inputmode="numeric" /></BasiqFormField>
-              <BasiqFormField label="回のタイトル" required><BasiqInput placeholder="例：JavaScriptの基本" required /></BasiqFormField>
-              <BasiqRadioGroup v-model="newKind" label="開催種別" :items="occurrenceTypes" />
-            </div>
-            <div class="modal-actions"><BasiqButton tone="neutral" variant="outline" type="button" @click="modalOpen = false">キャンセル</BasiqButton><BasiqButton type="button" @click="modalOpen = false">追加</BasiqButton></div>
-          </BasiqCard>
-        </div>
+        <div v-if="modalOpen" class="modal-backdrop" @click.self="modalOpen = false"><BasiqCard class="add-modal" role="dialog" aria-modal="true" aria-labelledby="add-modal-title"><template #header><div class="modal-heading"><h2 id="add-modal-title">開催を追加</h2><BasiqButton tone="neutral" variant="outline" type="button" @click="modalOpen = false">閉じる</BasiqButton></div></template><div class="modal-fields"><BasiqFormField label="回番号"><BasiqInput model-value="3" inputmode="numeric" /></BasiqFormField><BasiqFormField label="回のタイトル" required><BasiqInput placeholder="例：JavaScriptの基本" required /></BasiqFormField><BasiqRadioGroup v-model="newKind" label="開催種別" :items="occurrenceTypes" /></div><div class="modal-actions"><BasiqButton tone="neutral" variant="outline" type="button" @click="modalOpen = false">キャンセル</BasiqButton><BasiqButton type="button" @click="modalOpen = false">追加</BasiqButton></div></BasiqCard></div>
       </div>
     </BasiqThemeProvider>`,
 });

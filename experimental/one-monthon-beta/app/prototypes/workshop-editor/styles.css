@@ -38,9 +38,45 @@ h1 { font-size: 30px; line-height: 1.3; letter-spacing: -.025em; }
 .header-status { display: inline-flex; align-items: center; gap: 7px; margin-top: 9px; padding: 5px 10px; border-radius: 999px; color: var(--success); background: var(--success-soft); font-size: 12px; font-weight: 700; white-space: nowrap; }
 .header-status span { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .section-tabs { display: block; }
+.section-tabs [role="tabpanel"] { background: var(--basiq-color-surface-base); }
 .section-tabs [id$="-trigger-add"] { color: var(--basiq-color-content-accent); }
 .add-tab-control { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
 .tab-content { min-height: 680px; padding-top: 20px; }
+.wizard-panel, .wizard-complete { width: min(100%, 800px); margin: 0 auto; }
+.wizard-progress { display: grid; gap: 14px; margin: 2px 0 16px; }
+.progress-copy { display: grid; gap: 2px; }
+.progress-copy span { color: var(--basiq-color-content-subtle); font-size: 12px; font-weight: 700; }
+.progress-copy strong { font-size: 14px; }
+.wizard-progress ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; }
+.wizard-progress li { position: relative; display: grid; justify-items: center; gap: 6px; color: var(--basiq-color-content-subtle); text-align: center; }
+.wizard-progress li::before { position: absolute; z-index: 0; top: 13px; right: 50%; width: 100%; height: 2px; content: ''; background: var(--basiq-color-border-separator); }
+.wizard-progress li:first-child::before { display: none; }
+.wizard-progress li > span { position: relative; z-index: 1; width: 28px; height: 28px; display: grid; place-items: center; border: 2px solid var(--basiq-color-border-control); border-radius: 50%; background: var(--basiq-color-surface-base); font-size: 11px; font-weight: 700; }
+.wizard-progress li.current, .wizard-progress li.complete { color: var(--basiq-color-content-accent); }
+.wizard-progress li.current > span { border-color: var(--basiq-color-accent-default); color: var(--basiq-color-content-on-accent); background: var(--basiq-color-accent-default); }
+.wizard-progress li.complete > span { border-color: var(--success); color: var(--success); background: var(--success-soft); }
+.wizard-progress li.complete::before, .wizard-progress li.current::before { background: color-mix(in srgb, var(--basiq-color-accent-default) 44%, white); }
+.wizard-progress small { max-width: 150px; font-size: 10px; font-weight: 700; line-height: 1.35; }
+.wizard-card { border: 1px solid var(--basiq-color-border-separator); }
+.wizard-card h2 { font-size: 18px; }
+.card-kicker { margin-bottom: 3px; color: var(--basiq-color-content-accent); font-size: 10px; font-weight: 700; letter-spacing: .08em; }
+.wizard-content { display: grid; gap: 18px; }
+.step-lead { color: var(--basiq-color-content-subtle); }
+.value-preview { display: grid; gap: 4px; padding: 14px 16px; border-left: 3px solid var(--basiq-color-accent-default); background: var(--basiq-color-surface-muted); }
+.value-preview span { color: var(--basiq-color-content-subtle); font-size: 12px; }
+.task-list { display: grid; gap: 8px; padding-top: 4px; }
+.task-list h3 { margin-bottom: 2px; font-size: 14px; }
+.task-list label { min-height: 46px; display: flex; align-items: center; gap: 10px; padding: 8px 11px; border: 1px solid var(--basiq-color-border-separator); border-radius: var(--basiq-radius-sm); }
+.task-list .done { color: var(--basiq-color-content-subtle); text-decoration: line-through; }
+.copy-block { display: grid; gap: 10px; }
+.copy-block > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.copy-block h3 { font-size: 14px; }
+.copy-block button { display: inline-flex; align-items: center; gap: 7px; }
+.copy-block pre { margin: 0; padding: 15px; overflow: auto; border-radius: var(--basiq-radius-sm); background: var(--basiq-color-surface-muted); font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: 12px; line-height: 1.65; white-space: pre-wrap; }
+.wizard-navigation { display: flex; justify-content: space-between; gap: 8px; margin-top: 16px; }
+.wizard-complete { padding-top: 42px; }
+.completion-mark { width: 34px; height: 34px; display: grid; place-items: center; margin-bottom: 10px; border-radius: 50%; color: var(--success); background: var(--success-soft); font-weight: 700; }
+.completion-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .tab-panel { display: grid; align-content: start; gap: 16px; }
 .section-card, .occurrence-card { border: 1px solid var(--basiq-color-border-separator); }
 .card-heading { width: 100%; display: flex; align-items: center; gap: 11px; }
@@ -110,6 +146,14 @@ h1 { font-size: 30px; line-height: 1.3; letter-spacing: -.025em; }
   .section-tabs [id$="-trigger-add"] { min-width: 42px; padding-inline: 10px; }
   .add-tab-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .tab-content { min-height: 620px; padding-top: 16px; }
+  .wizard-progress { margin-bottom: 12px; }
+  .progress-copy { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .wizard-progress small { font-size: 9px; }
+  .wizard-card h2 { font-size: 16px; }
+  .wizard-content { gap: 16px; }
+  .wizard-navigation { position: fixed; z-index: 20; left: 0; right: 0; bottom: 63px; min-height: 58px; align-items: center; margin: 0; padding: 8px 16px; border-top: 1px solid var(--basiq-color-border-separator); background: color-mix(in srgb, var(--basiq-color-surface-base) 96%, transparent); backdrop-filter: blur(8px); }
+  .wizard-navigation button:last-child { flex: 1; }
+  .wizard-complete { padding-top: 24px; }
   .field-grid, .connection-columns, .round-subgrid { grid-template-columns: 1fr; }
   .field-wide { grid-column: auto; }
   .round-heading { align-items: flex-start; }
