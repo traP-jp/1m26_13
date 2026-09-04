@@ -15,7 +15,7 @@
 
 `references/ui-canonical/screens.json`の固定commitを視覚的正本として、本番のAPI、router、認証、永続化、入力、エラー処理を保ったまま表示層を再統合している。共通シェルは正本の248pxサイドバー、82pxブランド領域、50pxナビ行、運営カード、58pxモバイルヘッダーへ合わせた。
 ホーム／探索は正本のフィルター、件数見出し、3列カードを維持し、ロードマップ一覧も同じカード構造とレスポンシブ列へ統一した。390×844と1440×900の両方で横overflowがないことを実寸計測した。
-Lecture詳細は正本の最大1160px、左右40px余白、本文＋310px補助欄の配置へ合わせた。モバイルでは左右16px、補助欄と本文を縦に並べる。Session詳細はLectureへ統合し、同じ`order`の通常開催と再放送を同じ回タブへ表示する。
+Lecture詳細は正本の最大1160px、左右40px余白、本文＋310px補助欄の配置へ合わせた。モバイルでは左右16px、補助欄と本文を縦に並べる。Session詳細はLectureへ統合し、学習者向け表示は通常Sessionだけを`order`順の回として扱う。
 Roadmap詳細は正本の42px左右余白、進捗＋現在地、学習順＋318px共有欄へ合わせ、完了済み項目間の接続線とメタ情報の区切りも復元した。390×844では進捗、現在地、学習順、共有欄の順に縦積みする。
 Profileは固定commit内で欠落していたprototype pathを同commitの実画面とCSSで補い、学習統計、独立した3タブ、2列バッジ一覧＋詳細欄、完了Session一覧、Roadmap進捗一覧を復元した。badge alphaの決定論的SVGは一覧と詳細の両方で使う。
 運営ホームは正本の最大1160px、最近編集した講習会の4列一覧、検索付きRoadmap管理へ合わせた。モバイルでは左右16pxと一覧の縦積みを適用し、公開・下書きの表記も統一した。
@@ -27,7 +27,7 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 - NeoShowcase `X-Forwarded-User`認証、開発用`DEV_USER`、traQ User/Groupのbackend cache。
 - Lecture/Sessionの登録・編集・公開、Resource、講師、運営、問い合わせ、分野、関係。
 - 公開Lectureのキーワード・年度・分野検索。検索条件はURL queryへ保持する。
-- 再放送を別Sessionとして保持し、同じ`order`の通常開催とLecture詳細の同じ回に表示する。再放送には完了操作を置かない。
+- 再放送を別Sessionとして保持し、API、DB、運営編集、作成機能で管理する。学習者向けLecture詳細の回数、タブ、本文には再放送を含めず、完了操作も置かない。
 - Session単位の自己申告完了。公開中の通常Session全件からLecture完了、badge alpha、Roadmap進捗を導出する。
 - StockのFlowClassと適用時スナップショットFlow。`lecture_pre`、`session_main`、`lecture_post`、formatVersion 1、安定task key、途中保存・再開・完了を実装した。
 - 段階名・説明と順序付きLectureを持つ一本道Roadmap。公開条件、次のLecture、進捗を実装した。
@@ -43,9 +43,11 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 ## 最終検証
 
 - Lecture / Sessionの連番化後、隔離した空のMariaDB 11.8へmigrationを適用し、Lecture ID `1`→`2`、Session ID `1`→`2`の自動採番、通常開催と再放送の同一order、公開Lectureへの両Session返却、再放送完了拒否をAPIスモークで確認した。バックエンド再起動後もmigration成功とデータ保持を確認した。
-- Lecture詳細を実ブラウザで確認し、第1回に通常開催と再放送が同時表示されること、第2回タブでURLが`#2`になり、戻る・進む・再読込後も選択回とURLが同期することを確認した。完了操作後も`#2`、選択回、`scrollY`を維持した。1280pxと390×844で横overflow 0、console warning/error 0件だった。
-- roundが1件だけのLectureでは横タブを表示せず、`#1`で入ってもfragmentなしのURLへ正規化する。roundが2件以上のLectureでは従来どおりタブと`#<round>`を使う。
-- 単発Lectureを1280×900と390×844の実ブラウザで確認し、タブ0件、`#1`除去、通常開催＋録画の2カード表示、横overflow 0、console warning/error 0件だった。複数回Lectureはタブ2件と`#2`選択を維持した。frontendの生成型check、formatter、全lint、Vue型検査、Vitest 9/9、Vite buildも成功した。
+- Lecture詳細を通常Sessionだけで構成し、再放送と再放送しかない`order`を回数、タブ、カード、件数表示から除外した。複数回のfragmentはタブ名と同じ`#第N回`とし、旧`#N`とfragmentなしから正規URLへ置換する。単発はfragmentなしを維持する。
+- Lecture 3を実ブラウザで確認し、旧`#2`が`#第2回`のpercent-encoded URLへ正規化され、タブ2件、通常カード1件、「再放送」0件、「この回で学べること」、bookアイコン付き教材ボタンを表示した。ArrowLeftで第1回へ切り替わり、URLとtabpanel本文も同期した。
+- Lecture 1は通常＋再放送が同じ`order`でも単発扱いとなり、タブ・tablist・tabpanel 0件、fragmentなし、通常カード1件、「再放送」0件、横overflow 0を確認した。
+- 390×844相当の同一origin iframeでLecture 3を確認し、viewport 390px、横overflow 0、対象者・前提知識が学習状況と今回の開催より前に並ぶことを要素位置で確認した。プロフィールの完了した開催リンクも`#第N回`へ統一した。
+- 通常開催中心への変更後、frontendのAPI生成型check、formatter、oxlint、ESLint、stylelint、Vue型検査、Vitest 9/9、Vite production buildを再実行して成功した。
 - 複数回Lectureの回本文を`LectureRoundDetail`へ抽出し、選択中のBasiqTabs tabpanel内へ対応roundの開催カード、講習会情報、学習状況を配置した。単発Lectureはtablist / tab / tabpanelを描画せず同じ本文を直接表示する。
 - BasiqTabsの既定focus gutterはこの画面のtabpanelだけで相殺し、1280px実測でtabs root・tabpanel・本文gridの左右端と幅が一致、タブ直下24px、白背景、padding 0を確認した。390pxでも本文先行の縦積み、横overflow 0、console warning/error 0件だった。
 - 学習者向け`/sessions/1`は404へ解決する。講習会編集はLecture / Sessionの連番が衝突する場合もFlow IDで重複排除し、横タブ1つにFlow 1つ、その内容にFlow本文・進捗・入力・task・完了操作が直接表示されることを実ブラウザで確認した。

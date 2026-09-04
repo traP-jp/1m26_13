@@ -215,7 +215,7 @@ onMounted(load);
         <div v-if="!profile.completions.length" class="empty-state">完了した開催はありません。</div>
         <ul v-else class="completion-record-list">
           <li v-for="completion in profile.completions" :key="completion.sessionId">
-            <RouterLink :to="`/lectures/${completion.lectureId}#${completion.roundNumber}`">
+            <RouterLink :to="`/lectures/${completion.lectureId}#第${completion.roundNumber}回`">
               <span class="completion-record-copy"
                 ><strong>開催の完了記録</strong
                 ><span>{{ formatDate(completion.completedAt) }}</span></span

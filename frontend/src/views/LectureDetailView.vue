@@ -22,25 +22,15 @@ const loading = ref(true);
 const updating = ref(false);
 const error = ref("");
 const rounds = computed<RoundGroup[]>(() => {
-  const byOrder = new Map<number, Session[]>();
-  for (const session of lecture.value?.sessions ?? []) {
-    const sessions = byOrder.get(session.order) ?? [];
-    sessions.push(session);
-    byOrder.set(session.order, sessions);
-  }
-  return [...byOrder.entries()]
-    .sort(([left], [right]) => left - right)
-    .map(([order, sessions], index) => {
-      const sorted = [...sessions].sort(
-        (left, right) => Number(left.isReplay) - Number(right.isReplay),
-      );
-      return {
-        round: index + 1,
-        order,
-        sessions: sorted,
-        normal: sorted.find((session) => !session.isReplay),
-      };
-    });
+  return (lecture.value?.sessions ?? [])
+    .filter((session) => !session.isReplay)
+    .sort((left, right) => left.order - right.order)
+    .map((session, index) => ({
+      round: index + 1,
+      order: session.order,
+      sessions: [session],
+      normal: session,
+    }));
 });
 const roundTabs = computed(() =>
   rounds.value.map((round) => ({ value: String(round.round), label: `第${round.round}回` })),
@@ -109,22 +99,44 @@ function roundFor(value: string) {
   return rounds.value.find((round) => String(round.round) === value);
 }
 
+function roundHash(round: string | number) {
+  return `#第${round}回`;
+}
+
+function decodeHash(hash: string) {
+  try {
+    return decodeURIComponent(hash);
+  } catch {
+    return hash;
+  }
+}
+
+function roundFromHash(hash: string) {
+  const decoded = decodeHash(hash);
+  const current = /^#第([1-9][0-9]*)回$/.exec(decoded);
+  const legacy = /^#([1-9][0-9]*)$/.exec(decoded);
+  return Number(current?.[1] ?? legacy?.[1] ?? 1);
+}
+
 function syncRoundFromHash() {
   if (rounds.value.length <= 1) {
     selectedRound.value = "1";
     if (route.hash) void router.replace({ hash: "" });
     return;
   }
-  const match = /^#([1-9][0-9]*)$/.exec(route.hash);
-  const requested = match ? Number(match[1]) : 1;
+  const requested = roundFromHash(route.hash);
   const round = rounds.value.some((entry) => entry.round === requested) ? requested : 1;
   selectedRound.value = String(round);
-  if (route.hash !== `#${round}`) void router.replace({ hash: `#${round}` });
+  if (roundFromHash(route.hash) !== round || decodeHash(route.hash) !== roundHash(round)) {
+    void router.replace({ hash: roundHash(round) });
+  }
 }
 
 function selectRound(value: string) {
   selectedRound.value = value;
-  if (route.hash !== `#${value}`) void router.push({ hash: `#${value}` });
+  if (decodeHash(route.hash) !== roundHash(value)) {
+    void router.push({ hash: roundHash(value) });
+  }
 }
 
 watch(() => route.hash, syncRoundFromHash);

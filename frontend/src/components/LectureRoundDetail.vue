@@ -17,6 +17,11 @@ defineEmits<{ toggleCompletion: [] }>();
 function formatDate(date?: string, time?: string) {
   return `${date || "日時未定"}${time ? ` ${time}` : ""}`;
 }
+
+function openResource(url: string) {
+  const opened = window.open(url, "_blank", "noopener,noreferrer");
+  if (opened) opened.opener = null;
+}
 </script>
 
 <template>
@@ -24,15 +29,26 @@ function formatDate(date?: string, time?: string) {
     <div class="detail-main">
       <section class="content-section">
         <div class="content-heading">
-          <p class="section-kicker">ROUND {{ round.round }}</p>
-          <h2>第{{ round.round }}回の開催</h2>
+          <h2>この回で学べること</h2>
         </div>
         <div class="round-session-list">
           <BasiqCard v-for="session in round.sessions" :key="session.id" class="session-card">
             <template #header>
               <div class="session-heading">
                 <h3>{{ session.name }}</h3>
-                <span v-if="session.isReplay" class="replay-label">再放送</span>
+                <div v-if="session.resources.length" class="resource-actions">
+                  <BasiqButton
+                    v-for="resource in session.resources"
+                    :key="resource.url"
+                    type="button"
+                    tone="neutral"
+                    variant="outline"
+                    @click="openResource(resource.url)"
+                    ><AppIcon name="book" :size="16" />{{
+                      resource.title?.trim() || "教材を開く"
+                    }}</BasiqButton
+                  >
+                </div>
               </div>
             </template>
             <p class="session-description">
@@ -56,15 +72,7 @@ function formatDate(date?: string, time?: string) {
                 </dd>
               </div>
             </dl>
-            <ul v-if="session.resources.length" class="resource-links session-resources">
-              <li v-for="resource in session.resources" :key="resource.url">
-                <a :href="resource.url" target="_blank" rel="noopener noreferrer"
-                  ><span>{{ resource.title || resource.url }}</span
-                  ><span aria-hidden="true">↗</span></a
-                >
-              </li>
-            </ul>
-            <p v-else class="empty-copy">この開催の教材は準備中です。</p>
+            <p v-if="!session.resources.length" class="empty-copy">この回の教材は準備中です。</p>
           </BasiqCard>
         </div>
       </section>
@@ -88,14 +96,19 @@ function formatDate(date?: string, time?: string) {
 
       <section v-if="lecture.resources.length" class="content-section">
         <div class="content-heading"><h2>講習会全体の教材</h2></div>
-        <ul class="resource-links">
-          <li v-for="resource in lecture.resources" :key="resource.url">
-            <a :href="resource.url" target="_blank" rel="noopener noreferrer"
-              ><span>{{ resource.title || resource.url }}</span
-              ><span aria-hidden="true">↗</span></a
-            >
-          </li>
-        </ul>
+        <div class="resource-actions resource-actions-section">
+          <BasiqButton
+            v-for="resource in lecture.resources"
+            :key="resource.url"
+            type="button"
+            tone="neutral"
+            variant="outline"
+            @click="openResource(resource.url)"
+            ><AppIcon name="book" :size="16" />{{
+              resource.title?.trim() || "教材を開く"
+            }}</BasiqButton
+          >
+        </div>
       </section>
 
       <section v-if="lecture.relations.length" class="content-section">
@@ -141,18 +154,28 @@ function formatDate(date?: string, time?: string) {
           >{{ round.normal.isCompleted ? "完了を取り消す" : "受講し終わった" }}</BasiqButton
         >
       </BasiqCard>
-      <BasiqCard v-else>
-        <template #header><h2>学習状況</h2></template>
-        <p class="empty-copy">この回には完了を記録できる通常開催がありません。</p>
-      </BasiqCard>
       <BasiqCard>
-        <template #header
-          ><h2>第{{ round.round }}回</h2></template
-        >
-        <p class="round-summary">
-          通常開催 {{ round.normal ? 1 : 0 }}件 · 再放送
-          {{ round.sessions.filter((session) => session.isReplay).length }}件
-        </p>
+        <template #header><h2>今回の開催</h2></template>
+        <dl class="round-facts">
+          <div>
+            <dt><AppIcon name="calendar" :size="16" />日時</dt>
+            <dd>{{ formatDate(round.normal?.date, round.normal?.startTime) }}</dd>
+          </div>
+          <div>
+            <dt><AppIcon name="pin" :size="16" />場所</dt>
+            <dd>{{ round.normal?.location || "未定" }}</dd>
+          </div>
+          <div>
+            <dt><AppIcon name="user" :size="16" />講師・運営</dt>
+            <dd>
+              {{
+                round.normal?.instructorIds.length
+                  ? `${round.normal.instructorIds.length}人`
+                  : "未設定"
+              }}
+            </dd>
+          </div>
+        </dl>
       </BasiqCard>
     </aside>
   </div>
@@ -185,14 +208,6 @@ function formatDate(date?: string, time?: string) {
   margin-bottom: 16px;
 }
 
-.section-kicker {
-  margin-bottom: 4px;
-  color: var(--basiq-color-content-accent);
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-}
-
 .round-session-list {
   display: grid;
   gap: 16px;
@@ -213,18 +228,6 @@ function formatDate(date?: string, time?: string) {
 
 .session-heading h3 {
   font-size: 1rem;
-}
-
-.replay-label {
-  min-height: 24px;
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: var(--basiq-radius-sm);
-  color: var(--basiq-color-content-subtle);
-  background: var(--basiq-color-surface-container);
-  font-size: 0.73rem;
-  font-weight: 700;
 }
 
 .session-description {
@@ -256,16 +259,8 @@ function formatDate(date?: string, time?: string) {
   font-size: 0.82rem;
 }
 
-.session-resources {
-  margin-top: 16px;
-}
-
-.empty-copy,
-.round-summary {
-  color: var(--basiq-color-content-subtle);
-}
-
 .empty-copy {
+  color: var(--basiq-color-content-subtle);
   margin-top: 14px;
   font-size: 0.84rem;
 }
@@ -286,22 +281,21 @@ function formatDate(date?: string, time?: string) {
   color: var(--basiq-color-content-subtle);
 }
 
-.resource-links {
-  display: grid;
+.resource-actions {
+  max-width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
-  list-style: none;
 }
 
-.resource-links a {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 16px;
-  border: 1px solid var(--basiq-color-border-separator);
-  border-radius: var(--basiq-radius-sm);
-  color: var(--basiq-color-content-accent);
-  text-decoration: none;
+.resource-actions :deep(button) {
+  max-width: 100%;
   overflow-wrap: anywhere;
+}
+
+.resource-actions-section {
+  justify-content: flex-start;
 }
 
 .connection-grid {
@@ -344,6 +338,24 @@ function formatDate(date?: string, time?: string) {
 
 .detail-rail h2 {
   font-size: 1.02rem;
+}
+
+.round-facts {
+  display: grid;
+  gap: 14px;
+}
+
+.round-facts dt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--basiq-color-content-subtle);
+  font-size: 0.72rem;
+}
+
+.round-facts dd {
+  margin: 3px 0 0 24px;
+  font-size: 0.82rem;
 }
 
 .learning-card {
@@ -431,6 +443,15 @@ function formatDate(date?: string, time?: string) {
   .session-heading {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .resource-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .resource-actions :deep(button) {
+    width: 100%;
   }
 }
 </style>

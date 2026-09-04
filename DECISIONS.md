@@ -993,7 +993,7 @@
 
 ## D-20260905-081 — 学習者向けSession詳細をLecture詳細へ統合する
 
-- 状態: decided（単発Lectureのタブとfragmentに関する部分だけD-20260905-083でsuperseded）
+- 状態: decided（単発LectureのタブはD-20260905-083、再放送表示とfragment形式はD-20260905-085でsuperseded）
 - 判断が必要だった理由: Session内部IDをURLへ出さず、同じ回の通常開催と再放送を一緒に見せる詳細導線が必要になった。
 - 選択肢: Session詳細URLを残してLectureから遷移する／学習者向けSession詳細を廃止しLecture詳細へ統合する。
 - 決定: 後者。Lecture詳細URLを`/lectures/<integer>#<round>`とし、公開Sessionを`order`でまとめた回ごとの横タブを表示する。同じorderの通常開催と再放送は同じタブ内に並べ、日時、場所、説明、教材を表示する。完了操作は通常Sessionだけに対応する。
@@ -1015,7 +1015,7 @@
 
 ## D-20260905-083 — 回の選択肢があるLectureだけ横タブとfragmentを表示する
 
-- 状態: decided（BasiqTabs content slotの保留はD-20260905-084で解消）
+- 状態: decided（BasiqTabs content slotはD-20260905-084、fragment形式はD-20260905-085で更新）
 - 判断が必要だった理由: 通常開催と録画を同じroundにまとめた結果、論理的な開催回が1回だけのLectureにも選択肢のない「第1回」タブと`#1`が表示されていた。
 - 選択肢: 1回でも常にタブと`#1`を表示する／2回以上のLectureだけに表示する。
 - 決定: 後者。公開Sessionを`order`でまとめたroundが2件以上のときだけ横タブを表示し、`#<round>`を選択状態として使う。roundが0件または1件ならfragmentを付けず、`#1`などで入った場合も同じLectureのfragmentなしURLへ置き換える。
@@ -1034,6 +1034,17 @@
 - 影響: BasiqTabs内部classには依存せず、この画面の`[role="tabpanel"]`だけwidth 100%・左右margin 0・padding 0・白背景にし、タブ直下24px、PCの本文＋310px補助欄、モバイルの本文先行を維持する。
 - 再検討する条件: BasiqTabsが複雑なVNodeをItems APIの`content`として型安全に受け取れるようになる、またはtabpanelの既定余白が画面設計と一致する場合。
 - 参照: basiQ UI公式Storybookとインストール済みbeta.3 bundleの監査結果、および本人の2026-09-05の具体指示。
+
+## D-20260905-085 — 学習者向けLecture詳細を通常開催の学習内容中心にする
+
+- 状態: decided
+- 判断が必要だった理由: 学習者が後から教材と学習内容を探す画面で再放送の開催履歴が本文を押し下げ、数字だけのfragmentと表示中の「第N回」も一致していなかった。
+- 選択肢: APIが返す通常開催と再放送を同じ回に表示し続ける／学習者向けLecture詳細だけを通常開催に限定する。
+- 決定: 後者。通常Sessionだけを`order`順に回へ写像し、回数・タブ・本文・学習状況を構成する。節見出しは「この回で学べること」とし、SessionとLectureの教材はbookアイコン付きのbasiQ UI `Button`で安全に別タブへ開く。複数回の正規fragmentはタブ表示と同じ`#第N回`、単発はfragmentなしとする。旧`#N`は対応する新fragmentへ置換する。
+- 根拠: 学習者が内容、教材、対象者、前提知識へ早く到達でき、タブ名と共有URLから同じ回を読み取れる。再放送の管理情報を失わず表示責務だけを分離できる。
+- 影響: Lecture API、DB、運営編集、再放送作成は維持する。再放送しかない`order`は学習者向け回数へ含めない。プロフィールの完了Sessionリンクも`#第N回`へ統一する。`LectureRoundDetail`と実tabpanel構造は継続する。
+- 再検討する条件: 学習者向け画面で再放送固有の教材を探す要件、または通常開催とは別の公開アーカイブ画面が確定した場合。
+- 参照: 本人の2026-09-05の学習内容中心、再放送非表示、日本語fragment、basiQ教材ボタンという明示判断。
 
 ---
 
