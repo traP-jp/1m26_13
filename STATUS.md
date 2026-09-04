@@ -1,7 +1,7 @@
 # Status
 
 更新日: 2026-09-05
-フェーズ: P4 講習会編集の最新仕様・API・migration方針を確定。実装はP5以降。
+フェーズ: P9 講習会編集の実装と統合QAを完了。
 
 ## 現在地
 
@@ -20,7 +20,7 @@ Roadmap詳細は正本の42px左右余白、進捗＋現在地、学習順＋318
 Profileは固定commit内で欠落していたprototype pathを同commitの実画面とCSSで補い、学習統計、独立した3タブ、2列バッジ一覧＋詳細欄、完了Session一覧、Roadmap進捗一覧を復元した。badge alphaの決定論的SVGは一覧と詳細の両方で使う。
 運営ホームは正本の最大1160px、最近編集した講習会の4列一覧、検索付きRoadmap管理へ合わせた。モバイルでは左右16pxと一覧の縦積みを適用し、公開・下書きの表記も統一した。
 
-## P4で確定した次期実装仕様
+## 講習会編集の実装済み仕様
 
 - Lecture事前、各Sessionメイン、Lecture事後は対象ごとにFlowを必ず1件持つ。講習会作成は講習会名と3種類のFlowClassを受け、Lecture、第1回draft Session、3件のFlowを同じtransactionで作る。
 - 編集タブは`講習会`、`第N回`、`+`、`事後`、`一覧編集`、`…`とする。対象タブにはFlowそのものを表示し、`+`はSession追加、`…`はFlow変更・開催順・履歴を扱う。
@@ -29,32 +29,34 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 - localStorageは未送信属性差分だけを7日間保持する。server値がbaseValueから変化済みなら自動適用せず、確認・コピー・破棄だけを提示する。
 - Lecture運営担当は個人または1グループ、Session講師は個人0〜1名とする。問い合わせ先を運営担当へ統合する。Materialは`{url,title?}`で対象ごとに最大1件、その他のResourcesは複数とする。
 - 公開前の推奨項目警告、最後のpublished Sessionをdraftへ戻す影響警告、属性レーン型一覧編集、開催順の明示保存、分類した履歴の閲覧・コピー、保存済み現在値のJSON書き出しを実装対象とする。
-- `LECTURE_SESSION_FLOW_SPEC.md`へ次期OpenAPI endpoint / schema契約と、旧列をdropしない`002`系列のadditive migration方針を記録した。
-
-以下の「実装済み」「最終検証」はP4以前の現行実装の記録である。上記仕様への移行完了を表さない。
+- `LECTURE_SESSION_FLOW_SPEC.md`のOpenAPI契約と、旧列をdropしないadditive migrationを実装した。
 
 ## 実装済み
 
 - Go 1.26.4 + Echo v4 + oapi-codegen strict server。OpenAPIをGo/TypeScript双方の正本にした。
-- MariaDB migration。Lecture / SessionはAUTO_INCREMENT BIGINT、その他のentityはUUIDを使い、revision楽観ロックと属性単位の更新イベントを記録する。
+- MariaDB migration。Lecture / SessionはAUTO_INCREMENT BIGINT、その他のentityはUUIDを使い、Lecture / Session属性の後勝ち自動保存と属性単位の更新イベントを記録する。
 - NeoShowcase `X-Forwarded-User`認証、開発用`DEV_USER`、traQ User/Groupのbackend cache。
 - Lecture/Sessionの登録・編集・公開、Resource、講師、運営、問い合わせ、分野、関係。
 - 公開Lectureのキーワード・年度・分野検索。検索条件はURL queryへ保持する。
 - 再放送を別Sessionとして保持し、API、DB、運営編集、作成機能で管理する。学習者向けLecture詳細の回数、タブ、本文には再放送を含めず、完了操作も置かない。
 - Session単位の自己申告完了。公開中の通常Session全件からLecture完了、badge alpha、Roadmap進捗を導出する。
-- StockのFlowClassと適用時スナップショットFlow。`lecture_pre`、`session_main`、`lecture_post`、formatVersion 1、安定task key、途中保存・再開・完了を実装した。
+- StockのFlowClassと適用時スナップショットFlow。`lecture_pre`、`session_main`、`lecture_post`、formatVersion 1、本文内チェック、currentPageを実装した。
 - 段階名・説明と順序付きLectureを持つ一本道Roadmap。公開条件、次のLecture、進捗を実装した。
 - プロフィールのbadge、完了Session、Roadmapの3タブ。矢印/Home/End操作に対応した。
 - `badge-alpha-v1:${lectureName}`による決定論的なソリッド幾何学SVGとモーション低減。同名Lectureは年度や内部IDが異なっても同じ図形になる。
 - Lecture、Session、FlowClass、Flow、Roadmapの削除API・画面は実装していない。
 - BasiQ UI beta.3のCard、Tabs、FormField、Input、Textarea、Switch、Checkboxを使い、確定した画面設計を全導線へ反映した。
 - デスクトップは固定サイドバー、モバイルは上部ヘッダーと下部ナビゲーションを共通化した。画面設計の削除操作だけは、確定済み製品仕様に従って除外した。
-- 講習会編集を仕様基準で再構成した。Lecture属性、構造化Resource・Relation、順序付きSession、複数元Sessionによる再放送、内容複製、`lecture_pre → session_main → lecture_post`の対象対応、Sessionから導出する公開状態、保存後確認、競合案内、初期読込失敗時の編集保護を一画面で扱う。
-- 講習会編集の横タブをFlow単位へ修正した。事前Flow、各SessionのメインFlow、事後Flowを1 Flow 1タブで並べ、各タブの内容をFlow本体に限定した。Flow追加は対象と属性が一致するFlowClassを選ぶモーダル、開催追加は設定タブ内の独立操作に分離した。
-- 各FlowタブへFlow Rendererを直接埋め込み、本文、入力、task、copy/code、ページ進捗、途中保存、完了をタブ内で操作できるようにした。Flow適用後も別画面へ遷移せず、そのタブで開始する。Session編集と複製は設定タブへ集約した。
+- 講習会編集を仕様基準で再構成した。Lecture属性、構造化Resource・Relation、順序付きSession、複数元Sessionによる再放送、内容複製、`lecture_pre → session_main → lecture_post`の対象対応、Sessionから導出する公開状態、自動保存、競合案内、未送信差分の復元を一画面で扱う。
+- 講習会編集は`講習会`、各`第N回`、`+`、`事後`、`一覧編集`、`…`の横タブで構成する。講習会・開催・事後の各タブは対応するFlowと1対1であり、タブ内容はFlow本文、対象属性入力、本文内チェック、現在ページ、前後移動だけを表示する。
+- `+`は空作成または複製によるSession追加、`一覧編集`は属性レーン、`…`はFlow変更、開催順、履歴、JSON書き出しを扱う。削除操作は置かない。
 
 ## 最終検証
 
+- 空DBのMariaDB 11.8とEchoを`127.0.0.1:8082`で起動し、講習会作成から第1回draft Sessionと3 Flowが原子的に作られることを確認した。講習会、各開催、事後の横タブは常に対応Flowを内容として表示し、同一画面でチェック、属性自動保存、ページ移動が永続化される。
+- 実ブラウザで講習会作成、開催追加、一覧編集、公開警告、開催順保存、データ／Flow履歴、FlowClass変更、Flow内属性入力を一巡した。タブは`講習会`、`第1回`、`+`、`事後`、`一覧編集`、`…`の順で、削除操作はない。
+- 390px幅でdocumentの横overflowがないことを実測した。タブ列だけは内部で横スクロールし、Basiq Tabsのtab／tabpanel対応を維持する。
+- frontendはOpenAPI生成差分、formatter、oxlint、ESLint、stylelint、Vue型検査、Vitest 24件、Vite production buildが成功した。backendはgofmt差分0、OpenAPI生成、go vet、全Go test、全package buildが成功した。
 - Lecture / Sessionの連番化後、隔離した空のMariaDB 11.8へmigrationを適用し、Lecture ID `1`→`2`、Session ID `1`→`2`の自動採番、通常開催と再放送の同一order、公開Lectureへの両Session返却、再放送完了拒否をAPIスモークで確認した。バックエンド再起動後もmigration成功とデータ保持を確認した。
 - Lecture詳細を通常Sessionだけで構成し、再放送と再放送しかない`order`を回数、タブ、カード、件数表示から除外した。複数回のfragmentはタブ名と同じ`#第N回`とし、旧`#N`とfragmentなしから正規URLへ置換する。単発はfragmentなしを維持する。
 - Lecture 3を実ブラウザで確認し、旧`#2`が`#第2回`のpercent-encoded URLへ正規化され、タブ2件、通常カード1件、「再放送」0件、「この回で学べること」、bookアイコン付き教材ボタンを表示した。ArrowLeftで第1回へ切り替わり、URLとtabpanel本文も同期した。
@@ -104,4 +106,4 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 
 ## 次のチェックポイント
 
-P5として`002`系列のadditive migration、exactly-one Flow制約、原子的作成、属性単位後勝ち保存、Flowチェック部分更新をdomain / storeへ実装する。
+実在する複数の内部利用者で試用し、Flow文面と属性レーンの使い勝手を記録する。実装上のP5〜P9は完了しており、内部試用から具体的な修正が出るまでは追加実装を行わない。

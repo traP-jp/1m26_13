@@ -119,13 +119,13 @@ APIは`/api/v1`以下で提供します。API schemaとendpoint pathのsource of
 
 主要な実装範囲は次の通りです。
 
-- Lectureと、その下に独立したSessionを0件以上登録・編集
+- Lectureと、その下に独立したSessionを1件以上登録・編集
 - 公開Lectureのキーワード・学年度・分野検索と詳細表示
 - `order`ごとの通常Session・再放送をまとめたLecture詳細。複数回だけ`#<round>`で回を直接表示
 - Session単位の完了、Lecture完了、バッジ、ロードマップ進捗の導出
-- `lecture_pre`、`session_main`、`lecture_post`のFlowClassと適用時スナップショットFlow
+- `lecture_pre`、`session_main`、`lecture_post`のFlowClassと、対象ごとに1件の適用時スナップショットFlow
 - 段階を持つ一本道ロードマップ
-- 楽観ロックと属性単位の更新イベント
+- Lecture / Session属性の後勝ち自動保存、競合通知、属性単位の更新イベント
 
 Lecture、Session、FlowClass、Flow、Roadmapの削除APIはありません。
 
@@ -190,9 +190,9 @@ mise exec -- go build ./...
 API_BASE_URL=http://127.0.0.1:8080/api/v1 ./scripts/smoke-api.sh
 ```
 
-このスクリプトは、認証、Lecture/Session登録、再放送の完了拒否、通常Session完了、
-Flowの適用時スナップショット、Flow再開・完了、一本道ロードマップ、プロフィール・バッジ、
-属性更新イベントを一巡します。確認用レコードは削除しません。
+このスクリプトは、認証、Lectureと第1回Sessionと3件のFlowの原子的な登録、Session追加、
+Flowの適用時スナップショット、チェックとページ位置、属性自動保存と競合通知、履歴、JSON書き出しを
+一巡します。確認用レコードは削除しません。
 
 ## ディレクトリ構成
 
