@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workshop Geometric Emblem Showcase</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&family=Noto+Sans+JP:wght@500;700;900&display=swap');
+
+    :root {
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-sans: 'Inter', 'Noto Sans JP', sans-serif;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: #090d16;
+      color: #f8fafc;
+    }
+
+    .font-mono-code { font-family: var(--font-mono); }
+
+    /* バッジカードホバー */
+    .badge-card {
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, box-shadow 0.25s ease;
+    }
+    .badge-card:hover {
+      transform: translateY(-4px);
+    }
+
+    /* 回転アニメーション */
+    @keyframes spin-slow {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    @keyframes spin-reverse-slow {
+      from { transform: rotate(360deg); }
+      to { transform: rotate(0deg); }
+    }
+
+    .animate-spin-slow {
+      animation: spin-slow 60s linear infinite;
+      transform-origin: center;
+    }
+    .animate-spin-rev {
+      animation: spin-reverse-slow 40s linear infinite;
+      transform-origin: center;
+    }
+
+    /* カスタムスクロールバー */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-slate-700 selection:text-white">
+
+  <!-- ヘッダー -->
+  <header class="border-b border-slate-800 bg-slate-950/90 sticky top-0 z-40 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-950 font-black shadow-sm">
+          <i data-lucide="layers" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-black tracking-tight text-slate-100 flex items-center gap-2">
+            WORKSHOP EMBLEM SHOWCASE
+          </h1>
+          <p class="text-[11px] text-slate-400 font-mono-code">8つの講習会シードから決定論的に生成されたソリッド幾何学紋章</p>
+        </div>
+      </div>
+
+      <!-- コントロールバー -->
+      <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+        <div class="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
+          <span class="text-xs font-mono-code text-slate-400">MOTION</span>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="toggle-global-anim" class="sr-only peer" checked>
+            <div class="w-8 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-slate-200"></div>
+          </label>
+        </div>
+
+        <button id="btn-re-seed-all" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-700 transition flex items-center gap-1.5 active:scale-95">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-slate-400"></i>
+          <span>全再描画</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- メインコンテンツ -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-8">
+
+    <!-- イントロカード -->
+    <div class="mb-8 p-5 bg-slate-900/60 border border-slate-800/80 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div>
+        <h2 class="text-sm font-bold text-slate-200 flex items-center gap-2 mb-1">
+          <i data-lucide="cpu" class="w-4 h-4 text-cyan-400"></i>
+          講習会シード・エンブレムコレクション
+        </h2>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          各講習会の正式名称をシード値とし、太い外枠ベゼル・扇形セグメント・中心コアシンボルの組み合わせによって一意のグラフィックを構築しています。カードをクリックすると拡大プレビューやダウンロードが可能です。
+        </p>
+      </div>
+      <div class="flex items-center gap-2 text-xs font-mono-code bg-slate-950 px-3 py-2 rounded-xl border border-slate-800/80 shrink-0">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span class="text-slate-300">8 EMBLEMS GENERATED</span>
+      </div>
+    </div>
+
+    <!-- バッジ一覧グリッド -->
+    <div id="badge-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <!-- JavaScriptで動的生成 -->
+    </div>
+
+  </main>
+
+  <!-- 詳細モーダルダイアログ -->
+  <div id="badge-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-200">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 relative shadow-2xl flex flex-col items-center gap-5 transform scale-95 transition-transform duration-200" id="modal-content">
+      
+      <!-- 閉じるボタン -->
+      <button id="modal-close" class="absolute top-4 right-4 p-2 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white transition">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+
+      <!-- モーダルヘッダー -->
+      <div class="w-full text-left">
+        <div class="flex items-center gap-2 mb-1">
+          <span id="modal-tag" class="px-2 py-0.5 rounded text-[10px] font-bold font-mono-code uppercase bg-slate-800 text-slate-300 border border-slate-700">WORKSHOP</span>
+          <span id="modal-hash" class="text-xs font-mono-code text-slate-500">#000000</span>
+        </div>
+        <h3 id="modal-title" class="text-xl font-black text-slate-100">講習会名</h3>
+        <p id="modal-identifier" class="text-xs font-mono-code text-slate-400">IDENTIFIER: ---</p>
+      </div>
+
+      <!-- SVG表示領域 -->
+      <div id="modal-svg-container" class="w-64 h-64 flex items-center justify-center p-2 bg-slate-950/60 rounded-xl border border-slate-800/80 shadow-inner">
+        <!-- SVGがここに入ります -->
+      </div>
+
+      <!-- パラメータ一覧 -->
+      <div class="w-full grid grid-cols-3 gap-2 text-[11px] font-mono-code">
+        <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+          <p class="text-slate-500 text-[9px]">SYMMETRY</p>
+          <p id="modal-symmetry" class="font-bold text-slate-200">--</p>
+        </div>
+        <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+          <p class="text-slate-500 text-[9px]">COMPOSITION</p>
+          <p id="modal-type" class="font-bold text-slate-200 truncate">--</p>
+        </div>
+        <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+          <p class="text-slate-500 text-[9px]">PALETTE</p>
+          <p id="modal-palette" class="font-bold text-slate-200 truncate">--</p>
+        </div>
+      </div>
+
+      <!-- アクションボタン -->
+      <div class="w-full grid grid-cols-3 gap-2 pt-2">
+        <button id="modal-btn-svg" class="py-2.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95">
+          <i data-lucide="code-xml" class="w-4 h-4 text-slate-400"></i>
+          <span>SVG 保存</span>
+        </button>
+        <button id="modal-btn-png" class="py-2.5 px-3 rounded-lg bg-slate-100 hover:bg-white text-slate-950 text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95 shadow-sm">
+          <i data-lucide="download" class="w-4 h-4"></i>
+          <span>PNG 保存</span>
+        </button>
+        <button id="modal-btn-copy" class="py-2.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95">
+          <i data-lucide="copy" class="w-4 h-4 text-slate-400"></i>
+          <span>シード複製</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- トースト通知 -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-16 opacity-0 transition-all duration-200 bg-slate-100 text-slate-950 font-bold px-4 py-2.5 rounded-lg shadow-lg flex items-center gap-2 text-xs font-mono-code">
+    <i data-lucide="check" class="w-4 h-4 text-slate-800"></i>
+    <span id="toast-message">Notification</span>
+  </div>
+
+  <script>
+    /* ==========================================================
+       1. 決定論的 PRNG & ハッシュ (cyrb53 + xoshiro128**)
+       ========================================================== */
+    function cyrb53(str, seed = 0) {
+      let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+      for (let i = 0, ch; i < str.length; i++) {
+        ch = str.charCodeAt(i);
+        h1 = Math.imul(h1 ^ ch, 2654435761);
+        h2 = Math.imul(h2 ^ ch, 1597334677);
+      }
+      h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+      h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+      return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+    }
+
+    class SeededRNG {
+      constructor(seedStr) {
+        let h = cyrb53(seedStr);
+        this.s0 = (h ^ 0x9e3779b9) >>> 0;
+        this.s1 = ((h * 0x85ebca6b) ^ 0xc2b2ae35) >>> 0;
+        this.s2 = ((h * 0x27d4eb2f) ^ 0x165667b1) >>> 0;
+        this.s3 = ((h * 0x165667b1) ^ 0x9e3779b9) >>> 0;
+
+        // 【修正1】初期値の偏りをなくすため乱数をウォームアップ（空回し）
+        for (let i = 0; i < 12; i++) {
+          this.next();
+        }
+      }
+
+      next() {
+        const result = (Math.imul((this.s1 * 5) << 7 | (this.s1 * 5) >>> 25, 9)) >>> 0;
+        const t = (this.s1 << 9) >>> 0;
+        this.s2 ^= this.s0; this.s3 ^= this.s1; this.s1 ^= this.s2; this.s0 ^= this.s3;
+        this.s2 ^= t; this.s3 = (this.s3 << 11 | this.s3 >>> 21) >>> 0;
+        return result / 4294967296;
+      }
+
+      range(min, max) { return min + this.next() * (max - min); }
+      rangeInt(min, max) { return Math.floor(this.range(min, max + 1)); }
+      choice(arr) { return arr[this.rangeInt(0, arr.length - 1)]; }
+      boolean(chance = 0.5) { return this.next() < chance; }
+    }
+
+    /* ==========================================================
+       2. カラーパレット定義（【修正2】明確でカラフルなソリッドカラー構成）
+       ========================================================== */
+    const SOLID_THEMES = [
+      { id: 'crimson', name: 'CRIMSON RED', primary: '#ef4444', secondary: '#fca5a5', accent: '#ffffff', darkBg: '#090d16' },
+      { id: 'cobalt', name: 'COBALT BLUE', primary: '#3b82f6', secondary: '#93c5fd', accent: '#f59e0b', darkBg: '#090d16' },
+      { id: 'emerald', name: 'EMERALD JADE', primary: '#10b981', secondary: '#6ee7b7', accent: '#ffffff', darkBg: '#090d16' },
+      { id: 'amber', name: 'SAFETY AMBER', primary: '#f59e0b', secondary: '#fde68a', accent: '#ef4444', darkBg: '#090d16' },
+      { id: 'purple', name: 'ROYAL PURPLE', primary: '#8b5cf6', secondary: '#c4b5fd', accent: '#06b6d4', darkBg: '#090d16' },
+      { id: 'cyan', name: 'CYAN VECTOR', primary: '#06b6d4', secondary: '#a5f3fc', accent: '#f43f5e', darkBg: '#090d16' },
+      { id: 'orange', name: 'BRUTAL ORANGE', primary: '#ff5722', secondary: '#ffcc80', accent: '#ffffff', darkBg: '#090d16' },
+      { id: 'monochrome', name: 'HIGH MONO', primary: '#f8fafc', secondary: '#64748b', accent: '#38bdf8', darkBg: '#090d16' }
+    ];
+
+    const COMPOSITION_TYPES = ['SEGMENTED RING', 'SOLID CREST', 'INTERLOCKING BLOCKS', 'RADIAL CHEVRONS', 'MODULAR GRID', 'HEAVY POLYGON'];
+
+    const WORKSHOPS = [
+      { id: 'web', name: 'Webエンジニアになろう講習会', tag: 'DEV', desc: 'HTML/CSS, JS, Web API, DB' },
+      { id: 'ctf', name: '分野別CTF講習会', tag: 'SECURITY', desc: 'Web, Reversing, Pwn, Crypto' },
+      { id: 'mgmt', name: 'マネジメント講習会', tag: 'LEADERSHIP', desc: 'Agile, Scrum, WBS, 1on1' },
+      { id: '3dcg', name: '3DCG講習会', tag: 'CREATIVE', desc: 'Blender, 3D Modeling, Texture' },
+      { id: 'ml', name: '機械学習講習会', tag: 'DATA / AI', desc: 'Python, Pandas, Scikit-learn, NN' },
+      { id: 'unity', name: 'Unity講習会', tag: 'GAME DEV', desc: 'Unity UI, C# Scripting, Physics' },
+      { id: 'dj', name: 'DJ講習会', tag: 'SOUND', desc: 'rekordbox, Beatmatching, EQ Mix' },
+      { id: 'algo', name: 'アルゴリズム基礎講習会', tag: 'COMPUTER SCI', desc: '計算量理論, 二分探索, グラフ, DP' }
+    ];
+
+    /* ==========================================================
+       3. 太い図形・ソリッド幾何学 SVG 生成エンジン
+       ========================================================== */
+    class BoldBadgeGenerator {
+      constructor(seed, options = {}) {
+        this.seed = seed;
+        this.rng = new SeededRNG(seed);
+        this.options = { animated: true, ...options };
+        this.params = this.generateParams();
+      }
+
+      generateParams() {
+        const rng = this.rng;
+        
+        // 【修正3】ハッシュ値を使って8つのパレットを被りにくく分散
+        const hashVal = cyrb53(this.seed);
+        const themeIndex = Math.floor(rng.next() * SOLID_THEMES.length);
+        const theme = SOLID_THEMES[themeIndex];
+        
+        const symmetryChoices = [3, 4, 6, 8];
+        const symmetry = rng.choice(symmetryChoices);
+
+        return {
+          seed: this.seed,
+          hash: hashVal.toString(16).toUpperCase().padStart(6, '0').slice(0, 6),
+          theme,
+          type: rng.choice(COMPOSITION_TYPES),
+          symmetry,
+          identifier: this.generateIdentifier(rng),
+          
+          outerBezelType: rng.rangeInt(0, 4),
+          middleLayerType: rng.rangeInt(0, 4),
+          coreType: rng.rangeInt(0, 5),
+          
+          bezelWidth: rng.choice([14, 18, 22]),
+          wedgeCount: symmetry,
+          accentContrast: rng.boolean(0.7)
+        };
+      }
+
+      generateIdentifier(rng) {
+        const p1 = ['SOLID', 'HEAVY', 'BLOCK', 'APEX', 'PRISM', 'KINETIC', 'MODULE', 'STRUCT', 'NEXUS', 'CORE'];
+        const p2 = ['FORGE', 'CREST', 'MARK', 'GUARD', 'INDEX', 'UNIT', 'SHIELD', 'ALPHA', 'PRIME'];
+        return `${rng.choice(p1)}_${rng.choice(p2)}`;
+      }
+
+      createArcSlice(cx, cy, rOuter, rInner, startAngle, endAngle) {
+        const x1 = cx + rOuter * Math.cos(startAngle);
+        const y1 = cy + rOuter * Math.sin(startAngle);
+        const x2 = cx + rOuter * Math.cos(endAngle);
+        const y2 = cy + rOuter * Math.sin(endAngle);
+
+        const x3 = cx + rInner * Math.cos(endAngle);
+        const y3 = cy + rInner * Math.sin(endAngle);
+        const x4 = cx + rInner * Math.cos(startAngle);
+        const y4 = cy + rInner * Math.sin(startAngle);
+
+        const largeArc = (endAngle - startAngle) > Math.PI ? 1 : 0;
+
+        return `M ${x1.toFixed(2)} ${y1.toFixed(2)} 
+                A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} 
+                L ${x3.toFixed(2)} ${y3.toFixed(2)} 
+                A ${rInner} ${rInner} 0 ${largeArc} 0 ${x4.toFixed(2)} ${y4.toFixed(2)} Z`;
+      }
+
+      createPolygonPoints(cx, cy, radius, sides, startAngle = 0) {
+        const points = [];
+        for (let i = 0; i < sides; i++) {
+          const angle = startAngle + (i * 2 * Math.PI) / sides;
+          points.push(`${(cx + radius * Math.cos(angle)).toFixed(2)},${(cy + radius * Math.sin(angle)).toFixed(2)}`);
+        }
+        return points.join(' ');
+      }
+
+      buildSVG() {
+        const p = this.params;
+        const t = p.theme;
+        const anim = this.options.animated;
+        const size = 360;
+        const cx = size / 2;
+        const cy = size / 2;
+
+        const animSpinClass = anim ? 'animate-spin-slow' : '';
+        const animRevClass = anim ? 'animate-spin-rev' : '';
+
+        return `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" class="w-full h-full select-none" style="shape-rendering: geometricPrecision;">
+  <rect width="${size}" height="${size}" fill="none"/>
+
+  <!-- レイヤー1: 太い外周ベゼル -->
+  <g id="layer-outer">
+    ${this.renderOuterBezel(cx, cy, p, t)}
+  </g>
+
+  <!-- レイヤー2: 中間ソリッド図形 -->
+  <g id="layer-middle" class="${animSpinClass}" style="transform-origin: ${cx}px ${cy}px;">
+    ${this.renderMiddleSolidShapes(cx, cy, p, t)}
+  </g>
+
+  <!-- レイヤー3: 逆回転アクセント -->
+  <g id="layer-accents" class="${animRevClass}" style="transform-origin: ${cx}px ${cy}px;">
+    ${this.renderReverseAccentShapes(cx, cy, p, t)}
+  </g>
+
+  <!-- レイヤー4: ソリッド中心コア -->
+  <g id="layer-core">
+    ${this.renderSolidCore(cx, cy, p, t)}
+  </g>
+</svg>`;
+      }
+
+      renderOuterBezel(cx, cy, p, t) {
+        let svg = '';
+        const rOuter = 162;
+        const bWidth = p.bezelWidth;
+        const rInner = rOuter - bWidth;
+
+        switch (p.outerBezelType) {
+          case 0: {
+            const slits = p.symmetry * 2;
+            const gapAngle = 0.08;
+            const stepAngle = (2 * Math.PI) / slits;
+            for (let i = 0; i < slits; i++) {
+              const start = i * stepAngle + gapAngle / 2;
+              const end = (i + 1) * stepAngle - gapAngle / 2;
+              const fillCol = (i % 2 === 0 && p.accentContrast) ? t.accent : t.primary;
+              svg += `<path d="${this.createArcSlice(cx, cy, rOuter, rInner, start, end)}" fill="${fillCol}"/>`;
+            }
+            break;
+          }
+          case 1: {
+            const sides = p.symmetry === 3 ? 6 : p.symmetry;
+            svg += `<polygon points="${this.createPolygonPoints(cx, cy, rOuter, sides, Math.PI / sides)}" fill="${t.primary}"/>`;
+            svg += `<polygon points="${this.createPolygonPoints(cx, cy, rInner - 2, sides, Math.PI / sides)}" fill="${t.darkBg}"/>`;
+            break;
+          }
+          case 2: {
+            const blocks = p.symmetry * 2;
+            svg += `<circle cx="${cx}" cy="${cy}" r="${rInner + 4}" fill="${t.primary}"/>`;
+            svg += `<circle cx="${cx}" cy="${cy}" r="${rInner - 8}" fill="${t.darkBg}"/>`;
+            for (let i = 0; i < blocks; i++) {
+              const angle = (i * 2 * Math.PI) / blocks;
+              const bx = cx + (rOuter - 4) * Math.cos(angle);
+              const by = cy + (rOuter - 4) * Math.sin(angle);
+              svg += `<rect x="${bx - 6}" y="${by - 6}" width="12" height="12" fill="${(i % 2 === 0) ? t.accent : t.primary}" transform="rotate(${(angle * 180) / Math.PI} ${bx} ${by})"/>`;
+            }
+            break;
+          }
+          case 3: {
+            svg += `<circle cx="${cx}" cy="${cy}" r="${rOuter - bWidth / 2}" stroke="${t.primary}" stroke-width="${bWidth}" fill="none"/>`;
+            svg += `<circle cx="${cx}" cy="${cy}" r="${rInner - 8}" stroke="${t.secondary}" stroke-width="4" fill="none"/>`;
+            break;
+          }
+          default: {
+            svg += `<polygon points="${this.createPolygonPoints(cx, cy, rOuter, 4, Math.PI / 4)}" fill="${t.primary}"/>`;
+            svg += `<polygon points="${this.createPolygonPoints(cx, cy, rInner, 4, Math.PI / 4)}" fill="${t.darkBg}"/>`;
+            break;
+          }
+        }
+
+        return svg;
+      }
+
+      renderMiddleSolidShapes(cx, cy, p, t) {
+        let svg = '';
+        const rMidOuter = 126;
+        const rMidInner = 94;
+
+        switch (p.middleLayerType) {
+          case 0: {
+            const count = p.wedgeCount;
+            const gap = 0.12;
+            const step = (2 * Math.PI) / count;
+            for (let i = 0; i < count; i++) {
+              const start = i * step + gap / 2;
+              const end = (i + 1) * step - gap / 2;
+              const color = (i % 2 === 0) ? t.primary : t.secondary;
+              svg += `<path d="${this.createArcSlice(cx, cy, rMidOuter, rMidInner, start, end)}" fill="${color}"/>`;
+            }
+            break;
+          }
+          case 1: {
+            const count = p.symmetry;
+            for (let i = 0; i < count; i++) {
+              const angle = (i * 2 * Math.PI) / count;
+              const length = rMidOuter - rMidInner;
+              const px = cx + ((rMidOuter + rMidInner) / 2) * Math.cos(angle);
+              const py = cy + ((rMidOuter + rMidInner) / 2) * Math.sin(angle);
+              const deg = (angle * 180) / Math.PI;
+
+              svg += `<rect x="${px - 9}" y="${py - length / 2}" width="18" height="${length}" rx="2" fill="${(i % 2 === 0) ? t.primary : t.accent}" transform="rotate(${deg + 90} ${px} ${py})"/>`;
+            }
+            break;
+          }
+          case 2: {
+            svg += `<polygon points="${this.createPolygonPoints(cx, cy, rMidOuter, p.symmetry)}" fill="${t.secondary}" fill-opacity="0.25"/>`;
+            svg += `<polygon points="${this.createPolygonPoints(cx, cy, rMidOuter, p.symmetry)}" stroke="${t.primary}" stroke-width="8" fill="none"/>`;
+            break;
+          }
+          case 3: {
+            const count = p.symmetry;
+            for (let i = 0; i < count; i++) {
+              const angle = (i * 2 * Math.PI) / count;
+              const r = (rMidOuter + rMidInner) / 2;
+              const px = cx + r * Math.cos(angle);
+              const py = cy + r * Math.sin(angle);
+              const deg = (angle * 180) / Math.PI;
+
+              svg += `
+                <g transform="translate(${px}, ${py}) rotate(${deg + 90})">
+                  <polyline points="-14,-8 0,8 14,-8" stroke="${t.primary}" stroke-width="7" stroke-linecap="square" fill="none"/>
+                </g>
+              `;
+            }
+            break;
+          }
+          default: {
+            svg += `<rect x="${cx - 45}" y="${cy - 45}" width="90" height="90" fill="${t.secondary}" fill-opacity="0.15"/>`;
+            svg += `<rect x="${cx - 45}" y="${cy - 45}" width="90" height="90" stroke="${t.primary}" stroke-width="8" fill="none" transform="rotate(45 ${cx} ${cy})"/>`;
+            break;
+          }
+        }
+
+        return svg;
+      }
+
+      renderReverseAccentShapes(cx, cy, p, t) {
+        let svg = '';
+        const r = 70;
+        const count = p.symmetry >= 6 ? p.symmetry / 2 : p.symmetry;
+
+        for (let i = 0; i < count; i++) {
+          const angle = (i * 2 * Math.PI) / count + Math.PI / count;
+          const px = cx + r * Math.cos(angle);
+          const py = cy + r * Math.sin(angle);
+          svg += `<rect x="${px - 6}" y="${py - 6}" width="12" height="12" fill="${t.accent}" transform="rotate(45 ${px} ${py})"/>`;
+        }
+
+        svg += `<circle cx="${cx}" cy="${cy}" r="${r}" stroke="${t.secondary}" stroke-width="3" stroke-dasharray="16 16" fill="none"/>`;
+
+        return svg;
+      }
+
+      renderSolidCore(cx, cy, p, t) {
+        let svg = '';
+        const coreR = 46;
+
+        switch (p.coreType) {
+          case 0: {
+            const w = 15;
+            const len = 38;
+            svg += `
+              <path d="M ${cx - w} ${cy - len} H ${cx + w} V ${cy - w} H ${cx + len} V ${cy + w} H ${cx + w} V ${cy + len} H ${cx - w} V ${cy + w} H ${cx - len} V ${cy - w} H ${cx - w} Z" 
+                    fill="${t.accent}" />
+              <circle cx="${cx}" cy="${cy}" r="6" fill="${t.darkBg}"/>
+            `;
+            break;
+          }
+          case 1: {
+            const starPoints = [];
+            const pts = p.symmetry >= 6 ? 6 : 4;
+            for (let i = 0; i < pts * 2; i++) {
+              const r = i % 2 === 0 ? coreR : coreR * 0.45;
+              const angle = (i * Math.PI) / pts - Math.PI / 2;
+              starPoints.push(`${(cx + r * Math.cos(angle)).toFixed(2)},${(cy + r * Math.sin(angle)).toFixed(2)}`);
+            }
+            svg += `
+              <polygon points="${starPoints.join(' ')}" fill="${t.primary}" />
+              <circle cx="${cx}" cy="${cy}" r="12" fill="${t.darkBg}"/>
+              <circle cx="${cx}" cy="${cy}" r="5" fill="${t.accent}"/>
+            `;
+            break;
+          }
+          case 2: {
+            svg += `
+              <polygon points="${cx},${cy - coreR} ${cx + coreR},${cy + coreR * 0.7} ${cx},${cy + coreR * 0.2} ${cx - coreR},${cy + coreR * 0.7}" fill="${t.accent}"/>
+              <polygon points="${cx},${cy - coreR * 0.3} ${cx + coreR * 0.6},${cy + coreR * 0.8} ${cx},${cy + coreR * 0.5} ${cx - coreR * 0.6},${cy + coreR * 0.8}" fill="${t.primary}"/>
+            `;
+            break;
+          }
+          case 3: {
+            const blades = 3;
+            for (let i = 0; i < blades; i++) {
+              const angle = (i * 2 * Math.PI) / blades - Math.PI / 2;
+              const x1 = cx + coreR * Math.cos(angle);
+              const y1 = cy + coreR * Math.sin(angle);
+              const x2 = cx + (coreR * 0.4) * Math.cos(angle + 1.2);
+              const y2 = cy + (coreR * 0.4) * Math.sin(angle + 1.2);
+              svg += `<polygon points="${cx},${cy} ${x1.toFixed(1)},${y1.toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)}" fill="${(i === 0) ? t.accent : t.primary}"/>`;
+            }
+            svg += `<circle cx="${cx}" cy="${cy}" r="8" fill="${t.darkBg}"/>`;
+            break;
+          }
+          case 4: {
+            svg += `
+              <polygon points="${cx},${cy - coreR} ${cx + coreR},${cy} ${cx},${cy + coreR} ${cx - coreR},${cy}" fill="${t.primary}"/>
+              <polygon points="${cx},${cy - coreR * 0.55} ${cx + coreR * 0.55},${cy} ${cx},${cy + coreR * 0.55} ${cx - coreR * 0.55},${cy}" fill="${t.darkBg}"/>
+              <polygon points="${cx},${cy - coreR * 0.25} ${cx + coreR * 0.25},${cy} ${cx},${cy + coreR * 0.25} ${cx - coreR * 0.25},${cy}" fill="${t.accent}"/>
+            `;
+            break;
+          }
+          default: {
+            svg += `
+              <circle cx="${cx}" cy="${cy}" r="${coreR}" fill="${t.primary}"/>
+              <circle cx="${cx}" cy="${cy}" r="${coreR * 0.5}" fill="${t.darkBg}"/>
+              <rect x="${cx - 6}" y="${cy - coreR}" width="12" height="${coreR * 2}" fill="${t.darkBg}"/>
+              <circle cx="${cx}" cy="${cy}" r="7" fill="${t.accent}"/>
+            `;
+            break;
+          }
+        }
+
+        return svg;
+      }
+    }
+
+    /* ==========================================================
+       4. UI コントローラー
+       ========================================================== */
+    class ShowcaseApp {
+      constructor() {
+        this.generators = new Map();
+        this.selectedWorkshop = null;
+        this.isAnimated = true;
+
+        this.initDOM();
+        this.bindEvents();
+        this.renderAllBadges();
+      }
+
+      initDOM() {
+        this.dom = {
+          grid: document.getElementById('badge-grid'),
+          toggleAnim: document.getElementById('toggle-global-anim'),
+          btnReSeed: document.getElementById('btn-re-seed-all'),
+          
+          modal: document.getElementById('badge-modal'),
+          modalContent: document.getElementById('modal-content'),
+          modalClose: document.getElementById('modal-close'),
+          modalTag: document.getElementById('modal-tag'),
+          modalHash: document.getElementById('modal-hash'),
+          modalTitle: document.getElementById('modal-title'),
+          modalIdentifier: document.getElementById('modal-identifier'),
+          modalSvgContainer: document.getElementById('modal-svg-container'),
+          modalSymmetry: document.getElementById('modal-symmetry'),
+          modalType: document.getElementById('modal-type'),
+          modalPalette: document.getElementById('modal-palette'),
+          modalBtnSvg: document.getElementById('modal-btn-svg'),
+          modalBtnPng: document.getElementById('modal-btn-png'),
+          modalBtnCopy: document.getElementById('modal-btn-copy'),
+
+          toast: document.getElementById('toast'),
+          toastMessage: document.getElementById('toast-message')
+        };
+      }
+
+      bindEvents() {
+        this.dom.toggleAnim.addEventListener('change', (e) => {
+          this.isAnimated = e.target.checked;
+          this.renderAllBadges();
+        });
+
+        this.dom.btnReSeed.addEventListener('click', () => {
+          this.renderAllBadges();
+          this.showToast('全バッジを再描画しました');
+        });
+
+        // モーダル閉じる
+        this.dom.modalClose.addEventListener('click', () => this.closeModal());
+        this.dom.modal.addEventListener('click', (e) => {
+          if (e.target === this.dom.modal) this.closeModal();
+        });
+
+        // モーダルアクション
+        this.dom.modalBtnSvg.addEventListener('click', () => this.exportCurrentSVG());
+        this.dom.modalBtnPng.addEventListener('click', () => this.exportCurrentPNG());
+        this.dom.modalBtnCopy.addEventListener('click', () => this.copyCurrentSeed());
+      }
+
+      renderAllBadges() {
+        this.dom.grid.innerHTML = '';
+
+        WORKSHOPS.forEach((ws, index) => {
+          const gen = new BoldBadgeGenerator(ws.name, { animated: this.isAnimated });
+          this.generators.set(ws.id, gen);
+          const p = gen.params;
+
+          const card = document.createElement('div');
+          card.className = 'badge-card bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between shadow-xl cursor-pointer group hover:border-slate-700';
+          
+          card.innerHTML = `
+            <!-- カード上部 -->
+            <div class="flex items-center justify-between text-xs font-mono-code mb-3">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700/80">${ws.tag}</span>
+              <span class="text-slate-500 text-[11px]">#${p.hash}</span>
+            </div>
+
+            <!-- バッジSVG表示部 -->
+            <div class="w-full aspect-square max-w-[200px] mx-auto my-2 flex items-center justify-center">
+              ${gen.buildSVG()}
+            </div>
+
+            <!-- カード下部情報 -->
+            <div class="pt-3 border-t border-slate-800/80 flex flex-col gap-1.5">
+              <h3 class="font-bold text-sm text-slate-100 group-hover:text-cyan-300 transition line-clamp-1">${ws.name}</h3>
+              <p class="text-[11px] font-mono-code text-slate-400 truncate">${p.identifier}</p>
+              
+              <div class="flex items-center justify-between text-[10px] font-mono-code text-slate-500 pt-1">
+                <span>${p.symmetry}-AXIS</span>
+                <span class="truncate max-w-[110px] text-right">${p.theme.name}</span>
+              </div>
+            </div>
+          `;
+
+          card.addEventListener('click', () => this.openModal(ws, gen));
+          this.dom.grid.appendChild(card);
+        });
+
+        lucide.createIcons();
+      }
+
+      openModal(workshop, generator) {
+        this.selectedWorkshop = { workshop, generator };
+        const p = generator.params;
+
+        this.dom.modalTag.textContent = workshop.tag;
+        this.dom.modalHash.textContent = `#${p.hash}`;
+        this.dom.modalTitle.textContent = workshop.name;
+        this.dom.modalIdentifier.textContent = `STRUCTURE: ${p.identifier}`;
+        this.dom.modalSvgContainer.innerHTML = generator.buildSVG();
+        this.dom.modalSymmetry.textContent = `${p.symmetry}-AXIS`;
+        this.dom.modalType.textContent = p.type;
+        this.dom.modalPalette.textContent = p.theme.name;
+
+        this.dom.modal.classList.remove('opacity-0', 'pointer-events-none');
+        this.dom.modal.classList.add('opacity-100');
+        this.dom.modalContent.classList.remove('scale-95');
+        this.dom.modalContent.classList.add('scale-100');
+
+        lucide.createIcons();
+      }
+
+      closeModal() {
+        this.dom.modal.classList.remove('opacity-100');
+        this.dom.modal.classList.add('opacity-0', 'pointer-events-none');
+        this.dom.modalContent.classList.remove('scale-100');
+        this.dom.modalContent.classList.add('scale-95');
+      }
+
+      exportCurrentSVG() {
+        if (!this.selectedWorkshop) return;
+        const { workshop, generator } = this.selectedWorkshop;
+        const svgContent = generator.buildSVG();
+        const blob = new Blob([svgContent], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `badge_${workshop.id}_${generator.params.seed}.svg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        this.showToast('SVG ファイルをダウンロードしました');
+      }
+
+      exportCurrentPNG() {
+        if (!this.selectedWorkshop) return;
+        const { workshop, generator } = this.selectedWorkshop;
+        const svgElement = this.dom.modalSvgContainer.querySelector('svg');
+        if (!svgElement) return;
+
+        const svgString = new XMLSerializer().serializeToString(svgElement);
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const scale = 3;
+        canvas.width = 360 * scale;
+        canvas.height = 360 * scale;
+
+        const img = new Image();
+        const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(svgBlob);
+
+        img.onload = () => {
+          ctx.imageSmoothingEnabled = true;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          URL.revokeObjectURL(url);
+
+          const pngUrl = canvas.toDataURL('image/png');
+          const a = document.createElement('a');
+          a.href = pngUrl;
+          a.download = `badge_${workshop.id}_${generator.params.seed}.png`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          this.showToast('高解像度 PNG をダウンロードしました');
+        };
+
+        img.src = url;
+      }
+
+      copyCurrentSeed() {
+        if (!this.selectedWorkshop) return;
+        const seedText = this.selectedWorkshop.generator.params.seed;
+        navigator.clipboard.writeText(seedText).then(() => {
+          this.showToast(`シード 「**${seedText}**」 をコピーしました`);
+        }).catch(() => {
+          this.showToast('コピーに失敗しました');
+        });
+      }
+
+      showToast(msg) {
+        this.dom.toastMessage.innerHTML = msg;
+        this.dom.toast.classList.remove('translate-y-16', 'opacity-0');
+        this.dom.toast.classList.add('translate-y-0', 'opacity-100');
+
+        if (this.toastTimeout) clearTimeout(this.toastTimeout);
+        this.toastTimeout = setTimeout(() => {
+          this.dom.toast.classList.remove('translate-y-0', 'opacity-100');
+          this.dom.toast.classList.add('translate-y-16', 'opacity-0');
+        }, 2500);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      new ShowcaseApp();
+    });
+  </script>
+</body>
+</html>
