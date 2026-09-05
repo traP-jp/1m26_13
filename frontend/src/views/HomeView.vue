@@ -115,7 +115,7 @@ onMounted(load);
     <h1 class="visually-hidden">講習会とロードマップを探す</h1>
 
     <section class="view-panel" aria-labelledby="lecture-results-heading">
-      <BasiqCard class="filter-card">
+      <BasiqCard>
         <template #header>
           <div class="filter-header">
             <div>
@@ -241,12 +241,6 @@ onMounted(load);
   border-top: 1px solid var(--basiq-color-border-separator);
 }
 
-.filter-card {
-  border: 1px solid var(--basiq-color-border-separator);
-
-  --basiq-color-card-background: var(--basiq-color-surface-base);
-}
-
 .filter-header,
 .filter-header > div {
   display: flex;
@@ -369,18 +363,6 @@ onMounted(load);
   text-decoration: none;
 }
 
-.discovery-card {
-  border: 1px solid transparent;
-
-  --basiq-color-card-background: var(--basiq-color-surface-container);
-
-  transition: border-color 140ms ease;
-}
-
-.card-link:hover .discovery-card {
-  border-color: var(--basiq-color-accent-default);
-}
-
 .card-link:focus-visible {
   border-radius: var(--basiq-radius-sm);
   outline: 2px solid var(--basiq-color-accent-default);
@@ -499,12 +481,6 @@ onMounted(load);
 
   .discovery-card-content {
     min-height: 148px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .discovery-card {
-    transition: none;
   }
 }
 </style>

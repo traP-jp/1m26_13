@@ -116,18 +116,6 @@ onMounted(load);
   text-decoration: none;
 }
 
-.discovery-card {
-  border: 1px solid transparent;
-
-  --basiq-color-card-background: var(--basiq-color-surface-container);
-
-  transition: border-color 140ms ease;
-}
-
-.card-link:hover .discovery-card {
-  border-color: var(--basiq-color-accent-default);
-}
-
 .card-link:focus-visible {
   border-radius: var(--basiq-radius-sm);
   outline: 2px solid var(--basiq-color-accent-default);
@@ -197,12 +185,6 @@ onMounted(load);
 
   .discovery-card-content {
     min-height: 148px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .discovery-card {
-    transition: none;
   }
 }
 </style>
