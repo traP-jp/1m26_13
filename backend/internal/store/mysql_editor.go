@@ -344,17 +344,21 @@ func (store *MySQL) PatchLectureAttribute(ctx context.Context, id, path string, 
 		} else {
 			result, err = tx.ExecContext(ctx, "UPDATE lectures SET organizer_type=?, organizer_id=?, organizer_group_name=?, revision=revision+1, updated_by=?, updated_at=? WHERE id=?", organizer.Kind, organizer.ID, nullable(organizer.GroupName), actorID, now, id)
 		}
-	case "material", "resources":
+	case "material":
 		var value any
-		if path == "material" && next == nil {
-			value = nil
-		} else {
+		if next != nil {
 			value, err = encodeJSON(next)
 			if err != nil {
 				return domain.Lecture{}, false, err
 			}
 		}
-		result, err = tx.ExecContext(ctx, "UPDATE lectures SET "+path+"=?, revision=revision+1, updated_by=?, updated_at=? WHERE id=?", value, actorID, now, id)
+		result, err = tx.ExecContext(ctx, "UPDATE lectures SET material=?, revision=revision+1, updated_by=?, updated_at=? WHERE id=?", value, actorID, now, id)
+	case "resources":
+		value, encodeErr := encodeJSON(next)
+		if encodeErr != nil {
+			return domain.Lecture{}, false, encodeErr
+		}
+		result, err = tx.ExecContext(ctx, "UPDATE lectures SET resources=?, revision=revision+1, updated_by=?, updated_at=? WHERE id=?", value, actorID, now, id)
 	case "relations":
 		if _, err = tx.ExecContext(ctx, "DELETE FROM lecture_relations WHERE from_lecture_id=?", id); err == nil {
 			err = insertRelations(ctx, tx, id, next.([]domain.Relation), now)
