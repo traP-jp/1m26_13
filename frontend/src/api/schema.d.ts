@@ -727,6 +727,8 @@ export interface components {
         Badge: {
             lectureId: components["schemas"]["LectureId"];
             lectureName: string;
+            /** @description Current lecture organizer, used for badge host color; omitted when unset. */
+            organizer?: components["schemas"]["Organizer"];
             academicYearStart: number;
             academicYearEnd: number;
             /** Format: date-time */
