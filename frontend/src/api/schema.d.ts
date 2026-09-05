@@ -674,28 +674,25 @@ export interface components {
             schemaVersion: 1;
             lecture: components["schemas"]["Lecture"];
         };
+        /** @enum {string} */
+        RoadmapTargetType: "lecture" | "session";
         RoadmapItem: {
-            lectureId: components["schemas"]["LectureId"];
-            note: string;
-        };
-        RoadmapStage: {
             id: string;
-            title: string;
-            description: string;
-            items: components["schemas"]["RoadmapItem"][];
+            targetType: components["schemas"]["RoadmapTargetType"];
+            targetId: string;
         };
         RoadmapWrite: {
             title: string;
             description: string;
             audience: string;
             published: boolean;
-            stages: components["schemas"]["RoadmapStage"][];
+            items: components["schemas"]["RoadmapItem"][];
             expectedRevision: number;
         };
         Roadmap: components["schemas"]["RoadmapWrite"] & {
             id: string;
-            completedLectureIds: components["schemas"]["LectureId"][];
-            nextLectureId?: components["schemas"]["LectureId"];
+            completedItemIds: string[];
+            nextItemId?: string;
             completedItemCount: number;
             totalItemCount: number;
             progressPercent: number;

@@ -1,0 +1,2 @@
+ALTER TABLE roadmaps
+  ADD COLUMN IF NOT EXISTS items JSON NULL AFTER stages;

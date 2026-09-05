@@ -66,20 +66,26 @@ type SessionCreateResult struct {
 	Session   Session
 	Flow      Flow
 }
-type RoadmapItem struct {
+type LegacyRoadmapItem struct {
 	LectureID string `json:"lectureId"`
 	Note      string `json:"note"`
 }
 type RoadmapStage struct {
-	ID          string        `json:"id"`
-	Title       string        `json:"title"`
-	Description string        `json:"description"`
-	Items       []RoadmapItem `json:"items"`
+	ID          string              `json:"id"`
+	Title       string              `json:"title"`
+	Description string              `json:"description"`
+	Items       []LegacyRoadmapItem `json:"items"`
+}
+type RoadmapItem struct {
+	ID         string `json:"id"`
+	TargetType string `json:"targetType"`
+	TargetID   string `json:"targetId"`
 }
 type Roadmap struct {
 	ID, Title, Description, Audience string
 	Published                        bool
-	Stages                           []RoadmapStage
+	Items                            []RoadmapItem
+	LegacyStages                     []RoadmapStage
 	Revision                         int
 	CreatedAt, UpdatedAt             time.Time
 }

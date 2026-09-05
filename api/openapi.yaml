@@ -522,37 +522,33 @@ components:
       properties:
         schemaVersion: { type: integer, const: 1 }
         lecture: { $ref: "#/components/schemas/Lecture" }
+    RoadmapTargetType: { type: string, enum: [lecture, session] }
     RoadmapItem:
       type: object
-      required: [lectureId, note]
-      properties: { lectureId: { $ref: "#/components/schemas/LectureId" }, note: { type: string, maxLength: 2000 } }
-    RoadmapStage:
-      type: object
-      required: [id, title, description, items]
+      required: [id, targetType, targetId]
       properties:
-        id: { type: string }
-        title: { type: string, minLength: 1, maxLength: 200 }
-        description: { type: string, maxLength: 5000 }
-        items: { type: array, items: { $ref: "#/components/schemas/RoadmapItem" }, maxItems: 200 }
+        id: { type: string, minLength: 1, maxLength: 100 }
+        targetType: { $ref: "#/components/schemas/RoadmapTargetType" }
+        targetId: { type: string, minLength: 1, maxLength: 64 }
     RoadmapWrite:
       type: object
-      required: [title, description, audience, published, stages, expectedRevision]
+      required: [title, description, audience, published, items, expectedRevision]
       properties:
         title: { type: string, minLength: 1, maxLength: 200 }
         description: { type: string, maxLength: 10000 }
         audience: { type: string, maxLength: 2000 }
         published: { type: boolean }
-        stages: { type: array, items: { $ref: "#/components/schemas/RoadmapStage" }, maxItems: 100 }
+        items: { type: array, items: { $ref: "#/components/schemas/RoadmapItem" }, maxItems: 200 }
         expectedRevision: { type: integer, minimum: 0 }
     Roadmap:
       allOf:
         - { $ref: "#/components/schemas/RoadmapWrite" }
         - type: object
-          required: [id, completedLectureIds, completedItemCount, totalItemCount, progressPercent, revision, createdAt, updatedAt]
+          required: [id, completedItemIds, completedItemCount, totalItemCount, progressPercent, revision, createdAt, updatedAt]
           properties:
             id: { type: string }
-            completedLectureIds: { type: array, items: { $ref: "#/components/schemas/LectureId" } }
-            nextLectureId: { $ref: "#/components/schemas/LectureId" }
+            completedItemIds: { type: array, items: { type: string } }
+            nextItemId: { type: string }
             completedItemCount: { type: integer }
             totalItemCount: { type: integer }
             progressPercent: { type: integer, minimum: 0, maximum: 100 }

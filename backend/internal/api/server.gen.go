@@ -169,6 +169,24 @@ func (e RelationType) Valid() bool {
 	}
 }
 
+// Defines values for RoadmapTargetType.
+const (
+	RoadmapTargetTypeLecture RoadmapTargetType = "lecture"
+	RoadmapTargetTypeSession RoadmapTargetType = "session"
+)
+
+// Valid indicates whether the value is a known member of the RoadmapTargetType enum.
+func (e RoadmapTargetType) Valid() bool {
+	switch e {
+	case RoadmapTargetTypeLecture:
+		return true
+	case RoadmapTargetTypeSession:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SessionCreateMode.
 const (
 	Duplicate SessionCreateMode = "duplicate"
@@ -446,45 +464,41 @@ type Resource struct {
 
 // Roadmap defines model for Roadmap.
 type Roadmap struct {
-	Audience            string         `json:"audience"`
-	CompletedItemCount  int            `json:"completedItemCount"`
-	CompletedLectureIds []LectureId    `json:"completedLectureIds"`
-	CreatedAt           time.Time      `json:"createdAt"`
-	Description         string         `json:"description"`
-	ExpectedRevision    int            `json:"expectedRevision"`
-	Id                  string         `json:"id"`
-	NextLectureId       *LectureId     `json:"nextLectureId,omitempty"`
-	ProgressPercent     int            `json:"progressPercent"`
-	Published           bool           `json:"published"`
-	Revision            int            `json:"revision"`
-	Stages              []RoadmapStage `json:"stages"`
-	Title               string         `json:"title"`
-	TotalItemCount      int            `json:"totalItemCount"`
-	UpdatedAt           time.Time      `json:"updatedAt"`
+	Audience           string        `json:"audience"`
+	CompletedItemCount int           `json:"completedItemCount"`
+	CompletedItemIds   []string      `json:"completedItemIds"`
+	CreatedAt          time.Time     `json:"createdAt"`
+	Description        string        `json:"description"`
+	ExpectedRevision   int           `json:"expectedRevision"`
+	Id                 string        `json:"id"`
+	Items              []RoadmapItem `json:"items"`
+	NextItemId         *string       `json:"nextItemId,omitempty"`
+	ProgressPercent    int           `json:"progressPercent"`
+	Published          bool          `json:"published"`
+	Revision           int           `json:"revision"`
+	Title              string        `json:"title"`
+	TotalItemCount     int           `json:"totalItemCount"`
+	UpdatedAt          time.Time     `json:"updatedAt"`
 }
 
 // RoadmapItem defines model for RoadmapItem.
 type RoadmapItem struct {
-	LectureId LectureId `json:"lectureId"`
-	Note      string    `json:"note"`
+	Id         string            `json:"id"`
+	TargetId   string            `json:"targetId"`
+	TargetType RoadmapTargetType `json:"targetType"`
 }
 
-// RoadmapStage defines model for RoadmapStage.
-type RoadmapStage struct {
-	Description string        `json:"description"`
-	Id          string        `json:"id"`
-	Items       []RoadmapItem `json:"items"`
-	Title       string        `json:"title"`
-}
+// RoadmapTargetType defines model for RoadmapTargetType.
+type RoadmapTargetType string
 
 // RoadmapWrite defines model for RoadmapWrite.
 type RoadmapWrite struct {
-	Audience         string         `json:"audience"`
-	Description      string         `json:"description"`
-	ExpectedRevision int            `json:"expectedRevision"`
-	Published        bool           `json:"published"`
-	Stages           []RoadmapStage `json:"stages"`
-	Title            string         `json:"title"`
+	Audience         string        `json:"audience"`
+	Description      string        `json:"description"`
+	ExpectedRevision int           `json:"expectedRevision"`
+	Items            []RoadmapItem `json:"items"`
+	Published        bool          `json:"published"`
+	Title            string        `json:"title"`
 }
 
 // Session defines model for Session.

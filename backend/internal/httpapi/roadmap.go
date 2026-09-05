@@ -14,43 +14,45 @@ import (
 
 func roadmapFromWrite(input api.RoadmapWrite) (domain.Roadmap, error) {
 	roadmap := domain.Roadmap{Title: strings.TrimSpace(input.Title), Description: strings.TrimSpace(input.Description),
-		Audience: strings.TrimSpace(input.Audience), Published: input.Published, Stages: make([]domain.RoadmapStage, 0, len(input.Stages))}
+		Audience: strings.TrimSpace(input.Audience), Published: input.Published, Items: make([]domain.RoadmapItem, 0, len(input.Items))}
 	if roadmap.Title == "" {
 		return domain.Roadmap{}, store.ErrInvalid
 	}
-	seenStageIDs := make(map[string]bool)
-	for _, stage := range input.Stages {
-		if stage.Id == "" || strings.TrimSpace(stage.Title) == "" || seenStageIDs[stage.Id] {
+	for _, item := range input.Items {
+		if strings.TrimSpace(item.Id) == "" || strings.TrimSpace(item.TargetId) == "" {
 			return domain.Roadmap{}, store.ErrInvalid
 		}
-		seenStageIDs[stage.Id] = true
-		converted := domain.RoadmapStage{ID: stage.Id, Title: strings.TrimSpace(stage.Title), Description: strings.TrimSpace(stage.Description), Items: make([]domain.RoadmapItem, 0, len(stage.Items))}
-		for _, item := range stage.Items {
-			converted.Items = append(converted.Items, domain.RoadmapItem{LectureID: item.LectureId, Note: strings.TrimSpace(item.Note)})
-		}
-		roadmap.Stages = append(roadmap.Stages, converted)
+		roadmap.Items = append(roadmap.Items, domain.RoadmapItem{
+			ID: strings.TrimSpace(item.Id), TargetType: string(item.TargetType), TargetID: strings.TrimSpace(item.TargetId),
+		})
 	}
 	return roadmap, nil
 }
 
-func roadmapToAPI(roadmap domain.Roadmap, completed map[string]time.Time) api.Roadmap {
+func completionTimesBySession(completions []domain.Completion) map[string]time.Time {
+	result := make(map[string]time.Time, len(completions))
+	for _, completion := range completions {
+		result[completion.SessionID] = completion.CompletedAt
+	}
+	return result
+}
+
+func roadmapToAPI(roadmap domain.Roadmap, completedLectures, completedSessions map[string]time.Time) api.Roadmap {
 	result := api.Roadmap{Id: roadmap.ID, Title: roadmap.Title, Description: roadmap.Description, Audience: roadmap.Audience,
-		Published: roadmap.Published, Stages: make([]api.RoadmapStage, 0, len(roadmap.Stages)), CompletedLectureIds: []string{},
+		Published: roadmap.Published, Items: make([]api.RoadmapItem, 0, len(roadmap.Items)), CompletedItemIds: []string{},
 		Revision: roadmap.Revision, ExpectedRevision: roadmap.Revision, CreatedAt: roadmap.CreatedAt, UpdatedAt: roadmap.UpdatedAt}
-	for _, stage := range roadmap.Stages {
-		converted := api.RoadmapStage{Id: stage.ID, Title: stage.Title, Description: stage.Description, Items: make([]api.RoadmapItem, 0, len(stage.Items))}
-		for _, item := range stage.Items {
-			converted.Items = append(converted.Items, api.RoadmapItem{LectureId: item.LectureID, Note: item.Note})
-			result.TotalItemCount++
-			if _, ok := completed[item.LectureID]; ok {
-				result.CompletedLectureIds = append(result.CompletedLectureIds, item.LectureID)
-				result.CompletedItemCount++
-			} else if result.NextLectureId == nil {
-				next := item.LectureID
-				result.NextLectureId = &next
-			}
+	for _, item := range roadmap.Items {
+		result.Items = append(result.Items, api.RoadmapItem{Id: item.ID, TargetType: api.RoadmapTargetType(item.TargetType), TargetId: item.TargetID})
+		result.TotalItemCount++
+		_, lectureDone := completedLectures[item.TargetID]
+		_, sessionDone := completedSessions[item.TargetID]
+		if (item.TargetType == "lecture" && lectureDone) || (item.TargetType == "session" && sessionDone) {
+			result.CompletedItemIds = append(result.CompletedItemIds, item.ID)
+			result.CompletedItemCount++
+		} else if result.NextItemId == nil {
+			next := item.ID
+			result.NextItemId = &next
 		}
-		result.Stages = append(result.Stages, converted)
 	}
 	if result.TotalItemCount > 0 {
 		result.ProgressPercent = result.CompletedItemCount * 100 / result.TotalItemCount
@@ -68,13 +70,18 @@ func (server server) ListRoadmaps(ctx context.Context, request api.ListRoadmapsR
 	if err != nil {
 		return nil, err
 	}
-	completed, err := server.repository.ListCompletedLectures(ctx, user.ID)
+	completedLectures, err := server.repository.ListCompletedLectures(ctx, user.ID)
 	if err != nil {
 		return nil, err
 	}
+	completions, err := server.repository.ListCompletions(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	completedSessions := completionTimesBySession(completions)
 	result := make(api.ListRoadmaps200JSONResponse, 0, len(roadmaps))
 	for _, roadmap := range roadmaps {
-		result = append(result, roadmapToAPI(roadmap, completed))
+		result = append(result, roadmapToAPI(roadmap, completedLectures, completedSessions))
 	}
 	return result, nil
 }
@@ -98,11 +105,15 @@ func (server server) CreateRoadmap(ctx context.Context, request api.CreateRoadma
 	if err != nil {
 		return nil, err
 	}
-	completed, err := server.repository.ListCompletedLectures(ctx, user.ID)
+	completedLectures, err := server.repository.ListCompletedLectures(ctx, user.ID)
 	if err != nil {
 		return nil, err
 	}
-	return api.CreateRoadmap201JSONResponse(roadmapToAPI(created, completed)), nil
+	completions, err := server.repository.ListCompletions(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	return api.CreateRoadmap201JSONResponse(roadmapToAPI(created, completedLectures, completionTimesBySession(completions))), nil
 }
 
 func (server server) GetRoadmap(ctx context.Context, request api.GetRoadmapRequestObject) (api.GetRoadmapResponseObject, error) {
@@ -118,11 +129,15 @@ func (server server) GetRoadmap(ctx context.Context, request api.GetRoadmapReque
 	if err != nil {
 		return nil, err
 	}
-	completed, err := server.repository.ListCompletedLectures(ctx, user.ID)
+	completedLectures, err := server.repository.ListCompletedLectures(ctx, user.ID)
 	if err != nil {
 		return nil, err
 	}
-	return api.GetRoadmap200JSONResponse(roadmapToAPI(roadmap, completed)), nil
+	completions, err := server.repository.ListCompletions(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	return api.GetRoadmap200JSONResponse(roadmapToAPI(roadmap, completedLectures, completionTimesBySession(completions))), nil
 }
 
 func (server server) UpdateRoadmap(ctx context.Context, request api.UpdateRoadmapRequestObject) (api.UpdateRoadmapResponseObject, error) {
@@ -151,11 +166,15 @@ func (server server) UpdateRoadmap(ctx context.Context, request api.UpdateRoadma
 	if err != nil {
 		return nil, err
 	}
-	completed, err := server.repository.ListCompletedLectures(ctx, user.ID)
+	completedLectures, err := server.repository.ListCompletedLectures(ctx, user.ID)
 	if err != nil {
 		return nil, err
 	}
-	return api.UpdateRoadmap200JSONResponse(roadmapToAPI(updated, completed)), nil
+	completions, err := server.repository.ListCompletions(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	return api.UpdateRoadmap200JSONResponse(roadmapToAPI(updated, completedLectures, completionTimesBySession(completions))), nil
 }
 
 func (server server) GetProfile(ctx context.Context, request api.GetProfileRequestObject) (api.GetProfileResponseObject, error) {
@@ -194,7 +213,7 @@ func (server server) GetProfile(ctx context.Context, request api.GetProfileReque
 		profile.Badges = append(profile.Badges, api.Badge{LectureId: lecture.ID, LectureName: lecture.Name, AcademicYearStart: lecture.AcademicYearStart, AcademicYearEnd: lecture.AcademicYearEnd, EarnedAt: earnedAt})
 	}
 	for _, roadmap := range roadmaps {
-		profile.Roadmaps = append(profile.Roadmaps, roadmapToAPI(roadmap, completedLectures))
+		profile.Roadmaps = append(profile.Roadmaps, roadmapToAPI(roadmap, completedLectures, completionTimesBySession(completions)))
 	}
 	return api.GetProfile200JSONResponse(profile), nil
 }

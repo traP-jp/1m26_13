@@ -9,53 +9,95 @@ import (
 	"github.com/traP-jp/1m26_13/backend/internal/domain"
 )
 
-const roadmapColumns = `id, title, description, audience, published, stages, revision, created_at, updated_at`
+const roadmapColumns = `id, title, description, audience, published, stages, items, revision, created_at, updated_at`
 
 func scanRoadmap(row scanner) (domain.Roadmap, error) {
 	var roadmap domain.Roadmap
 	var stages []byte
+	var items []byte
 	err := row.Scan(&roadmap.ID, &roadmap.Title, &roadmap.Description, &roadmap.Audience, &roadmap.Published,
-		&stages, &roadmap.Revision, &roadmap.CreatedAt, &roadmap.UpdatedAt)
+		&stages, &items, &roadmap.Revision, &roadmap.CreatedAt, &roadmap.UpdatedAt)
 	if err != nil {
 		return domain.Roadmap{}, err
 	}
-	roadmap.Stages, err = decodeJSON(stages, []domain.RoadmapStage{})
-	return roadmap, err
+	roadmap.LegacyStages, err = decodeJSON(stages, []domain.RoadmapStage{})
+	if err != nil {
+		return domain.Roadmap{}, err
+	}
+	if len(items) > 0 && string(items) != "null" {
+		roadmap.Items, err = decodeJSON(items, []domain.RoadmapItem{})
+		return roadmap, err
+	}
+	roadmap.Items = flattenLegacyRoadmapItems(roadmap.LegacyStages)
+	return roadmap, nil
+}
+
+func flattenLegacyRoadmapItems(stages []domain.RoadmapStage) []domain.RoadmapItem {
+	items := make([]domain.RoadmapItem, 0)
+	for _, stage := range stages {
+		for index, item := range stage.Items {
+			items = append(items, domain.RoadmapItem{
+				ID: fmt.Sprintf("legacy:%s:%d", stage.ID, index), TargetType: "lecture", TargetID: item.LectureID,
+			})
+		}
+	}
+	return items
 }
 
 func roadmapSnapshot(roadmap domain.Roadmap) map[string]any {
 	return map[string]any{"title": roadmap.Title, "description": roadmap.Description,
-		"audience": roadmap.Audience, "published": roadmap.Published, "stages": roadmap.Stages}
+		"audience": roadmap.Audience, "published": roadmap.Published, "items": roadmap.Items}
 }
 
 func (store *MySQL) validateRoadmap(ctx context.Context, roadmap domain.Roadmap) error {
-	seen := make(map[string]bool)
-	itemCount := 0
-	for _, stage := range roadmap.Stages {
-		if stage.ID == "" || stage.Title == "" {
-			return fmt.Errorf("%w: roadmap stages require stable ids and titles", ErrInvalid)
+	seenIDs := make(map[string]bool)
+	seenTargets := make(map[string]bool)
+	for _, item := range roadmap.Items {
+		key := item.TargetType + ":" + item.TargetID
+		if item.ID == "" || seenIDs[item.ID] || item.TargetID == "" || seenTargets[key] {
+			return fmt.Errorf("%w: roadmap item ids and targets must be unique", ErrInvalid)
 		}
-		for _, item := range stage.Items {
-			if item.LectureID == "" || seen[item.LectureID] {
-				return fmt.Errorf("%w: roadmap lecture ids must be unique", ErrInvalid)
-			}
-			seen[item.LectureID], itemCount = true, itemCount+1
+		seenIDs[item.ID], seenTargets[key] = true, true
+		switch item.TargetType {
+		case "lecture":
 			var published bool
 			err := store.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM lectures l JOIN sessions s ON s.lecture_id=l.id
-				WHERE l.id=? AND s.status='published' AND JSON_LENGTH(s.replay_of_session_ids)=0)`, item.LectureID).Scan(&published)
+				WHERE l.id=? AND s.status='published' AND JSON_LENGTH(s.replay_of_session_ids)=0)`, item.TargetID).Scan(&published)
 			if err != nil {
 				return err
+			}
+			var exists bool
+			if err := store.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM lectures WHERE id=?)`, item.TargetID).Scan(&exists); err != nil {
+				return err
+			}
+			if !exists {
+				return fmt.Errorf("%w: roadmap lecture target does not exist", ErrInvalid)
 			}
 			if !published && roadmap.Published {
 				return fmt.Errorf("%w: published roadmaps may contain only published lectures", ErrInvalid)
 			}
-		}
-		if roadmap.Published && len(stage.Items) == 0 {
-			return fmt.Errorf("%w: published roadmaps cannot contain empty stages", ErrInvalid)
+		case "session":
+			var status string
+			var replayCount int
+			err := store.db.QueryRowContext(ctx, `SELECT status, JSON_LENGTH(replay_of_session_ids) FROM sessions WHERE id=?`, item.TargetID).Scan(&status, &replayCount)
+			if errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("%w: roadmap session target does not exist", ErrInvalid)
+			}
+			if err != nil {
+				return err
+			}
+			if replayCount > 0 {
+				return fmt.Errorf("%w: replay sessions cannot be roadmap targets", ErrInvalid)
+			}
+			if roadmap.Published && status != "published" {
+				return fmt.Errorf("%w: published roadmaps may contain only published sessions", ErrInvalid)
+			}
+		default:
+			return fmt.Errorf("%w: unknown roadmap target type", ErrInvalid)
 		}
 	}
-	if roadmap.Published && (len(roadmap.Stages) == 0 || itemCount == 0) {
-		return fmt.Errorf("%w: published roadmaps require lectures", ErrInvalid)
+	if roadmap.Published && len(roadmap.Items) == 0 {
+		return fmt.Errorf("%w: published roadmaps require items", ErrInvalid)
 	}
 	return nil
 }
@@ -102,7 +144,7 @@ func (store *MySQL) CreateRoadmap(ctx context.Context, roadmap domain.Roadmap, a
 		return domain.Roadmap{}, err
 	}
 	roadmap.ID, roadmap.Revision, roadmap.CreatedAt, roadmap.UpdatedAt = newID(), 1, store.now(), store.now()
-	stages, err := encodeJSON(roadmap.Stages)
+	items, err := encodeJSON(roadmap.Items)
 	if err != nil {
 		return domain.Roadmap{}, err
 	}
@@ -111,9 +153,9 @@ func (store *MySQL) CreateRoadmap(ctx context.Context, roadmap domain.Roadmap, a
 		return domain.Roadmap{}, err
 	}
 	defer tx.Rollback()
-	_, err = tx.ExecContext(ctx, `INSERT INTO roadmaps (id, title, description, audience, published, stages, revision,
-		created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, roadmap.ID,
-		roadmap.Title, roadmap.Description, roadmap.Audience, roadmap.Published, stages, roadmap.Revision,
+	_, err = tx.ExecContext(ctx, `INSERT INTO roadmaps (id, title, description, audience, published, stages, items, revision,
+		created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, JSON_ARRAY(), ?, ?, ?, ?, ?, ?)`, roadmap.ID,
+		roadmap.Title, roadmap.Description, roadmap.Audience, roadmap.Published, items, roadmap.Revision,
 		actorID, actorID, roadmap.CreatedAt, roadmap.UpdatedAt)
 	if err != nil {
 		return domain.Roadmap{}, fmt.Errorf("create roadmap: %w", err)
@@ -135,7 +177,7 @@ func (store *MySQL) UpdateRoadmap(ctx context.Context, roadmap domain.Roadmap, e
 	if err := store.validateRoadmap(ctx, roadmap); err != nil {
 		return domain.Roadmap{}, err
 	}
-	stages, err := encodeJSON(roadmap.Stages)
+	items, err := encodeJSON(roadmap.Items)
 	if err != nil {
 		return domain.Roadmap{}, err
 	}
@@ -145,9 +187,9 @@ func (store *MySQL) UpdateRoadmap(ctx context.Context, roadmap domain.Roadmap, e
 		return domain.Roadmap{}, err
 	}
 	defer tx.Rollback()
-	result, err := tx.ExecContext(ctx, `UPDATE roadmaps SET title=?, description=?, audience=?, published=?, stages=?,
+	result, err := tx.ExecContext(ctx, `UPDATE roadmaps SET title=?, description=?, audience=?, published=?, items=?,
 		revision=revision+1, updated_by=?, updated_at=? WHERE id=? AND revision=?`, roadmap.Title, roadmap.Description,
-		roadmap.Audience, roadmap.Published, stages, actorID, now, roadmap.ID, expectedRevision)
+		roadmap.Audience, roadmap.Published, items, actorID, now, roadmap.ID, expectedRevision)
 	if err != nil {
 		return domain.Roadmap{}, fmt.Errorf("update roadmap: %w", err)
 	}
