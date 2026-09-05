@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { BasiqCard } from "basiq-ui";
 import { onMounted, ref } from "vue";
 
 import { listRoadmaps, type Roadmap } from "@/api/resources";
@@ -25,33 +24,28 @@ onMounted(load);
 <template>
   <div class="page roadmap-list-page">
     <header class="results-heading">
-      <div>
-        <h1>ロードマップ</h1>
-        <span>目的に合った学ぶ順番を表示</span>
-      </div>
-      <strong v-if="!loading && !error">{{ roadmaps.length }}件</strong>
+      <h1>ロードマップ</h1>
+      <span v-if="!loading && !error">{{ roadmaps.length }}件</span>
     </header>
     <div v-if="loading" class="loading-state">読み込んでいます</div>
     <div v-else-if="error" class="error-state">{{ error }}</div>
-    <ul v-else-if="roadmaps.length" class="roadmap-grid">
+    <ul v-else-if="roadmaps.length" class="roadmap-list">
       <li v-for="roadmap in roadmaps" :key="roadmap.id">
-        <RouterLink :to="`/roadmaps/${roadmap.id}`" class="card-link">
-          <BasiqCard class="discovery-card">
-            <article class="discovery-card-content">
+        <RouterLink :to="`/roadmaps/${roadmap.id}`" class="roadmap-link">
+          <article class="roadmap-row">
+            <div>
               <h2>{{ roadmap.title }}</h2>
-              <div class="discovery-card-description">
-                <p>{{ roadmap.description }}</p>
-                <AppIcon name="chevron" :size="19" />
-              </div>
-              <p class="discovery-card-meta">
-                {{ roadmap.totalItemCount }}講習会 · {{ roadmap.progressPercent }}% 完了<span
-                  v-if="roadmap.audience"
-                >
-                  · 対象：{{ roadmap.audience }}</span
-                >
-              </p>
-            </article>
-          </BasiqCard>
+              <p v-if="roadmap.description">{{ roadmap.description }}</p>
+            </div>
+            <p class="roadmap-meta">
+              {{ roadmap.totalItemCount }}項目 · {{ roadmap.progressPercent }}% 完了<span
+                v-if="roadmap.audience"
+              >
+                · 対象：{{ roadmap.audience }}</span
+              >
+            </p>
+            <AppIcon name="chevron" :size="18" />
+          </article>
         </RouterLink>
       </li>
     </ul>
@@ -66,102 +60,80 @@ onMounted(load);
 
 .results-heading {
   display: flex;
-  align-items: flex-end;
+  align-items: baseline;
   justify-content: space-between;
   gap: 24px;
-  margin: 4px 0 16px;
-}
-
-.results-heading > div {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  column-gap: 12px;
-  align-items: baseline;
+  margin: 0 0 16px;
 }
 
 .results-heading h1 {
-  font-size: 1.45rem;
+  font-size: 1.5rem;
   line-height: 1.35;
 }
 
 .results-heading span {
   color: var(--basiq-color-content-subtle);
-  font-size: 0.82rem;
+  font-size: 0.875rem;
 }
 
-.results-heading > strong {
-  min-width: 52px;
-  padding: 4px 12px;
-  border-radius: var(--basiq-radius-full);
-  color: var(--basiq-color-content-accent);
-  background: var(--app-accent-soft);
-  text-align: center;
-}
-
-.roadmap-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+.roadmap-list {
+  border-top: 1px solid var(--basiq-color-border-separator);
   list-style: none;
 }
 
-.roadmap-grid > li,
-.card-link,
-.discovery-card {
-  height: 100%;
+.roadmap-list > li {
+  border-bottom: 1px solid var(--basiq-color-border-separator);
 }
 
-.card-link {
+.roadmap-link {
   display: block;
   text-decoration: none;
 }
 
-.card-link:focus-visible {
-  border-radius: var(--basiq-radius-sm);
+.roadmap-link:hover {
+  background: var(--basiq-color-surface-container);
+}
+
+.roadmap-link:focus-visible {
   outline: 2px solid var(--basiq-color-accent-default);
-  outline-offset: 3px;
+  outline-offset: -2px;
 }
 
-.discovery-card-content {
-  min-height: 170px;
-  display: flex;
-  flex-direction: column;
+.roadmap-row {
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 0.65fr) 20px;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 8px;
 }
 
-.discovery-card-content h2 {
-  font-size: 1rem;
+.roadmap-row > div {
+  min-width: 0;
+}
+
+.roadmap-row h2 {
+  font-size: 0.875rem;
   line-height: 1.45;
 }
 
-.discovery-card-description {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  margin-top: 8px;
+.roadmap-row > div p {
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--basiq-color-content-subtle);
+  font-size: 0.875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.discovery-card-description p {
-  font-size: 0.86rem;
-  line-height: 1.75;
-}
-
-.discovery-card-description :deep(.app-icon) {
+.roadmap-row :deep(.app-icon) {
   color: var(--basiq-color-content-accent);
 }
 
-.discovery-card-meta {
-  margin-top: auto;
-  padding-top: 12px;
-  border-top: 1px solid var(--basiq-color-border-separator);
+.roadmap-meta {
   color: var(--basiq-color-content-subtle);
-  font-size: 0.74rem;
-}
-
-@media (width <= 1120px) {
-  .roadmap-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  font-size: 0.75rem;
+  text-align: right;
 }
 
 @media (width <= 760px) {
@@ -169,22 +141,25 @@ onMounted(load);
     margin-top: 0;
   }
 
-  .results-heading > div {
-    display: block;
+  .roadmap-row {
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr) 18px;
+    gap: 8px;
+    padding: 12px 4px;
   }
 
-  .results-heading span {
-    display: block;
-    margin-top: 2px;
+  .roadmap-meta {
+    grid-column: 1;
+    text-align: left;
   }
 
-  .roadmap-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
+  .roadmap-row :deep(.app-icon) {
+    grid-column: 2;
+    grid-row: 1 / 3;
   }
 
-  .discovery-card-content {
-    min-height: 148px;
+  .roadmap-row > div p {
+    white-space: normal;
   }
 }
 </style>

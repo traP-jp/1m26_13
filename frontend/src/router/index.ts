@@ -10,6 +10,11 @@ export function createAppRouter(history: RouterHistory = createWebHistory()) {
         component: () => import("@/views/HomeView.vue"),
       },
       {
+        path: "/lectures",
+        name: "lecture-search",
+        component: () => import("@/views/LectureSearchView.vue"),
+      },
+      {
         path: "/lectures/:id",
         name: "lecture-detail",
         component: () => import("@/views/LectureDetailView.vue"),

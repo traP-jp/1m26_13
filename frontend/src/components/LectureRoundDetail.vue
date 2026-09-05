@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { BasiqButton, BasiqCard } from "basiq-ui";
+import { BasiqButton } from "basiq-ui";
+import { computed } from "vue";
 
 import type { Lecture, Session } from "@/api/resources";
 import AppIcon from "@/components/AppIcon.vue";
@@ -11,16 +12,38 @@ type RoundGroup = {
   normal?: Session;
 };
 
-defineProps<{ lecture: Lecture; round: RoundGroup; updating: boolean }>();
+const props = withDefaults(
+  defineProps<{
+    lecture: Lecture;
+    round: RoundGroup;
+    updating: boolean;
+    lectureNames?: Record<string, string>;
+    instructorNames?: Record<string, string>;
+  }>(),
+  { lectureNames: () => ({}), instructorNames: () => ({}) },
+);
 defineEmits<{ toggleCompletion: [] }>();
 
-function formatDate(date?: string, time?: string) {
-  return `${date || "日時未定"}${time ? ` ${time}` : ""}`;
+type Resource = Lecture["resources"][number];
+
+function relatedResources(source: { material?: Resource | null; resources: Resource[] }) {
+  const seen = new Set<string>();
+  const values = source.material ? [source.material, ...source.resources] : source.resources;
+  return values.filter((resource) => {
+    const url = resource.url.trim();
+    if (seen.has(url)) return false;
+    seen.add(url);
+    return true;
+  });
 }
 
-function openResource(url: string) {
-  const opened = window.open(url, "_blank", "noopener,noreferrer");
-  if (opened) opened.opener = null;
+const sessionRows = computed(() =>
+  props.round.sessions.map((session) => ({ session, resources: relatedResources(session) })),
+);
+const lectureResources = computed(() => relatedResources(props.lecture));
+
+function formatDate(date?: string, time?: string) {
+  return `${date || "未設定"}${time ? ` ${time}` : ""}`;
 }
 </script>
 
@@ -29,30 +52,20 @@ function openResource(url: string) {
     <div class="detail-main">
       <section class="content-section">
         <div class="content-heading">
-          <h2>この回で学べること</h2>
+          <h2>開催情報</h2>
         </div>
         <div class="round-session-list">
-          <BasiqCard v-for="session in round.sessions" :key="session.id" class="session-card">
-            <template #header>
-              <div class="session-heading">
-                <h3>{{ session.name }}</h3>
-                <div v-if="session.resources.length" class="resource-actions">
-                  <BasiqButton
-                    v-for="resource in session.resources"
-                    :key="resource.url"
-                    type="button"
-                    tone="neutral"
-                    variant="outline"
-                    @click="openResource(resource.url)"
-                    ><AppIcon name="book" :size="16" />{{
-                      resource.title?.trim() || "教材を開く"
-                    }}</BasiqButton
-                  >
-                </div>
-              </div>
-            </template>
-            <p class="session-description">
-              {{ session.description || "この開催の説明はまだありません。" }}
+          <section
+            v-for="{ session, resources } in sessionRows"
+            :key="session.id"
+            class="session-block"
+          >
+            <div class="session-heading">
+              <h3>{{ session.name }}</h3>
+              <span v-if="session.isReplay">別日程</span>
+            </div>
+            <p v-if="session.description" class="session-description">
+              {{ session.description }}
             </p>
             <dl class="session-facts">
               <div>
@@ -61,51 +74,84 @@ function openResource(url: string) {
               </div>
               <div>
                 <dt><AppIcon name="pin" :size="16" />場所</dt>
-                <dd>{{ session.location || "未定" }}</dd>
+                <dd>{{ session.location || "未設定" }}</dd>
               </div>
               <div>
                 <dt><AppIcon name="user" :size="16" />講師</dt>
                 <dd>
-                  {{ session.instructorId ? "1人" : "未設定" }}
+                  {{
+                    session.instructorId
+                      ? instructorNames[session.instructorId] || "講師情報を取得できません"
+                      : "未設定"
+                  }}
                 </dd>
               </div>
             </dl>
-            <p v-if="!session.resources.length" class="empty-copy">この回の教材は準備中です。</p>
-          </BasiqCard>
+            <div v-if="resources.length" class="resource-list">
+              <a
+                v-for="resource in resources.slice(0, 3)"
+                :key="resource.url"
+                :href="resource.url"
+                target="_blank"
+                rel="noopener noreferrer"
+                ><AppIcon name="book" :size="16" />{{ resource.title?.trim() || "教材を開く" }}</a
+              >
+              <details v-if="resources.length > 3" class="more-resources">
+                <summary>ほか{{ resources.length - 3 }}件の教材</summary>
+                <a
+                  v-for="resource in resources.slice(3)"
+                  :key="resource.url"
+                  :href="resource.url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  ><AppIcon name="book" :size="16" />{{ resource.title?.trim() || "教材を開く" }}</a
+                >
+              </details>
+            </div>
+            <p v-else class="empty-copy">教材は未登録です。</p>
+          </section>
         </div>
       </section>
 
       <section class="content-section audience-grid">
         <div>
           <h2>対象者</h2>
-          <p>{{ lecture.targetAudience || "指定なし" }}</p>
+          <p>{{ lecture.targetAudience || "未登録" }}</p>
         </div>
         <div>
           <h2>前提知識</h2>
           <p>
             {{
               lecture.relations.some((relation) => relation.type === "prerequisite")
-                ? "関連する前提講習会があります。"
-                : "特別な前提はありません。"
+                ? "下記の「先に学ぶ」講習会を参照"
+                : "未登録"
             }}
           </p>
         </div>
       </section>
 
-      <section v-if="lecture.resources.length" class="content-section">
+      <section v-if="lectureResources.length" class="content-section">
         <div class="content-heading"><h2>講習会全体の教材</h2></div>
-        <div class="resource-actions resource-actions-section">
-          <BasiqButton
-            v-for="resource in lecture.resources"
+        <div class="resource-list">
+          <a
+            v-for="resource in lectureResources.slice(0, 3)"
             :key="resource.url"
-            type="button"
-            tone="neutral"
-            variant="outline"
-            @click="openResource(resource.url)"
-            ><AppIcon name="book" :size="16" />{{
-              resource.title?.trim() || "教材を開く"
-            }}</BasiqButton
+            :href="resource.url"
+            target="_blank"
+            rel="noopener noreferrer"
+            ><AppIcon name="book" :size="16" />{{ resource.title?.trim() || "教材を開く" }}</a
           >
+          <details v-if="lectureResources.length > 3" class="more-resources">
+            <summary>ほか{{ lectureResources.length - 3 }}件の教材</summary>
+            <a
+              v-for="resource in lectureResources.slice(3)"
+              :key="resource.url"
+              :href="resource.url"
+              target="_blank"
+              rel="noopener noreferrer"
+              ><AppIcon name="book" :size="16" />{{ resource.title?.trim() || "教材を開く" }}</a
+            >
+          </details>
         </div>
       </section>
 
@@ -123,25 +169,21 @@ function openResource(url: string) {
                   ? "次に学ぶ"
                   : "前年度"
             }}</span
-            ><strong>関連する講習会</strong><AppIcon name="chevron" :size="17"
+            ><strong>{{ lectureNames[relation.toLectureId] || "講習会を開く" }}</strong
+            ><AppIcon name="chevron" :size="17"
           /></RouterLink>
         </div>
       </section>
     </div>
 
     <aside class="detail-rail">
-      <BasiqCard v-if="round.normal" class="learning-card">
-        <template #header><h2>学習状況</h2></template>
+      <section v-if="round.normal" class="learning-status" aria-label="受講状況">
+        <h2>受講状況</h2>
         <div :class="['status-block', { completed: round.normal.isCompleted }]">
           <span class="status-mark"
-            ><AppIcon :name="round.normal.isCompleted ? 'check' : 'record'" :size="21"
+            ><AppIcon :name="round.normal.isCompleted ? 'check' : 'record'" :size="18"
           /></span>
-          <span
-            ><strong>{{ round.normal.isCompleted ? "完了済み" : "未完了" }}</strong
-            ><small>{{
-              round.normal.isCompleted ? "プロフィールに記録済みです" : "受講後に完了を記録できます"
-            }}</small></span
-          >
+          <strong>{{ round.normal.isCompleted ? "完了済み" : "未完了" }}</strong>
         </div>
         <BasiqButton
           class="completion-button"
@@ -149,28 +191,9 @@ function openResource(url: string) {
           :variant="round.normal.isCompleted ? 'outline' : 'solid'"
           :disabled="updating"
           @click="$emit('toggleCompletion')"
-          >{{ round.normal.isCompleted ? "完了を取り消す" : "受講し終わった" }}</BasiqButton
+          >{{ round.normal.isCompleted ? "完了を取り消す" : "完了として記録" }}</BasiqButton
         >
-      </BasiqCard>
-      <BasiqCard>
-        <template #header><h2>今回の開催</h2></template>
-        <dl class="round-facts">
-          <div>
-            <dt><AppIcon name="calendar" :size="16" />日時</dt>
-            <dd>{{ formatDate(round.normal?.date, round.normal?.startTime) }}</dd>
-          </div>
-          <div>
-            <dt><AppIcon name="pin" :size="16" />場所</dt>
-            <dd>{{ round.normal?.location || "未定" }}</dd>
-          </div>
-          <div>
-            <dt><AppIcon name="user" :size="16" />講師・運営</dt>
-            <dd>
-              {{ round.normal?.instructorId ? "1人" : "未設定" }}
-            </dd>
-          </div>
-        </dl>
-      </BasiqCard>
+      </section>
     </aside>
   </div>
 </template>
@@ -179,8 +202,8 @@ function openResource(url: string) {
 /* stylelint-disable no-descending-specificity */
 .detail-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 310px;
-  gap: 40px;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 24px;
   align-items: start;
   margin-top: 24px;
 }
@@ -195,11 +218,11 @@ function openResource(url: string) {
 }
 
 .content-section h2 {
-  font-size: 1.2rem;
+  font-size: 1.125rem;
 }
 
 .content-heading {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .round-session-list {
@@ -207,10 +230,13 @@ function openResource(url: string) {
   gap: 16px;
 }
 
-.session-card {
-  border: 1px solid var(--basiq-color-border-separator);
+.session-block {
+  min-width: 0;
+}
 
-  --basiq-color-card-background: var(--basiq-color-surface-base);
+.session-block + .session-block {
+  padding-top: 16px;
+  border-top: 1px solid var(--basiq-color-border-separator);
 }
 
 .session-heading {
@@ -224,20 +250,29 @@ function openResource(url: string) {
   font-size: 1rem;
 }
 
-.session-description {
+.session-heading > span {
+  margin-right: auto;
   color: var(--basiq-color-content-subtle);
-  line-height: 1.75;
+  font-size: 0.75rem;
+}
+
+.session-description {
+  margin-top: 8px;
+  color: var(--basiq-color-content-subtle);
+  line-height: 1.7;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 
 .session-facts {
   margin-top: 16px;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  border-top: 1px solid var(--basiq-color-border-separator);
+  gap: 12px;
 }
 
 .session-facts div {
-  padding-top: 12px;
+  min-width: 0;
 }
 
 .session-facts dt {
@@ -245,59 +280,69 @@ function openResource(url: string) {
   align-items: center;
   gap: 8px;
   color: var(--basiq-color-content-subtle);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
 }
 
 .session-facts dd {
-  margin: 2px 0 0 24px;
-  font-size: 0.82rem;
+  margin: 4px 0 0 24px;
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
 }
 
 .empty-copy {
   color: var(--basiq-color-content-subtle);
-  margin-top: 14px;
-  font-size: 0.84rem;
+  margin-top: 16px;
+  font-size: 0.875rem;
 }
 
 .audience-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 32px;
+  gap: 24px;
 }
 
 .audience-grid > div + div {
-  padding-left: 32px;
-  border-left: 1px solid var(--basiq-color-border-separator);
+  min-width: 0;
 }
 
 .audience-grid p {
-  margin-top: 12px;
+  margin-top: 8px;
   color: var(--basiq-color-content-subtle);
 }
 
-.resource-actions {
-  max-width: 100%;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
+.resource-list {
+  display: grid;
+  margin-top: 12px;
 }
 
-.resource-actions :deep(button) {
-  max-width: 100%;
+.resource-list a {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding-block: 8px;
+  color: var(--basiq-color-content-accent);
+  text-decoration: none;
   overflow-wrap: anywhere;
 }
 
-.resource-actions-section {
-  justify-content: flex-start;
+.resource-list a:hover {
+  text-decoration: underline;
+}
+
+.resource-list :deep(.app-icon) {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+.more-resources summary {
+  width: fit-content;
+  padding-block: 8px;
+  color: var(--basiq-color-content-subtle);
+  cursor: pointer;
 }
 
 .connection-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  overflow: hidden;
-  border: 1px solid var(--basiq-color-border-separator);
-  border-radius: var(--basiq-radius-sm);
 }
 
 .connection-grid a {
@@ -305,24 +350,24 @@ function openResource(url: string) {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 2px 12px;
-  padding: 12px 16px;
+  gap: 4px 12px;
+  padding: 12px 0;
   text-decoration: none;
 }
 
 .connection-grid a + a {
-  border-left: 1px solid var(--basiq-color-border-separator);
+  border-top: 1px solid var(--basiq-color-border-separator);
 }
 
 .connection-grid span {
   grid-column: 1 / -1;
   color: var(--basiq-color-content-subtle);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
 }
 
 .connection-grid strong {
   color: var(--basiq-color-content-accent);
-  font-size: 0.85rem;
+  font-size: 0.875rem;
 }
 
 .detail-rail {
@@ -331,47 +376,19 @@ function openResource(url: string) {
 }
 
 .detail-rail h2 {
-  font-size: 1.02rem;
+  font-size: 1rem;
 }
 
-.round-facts {
-  display: grid;
-  gap: 14px;
-}
-
-.round-facts dt {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--basiq-color-content-subtle);
-  font-size: 0.72rem;
-}
-
-.round-facts dd {
-  margin: 3px 0 0 24px;
-  font-size: 0.82rem;
-}
-
-.learning-card {
-  --basiq-color-card-background: var(--app-accent-faint);
+.learning-status {
+  padding-left: 24px;
+  border-left: 1px solid var(--basiq-color-border-separator);
 }
 
 .status-block {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border-radius: var(--basiq-radius-sm);
-  background: var(--basiq-color-surface-base);
-}
-
-.status-block > span:last-child {
-  display: flex;
-  flex-direction: column;
-}
-
-.status-block small {
-  color: var(--basiq-color-content-subtle);
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .status-mark {
@@ -380,7 +397,6 @@ function openResource(url: string) {
 
 .status-block.completed {
   color: var(--app-success);
-  background: var(--app-success-soft);
 }
 
 .completion-button {
@@ -390,7 +406,7 @@ function openResource(url: string) {
 
 @media (width <= 980px) {
   .detail-grid {
-    grid-template-columns: minmax(0, 1fr) 280px;
+    grid-template-columns: minmax(0, 1fr) 250px;
     gap: 24px;
   }
 }
@@ -407,6 +423,12 @@ function openResource(url: string) {
     width: 100%;
   }
 
+  .learning-status {
+    padding: 16px 0 0;
+    border-top: 1px solid var(--basiq-color-border-separator);
+    border-left: 0;
+  }
+
   .audience-grid,
   .connection-grid,
   .session-facts {
@@ -418,14 +440,7 @@ function openResource(url: string) {
   }
 
   .audience-grid > div + div {
-    padding: 24px 0 0;
-    border-top: 1px solid var(--basiq-color-border-separator);
-    border-left: 0;
-  }
-
-  .connection-grid a + a {
-    border-top: 1px solid var(--basiq-color-border-separator);
-    border-left: 0;
+    padding: 0;
   }
 
   .session-facts div:last-child {
@@ -437,15 +452,6 @@ function openResource(url: string) {
   .session-heading {
     align-items: flex-start;
     flex-direction: column;
-  }
-
-  .resource-actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .resource-actions :deep(button) {
-    width: 100%;
   }
 }
 </style>

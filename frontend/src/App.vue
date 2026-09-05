@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { BasiqPushNavigationLayout, BasiqSidebarLayout, BasiqThemeProvider } from "basiq-ui";
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { BasiqSidebarLayout, BasiqThemeProvider } from "basiq-ui";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { RouterLink, RouterView, useRoute } from "vue-router";
 
 import AppNavigation from "@/components/AppNavigation.vue";
+import MobileNavigation from "@/components/MobileNavigation.vue";
 import { useAuthStore } from "@/stores/auth";
 
-const desktopMediaQuery = "(min-width: 48rem)";
+const desktopMediaQuery = "(min-width: 54rem)";
 const auth = useAuthStore();
 const route = useRoute();
 const isDesktop = ref(false);
 const layoutReady = ref(false);
-const mobileNavigationOpen = ref(false);
 let mediaQuery: MediaQueryList | undefined;
 
 const isAdmin = computed(
@@ -26,12 +26,12 @@ const mobileLabel = computed(() => {
   if (isAdmin.value) return "運営";
   if (route.path.startsWith("/roadmaps")) return "ロードマップ";
   if (route.path.startsWith("/profiles")) return "プロフィール";
+  if (route.path === "/lectures") return "講習会を探す";
   if (route.path.startsWith("/lectures") || route.path.startsWith("/sessions")) return "講習会詳細";
-  return "講習会アーカイブ";
+  return "ホーム";
 });
 
 function syncLayout(matches: boolean) {
-  if (matches) mobileNavigationOpen.value = false;
   isDesktop.value = matches;
 }
 
@@ -48,12 +48,6 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => mediaQuery?.removeEventListener("change", onMediaQueryChange));
-watch(
-  () => route.fullPath,
-  () => {
-    mobileNavigationOpen.value = false;
-  },
-);
 </script>
 
 <template>
@@ -64,17 +58,10 @@ watch(
       <div id="desktop-layout-content" class="layout-content"></div>
     </BasiqSidebarLayout>
 
-    <BasiqPushNavigationLayout
-      v-show="!isDesktop"
-      v-model:open="mobileNavigationOpen"
-      class="app-layout mobile-layout"
-      open-label="ナビゲーションを開く"
-      close-label="ナビゲーションを閉じる"
-      control-offset-block-start="calc(100dvh - 56px)"
-    >
-      <template #navigation="{ close }"><AppNavigation @navigate="close" /></template>
+    <div v-show="!isDesktop" class="app-layout mobile-layout">
       <div id="mobile-layout-content" class="layout-content"></div>
-    </BasiqPushNavigationLayout>
+      <MobileNavigation />
+    </div>
 
     <Teleport
       v-if="layoutReady"
@@ -83,7 +70,7 @@ watch(
       <section class="site-workspace">
         <header class="mobile-header">
           <RouterLink class="mobile-brand" to="/">
-            <span class="brand-mark">leQ</span><strong>leQtures</strong>
+            <img class="brand-mark" src="/brand/leqtures.png" alt="" /><strong>stoQ</strong>
           </RouterLink>
           <span>{{ mobileLabel }}</span>
         </header>

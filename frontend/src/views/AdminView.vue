@@ -82,10 +82,7 @@ onMounted(load);
     <template v-else>
       <section class="recent-section" aria-labelledby="recent-heading">
         <div class="management-heading compact-heading">
-          <div>
-            <h2 id="recent-heading">最近編集した講習会</h2>
-            <p>更新が新しい順に表示しています。</p>
-          </div>
+          <h2 id="recent-heading">最近編集した講習会</h2>
         </div>
         <div class="lecture-list" role="list">
           <article
@@ -160,7 +157,7 @@ onMounted(load);
                 </div>
                 <dl class="roadmap-facts">
                   <div>
-                    <dt>講習会</dt>
+                    <dt>学習項目</dt>
                     <dd>{{ roadmap.totalItemCount }}件</dd>
                   </div>
                   <div>
@@ -181,16 +178,16 @@ onMounted(load);
                     variant="outline"
                     @click="router.push(`/roadmaps/${roadmap.id}`)"
                     >閲覧</BasiqButton
-                  ><BasiqButton @click="router.push(`/admin/roadmaps/${roadmap.id}`)"
+                  ><BasiqButton
+                    tone="neutral"
+                    variant="outline"
+                    @click="router.push(`/admin/roadmaps/${roadmap.id}`)"
                     >編集</BasiqButton
                   >
                 </div>
               </article>
             </div>
-            <div v-else class="empty-state">
-              <strong>該当するロードマップはありません</strong>
-              <p>検索語を変えるか、別の公開状態を選んでください。</p>
-            </div>
+            <div v-else class="empty-state">該当するロードマップはありません。</div>
           </template>
         </BasiqTabs>
       </section>
@@ -201,8 +198,7 @@ onMounted(load);
 <style scoped>
 /* stylelint-disable no-descending-specificity */
 .admin-page {
-  width: min(1160px, 100%);
-  padding: 48px 40px 72px;
+  width: min(1080px, 100%);
 }
 
 .admin-heading,
@@ -218,9 +214,9 @@ onMounted(load);
 }
 
 .admin-heading h1 {
-  font-size: clamp(1.75rem, 3vw, 2.15rem);
-  line-height: 1.25;
-  letter-spacing: -0.02em;
+  font-size: 1.5rem;
+  line-height: 1.5;
+  letter-spacing: normal;
 }
 
 .admin-heading button,
@@ -237,7 +233,7 @@ onMounted(load);
 }
 
 .management-heading h2 {
-  font-size: 1.35rem;
+  font-size: 1.125rem;
   line-height: 1.35;
 }
 
@@ -247,7 +243,7 @@ onMounted(load);
 }
 
 .recent-section {
-  margin-bottom: 48px;
+  margin-bottom: 24px;
 }
 
 .lecture-list,
@@ -256,12 +252,12 @@ onMounted(load);
 }
 
 .lecture-row {
-  min-height: 68px;
+  min-height: 60px;
   display: grid;
   grid-template-columns: minmax(320px, 1fr) minmax(250px, 0.75fr) 126px auto;
   align-items: center;
   gap: 16px;
-  padding: 12px 16px;
+  padding: 12px 8px;
   border-bottom: 1px solid var(--basiq-color-border-separator);
 }
 
@@ -282,13 +278,13 @@ onMounted(load);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.96rem;
+  font-size: 0.875rem;
 }
 
 .lecture-row > p,
 .lecture-row time {
   color: var(--basiq-color-content-subtle);
-  font-size: 0.8rem;
+  font-size: 0.875rem;
 }
 
 .management-toolbar {
@@ -297,7 +293,7 @@ onMounted(load);
 }
 
 .status-tabs {
-  margin-inline: -16px;
+  margin-inline: 0;
 }
 
 .status-tabs :deep([role="tabpanel"]) {
@@ -306,12 +302,12 @@ onMounted(load);
 }
 
 .roadmap-row {
-  min-height: 116px;
+  min-height: 96px;
   display: grid;
   grid-template-columns: minmax(320px, 1.25fr) minmax(340px, 0.9fr) auto;
   align-items: center;
   gap: 24px;
-  padding: 16px;
+  padding: 12px 8px;
   border-bottom: 1px solid var(--basiq-color-border-separator);
 }
 
@@ -324,14 +320,18 @@ onMounted(load);
 }
 
 .roadmap-main h3 {
-  font-size: 1rem;
+  font-size: 0.875rem;
   line-height: 1.45;
 }
 
 .roadmap-main p {
+  display: -webkit-box;
   margin-top: 4px;
+  overflow: hidden;
   color: var(--basiq-color-content-subtle);
-  font-size: 0.82rem;
+  font-size: 0.875rem;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .roadmap-facts {
@@ -348,14 +348,14 @@ onMounted(load);
 
 .roadmap-facts dt {
   color: var(--basiq-color-content-subtle);
-  font-size: 0.76rem;
+  font-size: 0.75rem;
 }
 
 .roadmap-facts dd {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.8rem;
+  font-size: 0.875rem;
 }
 
 .row-actions {
@@ -369,7 +369,7 @@ onMounted(load);
 
 @media (width <= 1100px) {
   .lecture-row {
-    grid-template-columns: minmax(280px, 1fr) minmax(220px, 0.75fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
   }
 
   .lecture-row time {
@@ -377,7 +377,7 @@ onMounted(load);
   }
 
   .roadmap-row {
-    grid-template-columns: minmax(280px, 1fr) minmax(240px, 0.8fr);
+    grid-template-columns: minmax(0, 1fr) minmax(180px, 0.8fr);
   }
 
   .row-actions {
@@ -388,7 +388,7 @@ onMounted(load);
 
 @media (width <= 760px) {
   .admin-page {
-    padding: 16px 16px 92px;
+    padding: 16px 16px 40px;
   }
 
   .admin-heading {
@@ -396,7 +396,7 @@ onMounted(load);
   }
 
   .admin-heading h1 {
-    font-size: 1.55rem;
+    font-size: 1.5rem;
   }
 
   .management-heading {
@@ -406,7 +406,7 @@ onMounted(load);
   }
 
   .recent-section {
-    margin-bottom: 40px;
+    margin-bottom: 24px;
   }
 
   .lecture-row {
@@ -434,7 +434,7 @@ onMounted(load);
   }
 
   .status-tabs {
-    margin-inline: -12px;
+    margin-inline: 0;
   }
 
   .roadmap-row {
