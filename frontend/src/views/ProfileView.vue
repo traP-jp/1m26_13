@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { BasiqCard } from "basiq-ui";
-import { computed, nextTick, onMounted, ref } from "vue";
+import { BasiqCard, BasiqTabs } from "basiq-ui";
+import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 
 import { getProfile, type Profile } from "@/api/resources";
@@ -9,9 +9,7 @@ import BadgeAlpha from "@/components/BadgeAlpha.vue";
 
 const route = useRoute();
 const profile = ref<Profile>();
-type ProfileTab = "badges" | "completions" | "roadmaps";
-const tabOrder: ProfileTab[] = ["badges", "completions", "roadmaps"];
-const activeTab = ref<ProfileTab>("badges");
+const activeTab = ref("badges");
 const selectedBadgeId = ref("");
 const loading = ref(true);
 const error = ref("");
@@ -21,6 +19,11 @@ const selectedBadge = computed(() =>
 const roadmapCompletedCount = computed(() =>
   (profile.value?.roadmaps ?? []).reduce((total, roadmap) => total + roadmap.completedItemCount, 0),
 );
+const tabs = computed(() => [
+  { value: "badges", label: `バッジ ${profile.value?.badges.length ?? 0}` },
+  { value: "completions", label: `完了した開催 ${profile.value?.completions.length ?? 0}` },
+  { value: "roadmaps", label: `ロードマップ ${profile.value?.roadmaps.length ?? 0}` },
+]);
 async function load() {
   loading.value = true;
   error.value = "";
@@ -39,22 +42,6 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium" }).format(new Date(value));
 }
 
-function handleTabKey(event: KeyboardEvent) {
-  if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
-  event.preventDefault();
-  const currentIndex = tabOrder.indexOf(activeTab.value);
-  const nextIndex =
-    event.key === "Home"
-      ? 0
-      : event.key === "End"
-        ? tabOrder.length - 1
-        : (currentIndex + (event.key === "ArrowRight" ? 1 : -1) + tabOrder.length) %
-          tabOrder.length;
-  activeTab.value = tabOrder[nextIndex]!;
-  void nextTick(() =>
-    document.querySelector<HTMLElement>(`#profile-tab-${activeTab.value}`)?.focus(),
-  );
-}
 onMounted(load);
 </script>
 
@@ -86,187 +73,142 @@ onMounted(load);
         </dl>
       </header>
 
-      <nav class="profile-tabs" aria-label="プロフィール" role="tablist">
-        <button
-          id="profile-tab-badges"
-          type="button"
-          role="tab"
-          :tabindex="activeTab === 'badges' ? 0 : -1"
-          :aria-selected="activeTab === 'badges'"
-          aria-controls="profile-badges"
-          @click="activeTab = 'badges'"
-          @keydown="handleTabKey"
-        >
-          バッジ <span>{{ profile.badges.length }}</span>
-        </button>
-        <button
-          id="profile-tab-completions"
-          type="button"
-          role="tab"
-          :tabindex="activeTab === 'completions' ? 0 : -1"
-          :aria-selected="activeTab === 'completions'"
-          aria-controls="profile-completions"
-          @click="activeTab = 'completions'"
-          @keydown="handleTabKey"
-        >
-          完了した開催 <span>{{ profile.completions.length }}</span>
-        </button>
-        <button
-          id="profile-tab-roadmaps"
-          type="button"
-          role="tab"
-          :tabindex="activeTab === 'roadmaps' ? 0 : -1"
-          :aria-selected="activeTab === 'roadmaps'"
-          aria-controls="profile-roadmaps"
-          @click="activeTab = 'roadmaps'"
-          @keydown="handleTabKey"
-        >
-          ロードマップ <span>{{ profile.roadmaps.length }}</span>
-        </button>
-      </nav>
-
-      <section
-        v-if="activeTab === 'badges'"
-        id="profile-badges"
-        class="profile-tab-panel badge-panel"
-        role="tabpanel"
-        aria-labelledby="profile-tab-badges"
+      <BasiqTabs
+        v-model="activeTab"
+        class="profile-tabs"
+        :items="tabs"
+        list-width="100%"
+        aria-label="プロフィール"
       >
-        <div class="badge-collection">
-          <div class="section-heading">
-            <div>
-              <h2>講習会バッジ</h2>
-              <p>講習会全体を完了した記録です。</p>
-            </div>
-            <span>{{ profile.badges.length }}件</span>
-          </div>
-          <div v-if="!profile.badges.length" class="empty-state">
-            通常開催をすべて完了すると、講習会バッジが表示されます。
-          </div>
-          <ul v-else class="badge-grid">
-            <li v-for="badge in profile.badges" :key="badge.lectureId">
-              <button
-                type="button"
-                class="badge-tile"
-                :class="{ 'is-selected': badge.lectureId === selectedBadgeId }"
-                :aria-pressed="badge.lectureId === selectedBadgeId"
-                @click="selectedBadgeId = badge.lectureId"
-              >
-                <span class="badge-mark"><BadgeAlpha :lecture-name="badge.lectureName" /></span>
-                <span class="badge-tile-copy">
-                  <strong>{{ badge.lectureName }}</strong>
-                  <small
-                    >{{ badge.academicYearStart }}年度 · {{ formatDate(badge.earnedAt) }}</small
+        <template #content="{ item }">
+          <section v-if="item.value === 'badges'" class="profile-tab-panel badge-panel">
+            <div class="badge-collection">
+              <div class="section-heading">
+                <div>
+                  <h2>講習会バッジ</h2>
+                  <p>講習会全体を完了した記録です。</p>
+                </div>
+                <span>{{ profile.badges.length }}件</span>
+              </div>
+              <div v-if="!profile.badges.length" class="empty-state">
+                通常開催をすべて完了すると、講習会バッジが表示されます。
+              </div>
+              <ul v-else class="badge-grid">
+                <li v-for="badge in profile.badges" :key="badge.lectureId">
+                  <button
+                    type="button"
+                    class="badge-tile"
+                    :class="{ 'is-selected': badge.lectureId === selectedBadgeId }"
+                    :aria-pressed="badge.lectureId === selectedBadgeId"
+                    @click="selectedBadgeId = badge.lectureId"
                   >
-                </span>
-                <AppIcon name="chevron" :size="18" />
-              </button>
-            </li>
-          </ul>
-        </div>
-
-        <aside v-if="selectedBadge" class="badge-detail-rail" aria-label="選択したバッジ">
-          <BasiqCard class="badge-detail-card">
-            <template #header
-              ><div class="badge-detail-heading">
-                <AppIcon name="award" :size="18" />
-                <h2>バッジ詳細</h2>
-              </div></template
-            >
-            <div class="badge-detail-mark">
-              <BadgeAlpha :lecture-name="selectedBadge.lectureName" />
+                    <span class="badge-mark"><BadgeAlpha :lecture-name="badge.lectureName" /></span>
+                    <span class="badge-tile-copy">
+                      <strong>{{ badge.lectureName }}</strong>
+                      <small
+                        >{{ badge.academicYearStart }}年度 · {{ formatDate(badge.earnedAt) }}</small
+                      >
+                    </span>
+                    <AppIcon name="chevron" :size="18" />
+                  </button>
+                </li>
+              </ul>
             </div>
-            <div class="badge-detail-copy">
-              <strong>{{ selectedBadge.lectureName }}</strong>
-              <dl>
-                <div>
-                  <dt>年度</dt>
-                  <dd>{{ selectedBadge.academicYearStart }}年度</dd>
+
+            <aside v-if="selectedBadge" class="badge-detail-rail" aria-label="選択したバッジ">
+              <BasiqCard class="badge-detail-card">
+                <template #header
+                  ><div class="badge-detail-heading">
+                    <AppIcon name="award" :size="18" />
+                    <h2>バッジ詳細</h2>
+                  </div></template
+                >
+                <div class="badge-detail-mark">
+                  <BadgeAlpha :lecture-name="selectedBadge.lectureName" />
                 </div>
-                <div>
-                  <dt>受講完了日</dt>
-                  <dd>{{ formatDate(selectedBadge.earnedAt) }}</dd>
+                <div class="badge-detail-copy">
+                  <strong>{{ selectedBadge.lectureName }}</strong>
+                  <dl>
+                    <div>
+                      <dt>年度</dt>
+                      <dd>{{ selectedBadge.academicYearStart }}年度</dd>
+                    </div>
+                    <div>
+                      <dt>受講完了日</dt>
+                      <dd>{{ formatDate(selectedBadge.earnedAt) }}</dd>
+                    </div>
+                  </dl>
                 </div>
-              </dl>
+                <template #footer>
+                  <RouterLink class="action-link" :to="`/lectures/${selectedBadge.lectureId}`"
+                    >講習会の詳細を見る</RouterLink
+                  >
+                </template>
+              </BasiqCard>
+            </aside>
+          </section>
+
+          <section v-else-if="item.value === 'completions'" class="profile-tab-panel">
+            <div class="section-heading">
+              <div>
+                <h2>完了した開催</h2>
+                <p>完了として記録した開催を、新しい順に確認できます。</p>
+              </div>
+              <span>{{ profile.completions.length }}件</span>
             </div>
-            <template #footer>
-              <RouterLink class="action-link" :to="`/lectures/${selectedBadge.lectureId}`"
-                >講習会の詳細を見る</RouterLink
-              >
-            </template>
-          </BasiqCard>
-        </aside>
-      </section>
+            <div v-if="!profile.completions.length" class="empty-state">
+              完了した開催はありません。
+            </div>
+            <ul v-else class="completion-record-list">
+              <li v-for="completion in profile.completions" :key="completion.sessionId">
+                <RouterLink :to="`/lectures/${completion.lectureId}#第${completion.roundNumber}回`">
+                  <span class="completion-record-copy"
+                    ><strong>開催の完了記録</strong
+                    ><span>{{ formatDate(completion.completedAt) }}</span></span
+                  >
+                  <time :datetime="completion.completedAt">開催を見る →</time>
+                </RouterLink>
+              </li>
+            </ul>
+          </section>
 
-      <section
-        v-else-if="activeTab === 'completions'"
-        id="profile-completions"
-        class="profile-tab-panel"
-        role="tabpanel"
-        aria-labelledby="profile-tab-completions"
-      >
-        <div class="section-heading">
-          <div>
-            <h2>完了した開催</h2>
-            <p>完了として記録した開催を、新しい順に確認できます。</p>
-          </div>
-          <span>{{ profile.completions.length }}件</span>
-        </div>
-        <div v-if="!profile.completions.length" class="empty-state">完了した開催はありません。</div>
-        <ul v-else class="completion-record-list">
-          <li v-for="completion in profile.completions" :key="completion.sessionId">
-            <RouterLink :to="`/lectures/${completion.lectureId}#第${completion.roundNumber}回`">
-              <span class="completion-record-copy"
-                ><strong>開催の完了記録</strong
-                ><span>{{ formatDate(completion.completedAt) }}</span></span
-              >
-              <time :datetime="completion.completedAt">開催を見る →</time>
-            </RouterLink>
-          </li>
-        </ul>
-      </section>
-
-      <section
-        v-else
-        id="profile-roadmaps"
-        class="profile-tab-panel"
-        role="tabpanel"
-        aria-labelledby="profile-tab-roadmaps"
-      >
-        <div class="section-heading">
-          <div>
-            <h2>ロードマップの進み具合</h2>
-            <p>完了記録をもとに、各ロードマップでの現在地を表示します。</p>
-          </div>
-          <span>{{ profile.roadmaps.length }}件</span>
-        </div>
-        <div v-if="!profile.roadmaps.length" class="empty-state">
-          参加中のロードマップはありません。
-        </div>
-        <ul v-else class="profile-roadmap-list">
-          <li v-for="roadmap in profile.roadmaps" :key="roadmap.id">
-            <RouterLink :to="`/roadmaps/${roadmap.id}`">
-              <span class="profile-roadmap-copy"
-                ><strong>{{ roadmap.title }}</strong
-                ><span>{{ roadmap.description }}</span></span
-              >
-              <span class="profile-roadmap-progress">
-                <span>{{ roadmap.completedItemCount }}/{{ roadmap.totalItemCount }} 完了</span>
-                <span class="progress"
-                  ><span :style="{ width: `${roadmap.progressPercent}%` }"></span
-                ></span>
-                <small>{{
-                  roadmap.nextLectureId
-                    ? "次の講習会あり"
-                    : roadmap.totalItemCount
-                      ? "完了"
-                      : "講習会未登録"
-                }}</small>
-              </span>
-            </RouterLink>
-          </li>
-        </ul>
-      </section>
+          <section v-else class="profile-tab-panel">
+            <div class="section-heading">
+              <div>
+                <h2>ロードマップの進み具合</h2>
+                <p>完了記録をもとに、各ロードマップでの現在地を表示します。</p>
+              </div>
+              <span>{{ profile.roadmaps.length }}件</span>
+            </div>
+            <div v-if="!profile.roadmaps.length" class="empty-state">
+              参加中のロードマップはありません。
+            </div>
+            <ul v-else class="profile-roadmap-list">
+              <li v-for="roadmap in profile.roadmaps" :key="roadmap.id">
+                <RouterLink :to="`/roadmaps/${roadmap.id}`">
+                  <span class="profile-roadmap-copy"
+                    ><strong>{{ roadmap.title }}</strong
+                    ><span>{{ roadmap.description }}</span></span
+                  >
+                  <span class="profile-roadmap-progress">
+                    <span>{{ roadmap.completedItemCount }}/{{ roadmap.totalItemCount }} 完了</span>
+                    <span class="progress"
+                      ><span :style="{ width: `${roadmap.progressPercent}%` }"></span
+                    ></span>
+                    <small>{{
+                      roadmap.nextLectureId
+                        ? "次の講習会あり"
+                        : roadmap.totalItemCount
+                          ? "完了"
+                          : "講習会未登録"
+                    }}</small>
+                  </span>
+                </RouterLink>
+              </li>
+            </ul>
+          </section>
+        </template>
+      </BasiqTabs>
     </template>
   </div>
 </template>
@@ -334,31 +276,7 @@ onMounted(load);
 }
 
 .profile-tabs {
-  display: flex;
-  margin-bottom: 24px;
-  border-bottom: 1px solid var(--basiq-color-border-separator);
-}
-
-.profile-tabs button {
-  min-height: 44px;
-  flex: 0 0 auto;
-  padding: 8px 16px;
-  border: 0;
-  border-bottom: 3px solid transparent;
-  color: var(--basiq-color-content-subtle);
-  background: transparent;
-  font: inherit;
-  cursor: pointer;
-}
-
-.profile-tabs button[aria-selected="true"] {
-  border-bottom-color: var(--basiq-color-accent-default);
-  color: var(--basiq-color-content-accent);
-  font-weight: 700;
-}
-
-.profile-tabs button span {
-  opacity: 0.72;
+  width: 100%;
 }
 
 .profile-tab-panel {
@@ -619,14 +537,9 @@ onMounted(load);
     border-left: 0;
   }
 
-  .profile-tabs {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .profile-tabs button {
+  .profile-tabs :deep([role="tab"]) {
     min-width: 0;
-    width: 100%;
+    flex: 1;
     padding-inline: 6px;
     font-size: 0.76rem;
   }
