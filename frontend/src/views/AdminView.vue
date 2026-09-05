@@ -55,10 +55,12 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    [lectures.value, roadmaps.value] = await Promise.all([
-      listLectures({ includeDraft: true }),
+    const [lecturePage, roadmapValues] = await Promise.all([
+      listLectures({ includeDraft: true, limit: 4 }),
       listRoadmaps(true),
     ]);
+    lectures.value = lecturePage.items;
+    roadmaps.value = roadmapValues;
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : "読み込めませんでした";
   } finally {

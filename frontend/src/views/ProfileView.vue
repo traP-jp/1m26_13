@@ -3,7 +3,7 @@ import { BasiqCard, BasiqTabs } from "basiq-ui";
 import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 
-import { getProfile, listLectures, type Profile } from "@/api/resources";
+import { getProfile, listAllLectures, type Profile } from "@/api/resources";
 import AppIcon from "@/components/AppIcon.vue";
 import BadgeAlpha from "@/components/BadgeAlpha.vue";
 import { inferBadgeFamilies, normalizeBadgeName } from "@/components/badgeNameAffinity";
@@ -32,7 +32,7 @@ async function load() {
   try {
     const [loadedProfile, lectures] = await Promise.all([
       getProfile(String(route.params.traqId)),
-      listLectures(),
+      listAllLectures(),
     ]);
     // Use the published catalog so the same badge does not change with a user's completion set.
     badgeFamilies.value = inferBadgeFamilies(lectures.map((lecture) => lecture.name));

@@ -11,6 +11,7 @@ import {
   type Directory,
   type Field,
   type Lecture,
+  type LectureListQuery,
   type Roadmap,
 } from "@/api/resources";
 import AppIcon from "@/components/AppIcon.vue";
@@ -25,6 +26,7 @@ const roadmaps = ref<Roadmap[]>([]);
 const fields = ref<Field[]>([]);
 const directory = ref<Directory>({ users: [], groups: [] });
 const loading = ref(true);
+const loadingMore = ref(false);
 const error = ref("");
 const allFieldsValue = "__all_fields__";
 
@@ -32,6 +34,9 @@ const fieldItems = computed(() => [
   { label: "すべての分野", value: allFieldsValue },
   ...fields.value.map((field) => ({ label: field.name, value: field.id })),
 ]);
+const loadMoreError = ref("");
+const nextCursor = ref("");
+let activeLectureQuery: Omit<LectureListQuery, "limit" | "cursor"> = {};
 
 const visibleRoadmaps = computed(() => {
   const query = q.value.trim().toLocaleLowerCase("ja");
@@ -67,22 +72,49 @@ function organizerLabel(lecture: Lecture) {
 async function load() {
   loading.value = true;
   error.value = "";
+  loadMoreError.value = "";
   try {
     const queryYear = Number(year.value);
-    [lectures.value, roadmaps.value, fields.value, directory.value] = await Promise.all([
-      listLectures({
-        q: q.value || undefined,
-        year: Number.isFinite(queryYear) && queryYear > 0 ? queryYear : undefined,
-        fieldId: fieldId.value || undefined,
-      }),
+    activeLectureQuery = {
+      q: q.value || undefined,
+      year: Number.isFinite(queryYear) && queryYear > 0 ? queryYear : undefined,
+      fieldId: fieldId.value || undefined,
+    };
+    const [lecturePage, roadmapValues, fieldValues, directoryValue] = await Promise.all([
+      listLectures({ ...activeLectureQuery, limit: 24 }),
       listRoadmaps(),
       listFields(),
       getDirectory(),
     ]);
+    lectures.value = lecturePage.items;
+    nextCursor.value = lecturePage.nextCursor ?? "";
+    roadmaps.value = roadmapValues;
+    fields.value = fieldValues;
+    directory.value = directoryValue;
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : "読み込めませんでした";
   } finally {
     loading.value = false;
+  }
+}
+
+async function loadMore() {
+  if (!nextCursor.value || loadingMore.value) return;
+  loadingMore.value = true;
+  loadMoreError.value = "";
+  try {
+    const page = await listLectures({
+      ...activeLectureQuery,
+      limit: 24,
+      cursor: nextCursor.value,
+    });
+    lectures.value.push(...page.items);
+    nextCursor.value = page.nextCursor ?? "";
+  } catch (reason) {
+    loadMoreError.value =
+      reason instanceof Error ? reason.message : "続きの講習会を読み込めませんでした";
+  } finally {
+    loadingMore.value = false;
   }
 }
 
@@ -171,28 +203,40 @@ onMounted(load);
             <h2>講習会</h2>
             <span>見つかった教材を新しい順に表示</span>
           </div>
-          <strong>{{ lectures.length }}件</strong>
+          <strong>{{ lectures.length }}件表示</strong>
         </div>
 
-        <ul v-if="lectures.length" class="discovery-grid">
-          <li v-for="lecture in lectures" :key="lecture.id">
-            <RouterLink :to="`/lectures/${lecture.id}`" class="card-link">
-              <BasiqCard class="discovery-card">
-                <article class="discovery-card-content">
-                  <h3>{{ lecture.name }}</h3>
-                  <div class="card-description">
-                    <p>{{ lecture.description || "説明はまだありません。" }}</p>
-                    <AppIcon name="chevron" :size="19" />
-                  </div>
-                  <p class="card-meta">
-                    {{ sessionCountLabel(lecture) }} · {{ organizerLabel(lecture) }} ·
-                    {{ academicYear(lecture) }}
-                  </p>
-                </article>
-              </BasiqCard>
-            </RouterLink>
-          </li>
-        </ul>
+        <template v-if="lectures.length">
+          <ul class="discovery-grid">
+            <li v-for="lecture in lectures" :key="lecture.id">
+              <RouterLink :to="`/lectures/${lecture.id}`" class="card-link">
+                <BasiqCard class="discovery-card">
+                  <article class="discovery-card-content">
+                    <h3>{{ lecture.name }}</h3>
+                    <div class="card-description">
+                      <p>{{ lecture.description || "説明はまだありません。" }}</p>
+                      <AppIcon name="chevron" :size="19" />
+                    </div>
+                    <p class="card-meta">
+                      {{ sessionCountLabel(lecture) }} · {{ organizerLabel(lecture) }} ·
+                      {{ academicYear(lecture) }}
+                    </p>
+                  </article>
+                </BasiqCard>
+              </RouterLink>
+            </li>
+          </ul>
+          <div v-if="nextCursor" class="load-more">
+            <BasiqButton
+              tone="neutral"
+              variant="outline"
+              :disabled="loadingMore"
+              @click="loadMore"
+              >{{ loadingMore ? "読み込んでいます…" : "さらに表示" }}</BasiqButton
+            >
+          </div>
+          <p v-if="loadMoreError" class="load-more-error" role="alert">{{ loadMoreError }}</p>
+        </template>
         <div v-else class="empty-state">
           <strong>条件に合う講習会はありません</strong>
           <p>検索語や絞り込みを減らしてみてください。</p>
@@ -416,6 +460,18 @@ onMounted(load);
 
 .empty-state p {
   margin-top: 4px;
+}
+
+.load-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.load-more-error {
+  margin-top: 12px;
+  color: var(--basiq-color-content-danger);
+  text-align: center;
 }
 
 @media (width <= 1120px) {

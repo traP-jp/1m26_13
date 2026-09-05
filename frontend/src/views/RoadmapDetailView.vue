@@ -3,7 +3,7 @@ import { BasiqButton, BasiqCard, BasiqFormField, BasiqTextarea } from "basiq-ui"
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import { getRoadmap, listLectures, type Lecture, type Roadmap } from "@/api/resources";
+import { getRoadmap, listAllLectures, type Lecture, type Roadmap } from "@/api/resources";
 import AppIcon from "@/components/AppIcon.vue";
 
 const route = useRoute();
@@ -59,7 +59,7 @@ async function load() {
   try {
     const [value, lectureList] = await Promise.all([
       getRoadmap(String(route.params.id)),
-      listLectures(),
+      listAllLectures(),
     ]);
     roadmap.value = value;
     lectures.value = Object.fromEntries(lectureList.map((lecture) => [lecture.id, lecture]));

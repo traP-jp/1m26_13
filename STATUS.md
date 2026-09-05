@@ -1,7 +1,7 @@
 # Status
 
 更新日: 2026-09-05
-フェーズ: P11 Flowタブ編集面と年度引き継ぎ作成をローカル実装し、画面確認待ち。
+フェーズ: P12 Lecture一覧のcursor paginationとN+1解消を完了。
 
 ## 現在地
 
@@ -40,6 +40,8 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 - NeoShowcase `X-Forwarded-User`認証、開発用`DEV_USER`、traQ User/Groupのbackend cache。
 - Lecture/Sessionの登録・編集・公開、Resource、講師、運営、問い合わせ、分野、関係。
 - 公開Lectureのキーワード・年度・分野検索。検索条件はURL queryへ保持する。
+- Lecture一覧は`updatedAt DESC, id DESC`の安定順序で、既定24件・最大100件のopaque cursorによるkeyset paginationを行う。ホームは24件ずつ追加表示し、運営ホームは最新4件だけを取得する。
+- Lecture一覧と詳細のLecture、Relation、Session、利用者の完了状態を一括取得し、従来の`1 + 3N + Session件数`相当だった一覧queryを1pageあたり最大4回へ固定した。
 - 再放送を別Sessionとして保持し、API、DB、運営編集、作成機能で管理する。学習者向けLecture詳細の回数、タブ、本文には再放送を含めず、完了操作も置かない。
 - Session単位の自己申告完了。公開中の通常Session全件からLecture完了、badge alpha、Roadmap進捗を導出する。
 - StockのFlowClassと適用時スナップショットFlow。`lecture_pre`、`session_main`、`lecture_post`、formatVersion 1、本文内チェック、currentPageを実装した。
@@ -59,6 +61,10 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 - 実MariaDBに対する`POST /lectures/{lectureId}/inherit`で、Lecture、通常Session 2件、Flow 4件を201で一括作成した。新年度、`previous_year`、通常Sessionの順序・名前・説明を保持し、全Sessionがdraft、公開Session数0、完了0、日時・場所・講師・教材・Resource・再放送を空、全Flowが現在のFlowClass本文・先頭ページ・未チェックであることを確認した。
 - 存在しない引き継ぎ元では404となり、同じ実DBのLecture件数が失敗前後とも5件で増えないことを確認した。必須Flow・FlowClass検証と全INSERTは同一transaction内で、失敗時はrollbackする。
 - PCで新規作成の二択、引き継ぎ元の年度・班・分野付き検索一覧、Flowタブの左目次＋右本文を確認した。390pxでは作成二択・引き継ぎ一覧・Flow編集が横overflow 0で、タブ列だけが`clientWidth 323 / scrollWidth 664`として横スクロールでき、console warning/errorは0件だった。
+- revert commit `1f6ce29`を含む最新`feat/production-app`へのrebase後、隔離MariaDBとEchoで`limit=1`のLecture一覧を2page取得し、1件目`updatedAt=2026-09-05T04:15:25.051684Z, id=9`、2件目`updatedAt=2026-09-05T04:09:15.142392Z, id=8`となること、ID重複がないことを確認した。無効cursorは400 `invalid_pagination`とする。
+- cursorの最大BIGINT ID往復、無効cursor、非数値ID、limit既定値・上下限のbackend単体テストを追加した。既存API smokeも新しいpage responseで成功した。
+- MariaDBの`EXPLAIN`で最新順queryが`idx_lectures_updated_id`を`type=index`、`Using index`で使うことを確認した。最新`feat/production-app`へrebase後、frontendはOpenAPI生成差分、formatter、全lint、Vue型検査、Vitest 10 files / 36 tests、production build、backendはgofmt、go vet、全Go test、全package buildに成功した。
+- revert済みstoQ探索画面、専用検索route、ブランド素材が性能PRの差分へ再混入していないことを確認した。隔離Viteのホームは公開Lectureを`10, 9, 8, 7, 5, 3, 1`の最新順で表示し、APIエラーなく描画した。
 
 - Roadmapを`items: [{id,targetType,targetId}]`へ移行した。空MariaDBへ全migrationを適用し、Lecture＋Sessionの作成・更新・再読込、Session単位とLecture集約の進捗、再放送Sessionの400拒否をAPIスモークで確認した。
 - 旧形式の2 Stage・3 Lecture Itemを`items IS NULL`の行として投入し、全項目がStage順・項目順で復元されることを確認した。新APIで更新後も旧`stages`は2 Stage・先頭2項目のまま保持され、新`items`だけが保存された。
@@ -113,9 +119,9 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 - archive、利用停止、履歴保持期間、退部後のUser/Group表示は初期範囲外。
 - FlowClassVersionとRoadmap公開版は持たない。必要になった時点で追加する。
 - Relation循環の業務上の妥当性までは検証しない。自己参照と同じ型の重複は拒否する。
-- 検索は最大200件の単純部分一致で、全文検索・表記正規化・ページングは未実装。
+- 検索は単純部分一致のままで、全文検索・表記正規化は未実装。履歴一覧とRoadmap一覧は初期規模を前提としてpage分割していない。
 - 本番デプロイと実traQ tokenの投入は行っていない。
 
 ## 次のチェックポイント
 
-実在する複数の内部利用者で試用し、Flow文面と属性レーンの使い勝手を記録する。実装上のP5〜P9は完了しており、内部試用から具体的な修正が出るまでは追加実装を行わない。
+実在する複数の内部利用者で試用し、Flow文面、属性レーン、24件単位のLecture追加表示の使い勝手を記録する。履歴またはRoadmapの件数が初期想定を超えた場合は、同じkeyset paginationを個別に追加する。

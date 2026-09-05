@@ -75,6 +75,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description updatedAtの降順、同時刻はidの降順で返す。 */
         get: operations["listLectures"];
         put?: never;
         post: operations["createLecture"];
@@ -568,6 +569,11 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
+        LecturePage: {
+            /** @description updatedAtの降順、同時刻はidの降順に並んだ講習会。 */
+            items: components["schemas"]["Lecture"][];
+            nextCursor?: string;
+        };
         /** @enum {string} */
         SessionStatus: "draft" | "published";
         Session: {
@@ -865,6 +871,8 @@ export interface operations {
                 year?: number;
                 fieldId?: string;
                 includeDraft?: boolean;
+                limit?: number;
+                cursor?: string;
             };
             header?: never;
             path?: never;
@@ -872,13 +880,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Lectures */
+            /** @description Lecture page */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Lecture"][];
+                    "application/json": components["schemas"]["LecturePage"];
                 };
             };
             400: components["responses"]["Error"];

@@ -1126,6 +1126,17 @@
 - 再検討する条件: 特定時点のFlowClass版を再利用する版履歴、元の回答を下書きとして移す要件、またはprevious_yearの複数元が必要になった場合。
 - 参照: 本人の「Flowは横タブの1つずつに対応する」「タブの中身はFlowそのものにして」という明示依頼と、画面設計参照branch `origin/codex/leqtures-design-principles`。
 
+## D-20260905-093 — Lecture一覧は更新日時順のkeyset paginationにする
+
+- 状態: decided
+- 判断が必要だった理由: Lecture一覧が最大200件の固定取得で、さらに各Lecture・各Sessionごとに関連、開催、完了状態を個別照会していたため、件数増加に伴って応答時間とDB負荷が線形以上に増える構造だった。利用者は一覧を日時の新しい順で見たい。
+- 選択肢: offset paginationと総件数を返す／更新日時とIDを境界にするkeyset paginationを使う／全件取得を維持してfrontendだけ分割表示する。
+- 決定: `GET /lectures`は`{items,nextCursor?}`を返し、`updatedAt DESC, id DESC`の安定順序でopaque cursorによるkeyset paginationを行う。既定24件、最大100件とし、総件数は返さない。Lecture本体、Relation、Session、利用者の完了状態はpage単位で一括取得する。
+- 根拠: 先頭pageが常に最新の変更を反映し、offsetが深くなっても探索量が増えにくい。IDを第2キーにすることで同時刻でも欠落・重複しない。総件数queryを避け、ホームに必要な「続きがあるか」だけを`limit + 1`で判定できる。
+- 影響: API responseは配列からpage objectへ変わる。ホームは24件ずつ「さらに表示」、運営ホームは最新4件だけを取得する。Roadmapや講習会編集で全候補が必要な箇所だけは最大100件のpageをcursorで最後まで読む。`(updated_at, id)` indexを追加し、一覧とLecture詳細のDB query数を最大4回へ固定する。
+- 再検討する条件: 厳密な総件数表示、任意pageへの直接移動、更新中のsnapshot整合性、または検索語に対する全文検索・表記正規化が必要になった場合。
+- 参照: 本人の2026-09-05のperformance・pagination改善PRと、返却順を日時の新しい順にするという明示依頼。
+
 ## D-YYYYMMDD-NNN — 判断の題名
 
 - 状態: decided | pending | superseded

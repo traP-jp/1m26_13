@@ -426,6 +426,13 @@ type LectureInherit struct {
 	AcademicYearStart int `json:"academicYearStart"`
 }
 
+// LecturePage defines model for LecturePage.
+type LecturePage struct {
+	// Items updatedAtの降順、同時刻はidの降順に並んだ講習会。
+	Items      []Lecture `json:"items"`
+	NextCursor *string   `json:"nextCursor,omitempty"`
+}
+
 // LecturePatchResult defines model for LecturePatchResult.
 type LecturePatchResult struct {
 	ConflictDetected bool    `json:"conflictDetected"`
@@ -604,6 +611,8 @@ type ListLecturesParams struct {
 	Year         *int    `form:"year,omitempty" json:"year,omitempty"`
 	FieldId      *string `form:"fieldId,omitempty" json:"fieldId,omitempty"`
 	IncludeDraft *bool   `form:"includeDraft,omitempty" json:"includeDraft,omitempty"`
+	Limit        *int    `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor       *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
 // GetLectureParams defines parameters for GetLecture.
@@ -1016,6 +1025,20 @@ func (w *ServerInterfaceWrapper) ListLectures(ctx echo.Context) error {
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "includeDraft", ctx.QueryParams(), &params.IncludeDraft, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter includeDraft: %s", err))
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", ctx.QueryParams(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", ctx.QueryParams(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter cursor: %s", err))
 	}
 
 	// Invoke the callback with all the unmarshaled arguments
@@ -1935,7 +1958,7 @@ type ListLecturesResponseObject interface {
 	VisitListLecturesResponse(w http.ResponseWriter) error
 }
 
-type ListLectures200JSONResponse []Lecture
+type ListLectures200JSONResponse LecturePage
 
 func (response ListLectures200JSONResponse) VisitListLecturesResponse(w http.ResponseWriter) error {
 

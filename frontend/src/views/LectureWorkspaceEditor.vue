@@ -27,7 +27,7 @@ import {
   inheritLecture,
   listFields,
   listFlowClasses,
-  listLectures,
+  listAllLectures,
   patchLectureAttribute,
   patchSessionAttribute,
   reorderSessions,
@@ -537,7 +537,7 @@ async function load() {
   try {
     const directoryLoad = loadOptional(getDirectory(), { users: [], groups: [] } as Directory);
     const fieldsLoad = loadOptional(listFields(), [] as Field[]);
-    const lecturesLoad = loadOptional(listLectures({ includeDraft: true }), [] as Lecture[]);
+    const lecturesLoad = loadOptional(listAllLectures({ includeDraft: true }), [] as Lecture[]);
     if (isNew.value) {
       const [flowValues, directoryResult, fieldsResult, lecturesResult] = await Promise.all([
         listFlowClasses(true),

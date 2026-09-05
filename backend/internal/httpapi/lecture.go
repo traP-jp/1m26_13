@@ -116,15 +116,28 @@ func (server server) ListLectures(ctx context.Context, request api.ListLecturesR
 	if request.Params.IncludeDraft != nil {
 		filter.IncludeDraft = *request.Params.IncludeDraft
 	}
-	lectures, err := server.repository.ListLectures(ctx, filter, user.ID)
+	if request.Params.Limit != nil {
+		filter.Limit = *request.Params.Limit
+	}
+	if request.Params.Cursor != nil {
+		filter.Cursor = *request.Params.Cursor
+	}
+	page, err := server.repository.ListLectures(ctx, filter, user.ID)
+	if errors.Is(err, store.ErrInvalid) {
+		return api.ListLectures400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_pagination", Message: "ページ指定を確認してください"}}, nil
+	}
 	if err != nil {
 		return nil, err
 	}
-	result := make(api.ListLectures200JSONResponse, 0, len(lectures))
-	for _, lecture := range lectures {
-		result = append(result, lectureToAPI(lecture))
+	items := make([]api.Lecture, 0, len(page.Items))
+	for _, lecture := range page.Items {
+		items = append(items, lectureToAPI(lecture))
 	}
-	return result, nil
+	result := api.LecturePage{Items: items}
+	if page.NextCursor != "" {
+		result.NextCursor = &page.NextCursor
+	}
+	return api.ListLectures200JSONResponse(result), nil
 }
 
 func (server server) CreateLecture(ctx context.Context, request api.CreateLectureRequestObject) (api.CreateLectureResponseObject, error) {
