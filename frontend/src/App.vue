@@ -1,7 +1,97 @@
 <script setup lang="ts">
-import { RouterView } from "vue-router";
+import { BasiqPushNavigationLayout, BasiqSidebarLayout, BasiqThemeProvider } from "basiq-ui";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { RouterLink, RouterView, useRoute } from "vue-router";
+
+import AppNavigation from "@/components/AppNavigation.vue";
+import { useAuthStore } from "@/stores/auth";
+
+const desktopMediaQuery = "(min-width: 48rem)";
+const auth = useAuthStore();
+const route = useRoute();
+const isDesktop = ref(false);
+const layoutReady = ref(false);
+const mobileNavigationOpen = ref(false);
+let mediaQuery: MediaQueryList | undefined;
+
+const isAdmin = computed(
+  () =>
+    route.path.startsWith("/admin") ||
+    route.path.startsWith("/stock") ||
+    route.path.startsWith("/flows"),
+);
+const mobileLabel = computed(() => {
+  if (route.path.startsWith("/admin/lectures")) return "講習会管理";
+  if (route.path.startsWith("/admin/roadmaps")) return "ロードマップ管理";
+  if (isAdmin.value) return "運営";
+  if (route.path.startsWith("/roadmaps")) return "ロードマップ";
+  if (route.path.startsWith("/profiles")) return "プロフィール";
+  if (route.path.startsWith("/lectures") || route.path.startsWith("/sessions")) return "講習会詳細";
+  return "講習会アーカイブ";
+});
+
+function syncLayout(matches: boolean) {
+  if (matches) mobileNavigationOpen.value = false;
+  isDesktop.value = matches;
+}
+
+function onMediaQueryChange(event: MediaQueryListEvent) {
+  syncLayout(event.matches);
+}
+
+onMounted(() => {
+  void auth.load();
+  mediaQuery = window.matchMedia(desktopMediaQuery);
+  syncLayout(mediaQuery.matches);
+  mediaQuery.addEventListener("change", onMediaQueryChange);
+  layoutReady.value = true;
+});
+
+onBeforeUnmount(() => mediaQuery?.removeEventListener("change", onMediaQueryChange));
+watch(
+  () => route.fullPath,
+  () => {
+    mobileNavigationOpen.value = false;
+  },
+);
 </script>
 
 <template>
-  <RouterView />
+  <BasiqThemeProvider mode="light" class="app-theme">
+    <a class="skip-link" href="#main-content">本文へ移動</a>
+    <BasiqSidebarLayout v-show="isDesktop" class="app-layout desktop-layout">
+      <template #sidebar><AppNavigation /></template>
+      <div id="desktop-layout-content" class="layout-content"></div>
+    </BasiqSidebarLayout>
+
+    <BasiqPushNavigationLayout
+      v-show="!isDesktop"
+      v-model:open="mobileNavigationOpen"
+      class="app-layout mobile-layout"
+      open-label="ナビゲーションを開く"
+      close-label="ナビゲーションを閉じる"
+      control-offset-block-start="calc(100dvh - 56px)"
+    >
+      <template #navigation="{ close }"><AppNavigation @navigate="close" /></template>
+      <div id="mobile-layout-content" class="layout-content"></div>
+    </BasiqPushNavigationLayout>
+
+    <Teleport
+      v-if="layoutReady"
+      :to="isDesktop ? '#desktop-layout-content' : '#mobile-layout-content'"
+    >
+      <section class="site-workspace">
+        <header class="mobile-header">
+          <RouterLink class="mobile-brand" to="/">
+            <span class="brand-mark">leQ</span><strong>leQtures</strong>
+          </RouterLink>
+          <span>{{ mobileLabel }}</span>
+        </header>
+
+        <RouterView v-slot="{ Component }">
+          <main id="main-content" tabindex="-1"><component :is="Component" /></main>
+        </RouterView>
+      </section>
+    </Teleport>
+  </BasiqThemeProvider>
 </template>

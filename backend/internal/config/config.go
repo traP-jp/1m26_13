@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -22,6 +23,11 @@ type Config struct {
 	TraQAPITimeout           time.Duration
 	TraQCacheRefreshInterval time.Duration
 	TraQCacheMaxStale        time.Duration
+	DatabaseHostname         string
+	DatabasePort             int
+	DatabaseUser             string
+	DatabasePassword         string
+	DatabaseName             string
 }
 
 func Load() (Config, error) {
@@ -31,6 +37,10 @@ func Load() (Config, error) {
 		DevelopmentUser:    strings.TrimSpace(os.Getenv("DEV_USER")),
 		TraQAPIBaseURL:     envOrDefault("TRAQ_API_BASE_URL", "https://q.trap.jp/api/v3"),
 		TraQBotAccessToken: strings.TrimSpace(os.Getenv("TRAQ_BOT_ACCESS_TOKEN")),
+		DatabaseHostname:   envOrDefault("NS_MARIADB_HOSTNAME", "127.0.0.1"),
+		DatabaseUser:       envOrDefault("NS_MARIADB_USER", "app"),
+		DatabasePassword:   envOrDefault("NS_MARIADB_PASSWORD", "password"),
+		DatabaseName:       envOrDefault("NS_MARIADB_DATABASE", "1m26_13"),
 	}
 
 	if config.Environment != EnvironmentDevelopment && config.Environment != EnvironmentProduction {
@@ -39,11 +49,18 @@ func Load() (Config, error) {
 	if config.DevelopmentUser != "" && config.Environment != EnvironmentDevelopment {
 		return Config{}, errors.New("DEV_USER can only be used when APP_ENV=development")
 	}
-	if config.TraQBotAccessToken == "" {
+	if config.TraQBotAccessToken == "" && config.Environment == EnvironmentProduction {
 		return Config{}, errors.New("TRAQ_BOT_ACCESS_TOKEN is required")
 	}
-
+	if config.TraQBotAccessToken == "" && config.DevelopmentUser == "" {
+		return Config{}, errors.New("DEV_USER is required when development runs without a traQ token")
+	}
 	var err error
+	config.DatabasePort, err = intEnv("NS_MARIADB_PORT", 3306)
+	if err != nil {
+		return Config{}, err
+	}
+
 	config.TraQAPITimeout, err = durationEnv("TRAQ_API_TIMEOUT", 10*time.Second)
 	if err != nil {
 		return Config{}, err
@@ -66,6 +83,18 @@ func Load() (Config, error) {
 	}
 
 	return config, nil
+}
+
+func intEnv(key string, fallback int) (int, error) {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback, nil
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed < 1 || parsed > 65535 {
+		return 0, fmt.Errorf("%s must be a valid port", key)
+	}
+	return parsed, nil
 }
 
 func envOrDefault(key, fallback string) string {

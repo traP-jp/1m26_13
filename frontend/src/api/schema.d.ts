@@ -11,7 +11,6 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Check whether the API is available */
         get: operations["getHealth"];
         put?: never;
         post?: never;
@@ -28,11 +27,447 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Get the authenticated user
-         * @description Returns the traQ user identified by NeoShowcase authentication.
-         */
         get: operations["getCurrentUser"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/directory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getDirectory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listFields"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lectures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description updatedAtの降順、同時刻はidの降順で返す。 */
+        get: operations["listLectures"];
+        put?: never;
+        post: operations["createLecture"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lectures/{lectureId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        get: operations["getLecture"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lectures/{lectureId}/workspace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        get: operations["getLectureWorkspace"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lectures/{lectureId}/inherit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["inheritLecture"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lectures/{lectureId}/attributes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["patchLectureAttribute"];
+        trace?: never;
+    };
+    "/lectures/{lectureId}/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lectures/{lectureId}/session-order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["reorderSessions"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lectures/{lectureId}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        get: operations["getLectureHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lectures/{lectureId}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        get: operations["exportLecture"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sessions/{sessionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        get: operations["getSession"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/sessions/{sessionId}/attributes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["patchSessionAttribute"];
+        trace?: never;
+    };
+    "/sessions/{sessionId}/completion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["completeSession"];
+        post?: never;
+        delete: operations["uncompleteSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/flow-classes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listFlowClasses"];
+        put?: never;
+        post: operations["createFlowClass"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/flow-classes/{flowClassId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                flowClassId: string;
+            };
+            cookie?: never;
+        };
+        get: operations["getFlowClass"];
+        put: operations["updateFlowClass"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/flows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listFlows"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/flows/{flowId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                flowId: string;
+            };
+            cookie?: never;
+        };
+        get: operations["getFlow"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/flows/{flowId}/flow-class": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                flowId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["replaceFlowClass"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/flows/{flowId}/checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                flowId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["patchFlowCheck"];
+        trace?: never;
+    };
+    "/flows/{flowId}/page": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                flowId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateFlowPage"];
+        trace?: never;
+    };
+    "/roadmaps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listRoadmaps"];
+        put?: never;
+        post: operations["createRoadmap"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/roadmaps/{roadmapId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roadmapId: string;
+            };
+            cookie?: never;
+        };
+        get: operations["getRoadmap"];
+        put: operations["updateRoadmap"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/profiles/{traqId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                traqId: string;
+            };
+            cookie?: never;
+        };
+        get: operations["getProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/history/{entityType}/{entityId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entityType: "lecture" | "session" | "flow_class" | "flow" | "roadmap";
+                entityId: string;
+            };
+            cookie?: never;
+        };
+        get: operations["getAttributeHistory"];
         put?: never;
         post?: never;
         delete?: never;
@@ -45,23 +480,301 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        CurrentUser: {
-            /** Format: uuid */
-            id: string;
-            traqId: string;
-            displayName: string;
+        /** @example 1 */
+        LectureId: string;
+        /** @example 1 */
+        SessionId: string;
+        HealthResponse: {
+            /** @constant */
+            status: "ok";
         };
         ErrorResponse: {
             code: string;
             message: string;
         };
-        HealthResponse: {
+        CurrentUser: {
+            id: string;
+            traqId: string;
+            displayName: string;
+        };
+        DirectoryUser: {
+            id: string;
+            traqId: string;
+            displayName: string;
+        };
+        DirectoryGroup: {
+            id: string;
+            name: string;
+        };
+        Directory: {
+            users: components["schemas"]["DirectoryUser"][];
+            groups: components["schemas"]["DirectoryGroup"][];
+        };
+        Field: {
+            id: string;
+            name: string;
+        };
+        Resource: {
+            title?: string;
+            /** Format: uri */
+            url: string;
+        };
+        /** @enum {string} */
+        OrganizerKind: "user" | "group";
+        Organizer: {
+            kind: components["schemas"]["OrganizerKind"];
+            id: string;
+            groupName?: string;
+        };
+        /** @enum {string} */
+        RelationType: "prerequisite" | "previous_year" | "recommended_next";
+        LectureRelation: {
+            toLectureId: components["schemas"]["LectureId"];
+            type: components["schemas"]["RelationType"];
+        };
+        LectureCreate: {
+            name: string;
+            lecturePreFlowClassId: string;
+            sessionMainFlowClassId: string;
+            lecturePostFlowClassId: string;
+            academicYearStart?: number;
+            academicYearEnd?: number;
+        };
+        LectureInherit: {
+            academicYearStart: number;
+            academicYearEnd: number;
+        };
+        Lecture: {
+            id: components["schemas"]["LectureId"];
+            name: string;
+            description?: string;
+            academicYearStart: number;
+            academicYearEnd: number;
+            fieldId?: string;
+            organizer?: components["schemas"]["Organizer"];
+            targetAudience?: string;
+            isIntroductory: boolean;
+            traqChannelId?: string;
+            material?: components["schemas"]["Resource"];
+            resources: components["schemas"]["Resource"][];
+            relations: components["schemas"]["LectureRelation"][];
+            sessions: components["schemas"]["Session"][];
+            isPublished: boolean;
+            completedSessionCount: number;
+            requiredSessionCount: number;
+            isCompleted: boolean;
+            revision: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        LecturePage: {
+            /** @description updatedAtの降順、同時刻はidの降順に並んだ講習会。 */
+            items: components["schemas"]["Lecture"][];
+            nextCursor?: string;
+        };
+        /** @enum {string} */
+        SessionStatus: "draft" | "published";
+        Session: {
+            id: components["schemas"]["SessionId"];
+            lectureId: components["schemas"]["LectureId"];
+            name: string;
+            description?: string;
+            order: number;
+            /** Format: date */
+            date?: string;
+            startTime?: string;
+            location?: string;
+            /** Format: uri */
+            knoqUrl?: string;
+            instructorId?: string;
+            material?: components["schemas"]["Resource"];
+            resources: components["schemas"]["Resource"][];
+            replayOfSessionIds: components["schemas"]["SessionId"][];
+            status: components["schemas"]["SessionStatus"];
+            isReplay: boolean;
+            isCompleted: boolean;
+            revision: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        LectureWorkspace: {
+            lecture: components["schemas"]["Lecture"];
+            flows: components["schemas"]["Flow"][];
+        };
+        AttributePatch: {
+            attributePath: string;
+            baseValue: unknown;
+            nextValue: unknown;
+        };
+        LecturePatchResult: {
+            lecture: components["schemas"]["Lecture"];
+            conflictDetected: boolean;
+        };
+        SessionPatchResult: {
+            session: components["schemas"]["Session"];
+            conflictDetected: boolean;
+        };
+        /** @enum {string} */
+        SessionCreateMode: "empty" | "duplicate";
+        SessionCreate: {
+            mode: components["schemas"]["SessionCreateMode"];
+            flowClassId: string;
+            sourceSessionId?: components["schemas"]["SessionId"];
+            replayOfSessionIds?: components["schemas"]["SessionId"][];
+        };
+        SessionCreateResult: {
+            workspace: components["schemas"]["LectureWorkspace"];
+            session: components["schemas"]["Session"];
+            flow: components["schemas"]["Flow"];
+        };
+        SessionOrderWrite: {
+            items: components["schemas"]["SessionOrderItem"][];
+        };
+        SessionOrderItem: {
+            sessionId: components["schemas"]["SessionId"];
+            order: number;
+        };
+        SessionCompletion: {
+            userId: string;
+            sessionId: components["schemas"]["SessionId"];
+            lectureId: components["schemas"]["LectureId"];
+            roundNumber: number;
+            /** Format: date-time */
+            completedAt: string;
+        };
+        /** @enum {string} */
+        FlowType: "lecture_pre" | "session_main" | "lecture_post";
+        /** @enum {string} */
+        FlowTargetType: "lecture" | "session";
+        FlowClassWrite: {
+            name: string;
+            type: components["schemas"]["FlowType"];
+            text: string;
+            listed: boolean;
+            expectedRevision: number;
+        };
+        FlowClass: components["schemas"]["FlowClassWrite"] & {
+            id: string;
+            formatVersion: number;
+            revision: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        Flow: {
+            id: string;
+            flowClassId: string;
+            targetId: string;
+            type: components["schemas"]["FlowType"];
+            text: string;
+            formatVersion: number;
+            currentPage: number;
+            revision: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        FlowClassReplace: {
+            flowClassId: string;
+        };
+        FlowCheckPatch: {
+            pageIndex: number;
+            checkboxIndex: number;
+            checked: boolean;
+            expectedText?: string;
+        };
+        FlowPagePatch: {
+            currentPage: number;
+        };
+        FlowOperationResult: {
+            flow: components["schemas"]["Flow"];
+        };
+        /** @enum {string} */
+        HistoryCategory: "data" | "flow";
+        LectureExport: {
+            /** @constant */
+            schemaVersion: 1;
+            lecture: components["schemas"]["Lecture"];
+        };
+        /** @enum {string} */
+        RoadmapTargetType: "lecture" | "session";
+        RoadmapItem: {
+            id: string;
+            targetType: components["schemas"]["RoadmapTargetType"];
+            targetId: string;
+        };
+        RoadmapWrite: {
+            title: string;
+            description: string;
+            audience: string;
+            published: boolean;
+            items: components["schemas"]["RoadmapItem"][];
+            expectedRevision: number;
+        };
+        Roadmap: components["schemas"]["RoadmapWrite"] & {
+            id: string;
+            completedItemIds: string[];
+            nextItemId?: string;
+            completedItemCount: number;
+            totalItemCount: number;
+            progressPercent: number;
+            revision: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        Badge: {
+            lectureId: components["schemas"]["LectureId"];
+            lectureName: string;
+            /** @description Current lecture organizer, used for badge host color; omitted when unset. */
+            organizer?: components["schemas"]["Organizer"];
+            academicYearStart: number;
+            academicYearEnd: number;
+            /** Format: date-time */
+            earnedAt: string;
+        };
+        Profile: {
+            user: components["schemas"]["DirectoryUser"];
+            completions: components["schemas"]["SessionCompletion"][];
+            badges: components["schemas"]["Badge"][];
+            roadmaps: components["schemas"]["Roadmap"][];
+        };
+        AttributeUpdateEvent: {
+            id: string;
             /** @enum {string} */
-            status: "ok";
+            entityType: "lecture" | "session" | "flow_class" | "flow" | "roadmap";
+            entityId: string;
+            attributePath: string;
+            previousValue: unknown;
+            nextValue: unknown;
+            actorId: string;
+            /** Format: date-time */
+            occurredAt: string;
+            changeSetId: string;
         };
     };
-    responses: never;
-    parameters: never;
+    responses: {
+        /** @description Error */
+        Error: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+    };
+    parameters: {
+        LectureId: components["schemas"]["LectureId"];
+        SessionId: components["schemas"]["SessionId"];
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -77,7 +790,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The API is available */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -97,7 +810,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The authenticated user */
+            /** @description Current user */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -106,22 +819,790 @@ export interface operations {
                     "application/json": components["schemas"]["CurrentUser"];
                 };
             };
-            /** @description Authentication is missing or the user is unknown */
-            401: {
+            401: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getDirectory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description traQ users and groups */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["Directory"];
                 };
             };
-            /** @description The traQ user directory is temporarily unavailable */
-            503: {
+            503: components["responses"]["Error"];
+        };
+    };
+    listFields: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Field master */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
+                    "application/json": components["schemas"]["Field"][];
+                };
+            };
+        };
+    };
+    listLectures: {
+        parameters: {
+            query?: {
+                q?: string;
+                year?: number;
+                fieldId?: string;
+                includeDraft?: boolean;
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Lecture page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LecturePage"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    createLecture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LectureCreate"];
+            };
+        };
+        responses: {
+            /** @description Created workspace */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LectureWorkspace"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    getLecture: {
+        parameters: {
+            query?: {
+                includeDraft?: boolean;
+            };
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Lecture */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Lecture"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    getLectureWorkspace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Editor workspace */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LectureWorkspace"];
+                };
+            };
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    inheritLecture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LectureInherit"];
+            };
+        };
+        responses: {
+            /** @description Inherited draft workspace */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LectureWorkspace"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    patchLectureAttribute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttributePatch"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LecturePatchResult"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    createSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionCreate"];
+            };
+        };
+        responses: {
+            /** @description Session and flow created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionCreateResult"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    reorderSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SessionOrderWrite"];
+            };
+        };
+        responses: {
+            /** @description Reordered sessions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"][];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    getLectureHistory: {
+        parameters: {
+            query: {
+                category: components["schemas"]["HistoryCategory"];
+            };
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Lecture workspace history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttributeUpdateEvent"][];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    exportLecture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current Lecture and Session values */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LectureExport"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    getSession: {
+        parameters: {
+            query?: {
+                includeDraft?: boolean;
+            };
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    patchSessionAttribute: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AttributePatch"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionPatchResult"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    completeSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Completion */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionCompletion"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    uncompleteSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: components["parameters"]["SessionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Completion removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    listFlowClasses: {
+        parameters: {
+            query?: {
+                type?: components["schemas"]["FlowType"];
+                includeUnlisted?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Flow classes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlowClass"][];
+                };
+            };
+        };
+    };
+    createFlowClass: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FlowClassWrite"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlowClass"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    getFlowClass: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                flowClassId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Flow class */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlowClass"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    updateFlowClass: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                flowClassId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FlowClassWrite"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlowClass"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    listFlows: {
+        parameters: {
+            query: {
+                targetType: components["schemas"]["FlowTargetType"];
+                targetId: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Applied flows */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Flow"][];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    getFlow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                flowId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Flow */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Flow"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    replaceFlowClass: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                flowId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FlowClassReplace"];
+            };
+        };
+        responses: {
+            /** @description Replaced */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlowOperationResult"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    patchFlowCheck: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                flowId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FlowCheckPatch"];
+            };
+        };
+        responses: {
+            /** @description Checkbox updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlowOperationResult"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    updateFlowPage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                flowId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FlowPagePatch"];
+            };
+        };
+        responses: {
+            /** @description Page updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlowOperationResult"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    listRoadmaps: {
+        parameters: {
+            query?: {
+                includeDraft?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Roadmaps */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Roadmap"][];
+                };
+            };
+        };
+    };
+    createRoadmap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoadmapWrite"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Roadmap"];
+                };
+            };
+            400: components["responses"]["Error"];
+        };
+    };
+    getRoadmap: {
+        parameters: {
+            query?: {
+                includeDraft?: boolean;
+            };
+            header?: never;
+            path: {
+                roadmapId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Roadmap */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Roadmap"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    updateRoadmap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roadmapId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoadmapWrite"];
+            };
+        };
+        responses: {
+            /** @description Updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Roadmap"];
+                };
+            };
+            400: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    getProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                traqId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getAttributeHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entityType: "lecture" | "session" | "flow_class" | "flow" | "roadmap";
+                entityId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Attribute history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttributeUpdateEvent"][];
                 };
             };
         };

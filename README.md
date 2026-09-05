@@ -2,8 +2,9 @@
 
 traP 1-Monthon 2026 13班のプロジェクトです。
 
-バックエンドはGo、フロントエンドはVueで開発します。UIには
-[BasiQ UI](https://github.com/traP-jp/basiq-ui)を使用する予定です。
+バックエンドはGo + Echo v4、フロントエンドはVue 3 + Vue Router + Piniaです。
+API契約はOpenAPIからGoのstrict serverとTypeScript型を生成し、UIには
+[BasiQ UI](https://github.com/traP-jp/basiq-ui)を使用します。
 
 ## 開発環境
 
@@ -22,14 +23,16 @@ Go、Node.js、pnpmのバージョンはmiseで管理しています。miseを�
 mise install --locked
 
 cd frontend
-mise exec -- pnpm install --frozen-lockfile
+mise exec node pnpm -- env pnpm install --frozen-lockfile
 
 cd ../backend
 cp .env.example .env
 ```
 
 READMEのコマンドはmiseをshellで有効化していない環境でも動くよう、
-`mise exec --`を明示しています。miseをshellで有効化している場合は省略できます。
+`mise exec node pnpm -- env pnpm`を明示しています。これにより、Node同梱のCorepackではなく
+`mise.toml`で固定したNodeとpnpmの両方を使用します。miseをshellで有効化し、
+`node`と`pnpm`がともに固定版へ解決される場合は省略できます。
 
 `backend/.env`の`TRAQ_BOT_ACCESS_TOKEN`には、ユーザー一覧とユーザーグループ一覧を
 取得できるtraQ Botのアクセストークンを設定してください。`.env`はGitの管理対象外です。
@@ -51,11 +54,27 @@ worktree作成時にlocal environmentの`1m26_13`を選ぶと、
 作成したworktreeやremote worktreeには適用されません。また、作成済みworktreeへ後から
 自動反映はされません。
 
+## バッジの見た目を再調整する
+
+`frontend` で `mise exec node pnpm -- env pnpm dev --host 127.0.0.1` を起動し、
+`http://127.0.0.1:5173/badge-lab.html` を開くと、本番の `BadgeAlpha.vue` と同じ
+`src/components/badgeDesign.ts` を使って班色・差し色・関連名・共催・実サイズを比較できます。
+このページは開発専用で、通常の本番buildには含まれず、APIへのアクセスや保存はしません。
+講習会名と班を入力して比較 → 生成器を調整 → チェック → commit/PR、の順で反映してください。
+
+- 形は講習会名から再現し、年度・獲得日時は入力に使いません。共通語の枠は公開講習会一覧から推定します。
+  一覧に新しい名前が加わると共通語の選択が変わる場合があり、固定された授与データではありません。
+- 班色はレビュー済みの近似色です。登録名の完全一致（大小文字・末尾の「班」・一部の日本語別名を正規化）で対応します。
+  未知のグループ・主催未設定・個人主催は中立色で、講習会名から主催を推測しません。
+- 現行APIの主催は1件です。プロフィールのバッジには既存の主催情報を渡しますが、共催モデルやDBは変更しません。
+  生成器と開発viewerは複数班を扱えます。対等な角度分割であり、枠の着色面積の厳密な等分ではありません。
+- `badgeGenerator.ts` の元の4層の描画は保持。`badgeDesign.ts` が班色の枠・内側の余白・白を残す差し色を適用します。
+  調整後は `badgeDesign.test.ts` / `badgeNameAffinity.test.ts` と小サイズ・複数SVG同時表示を確認してください。
+
 ## ローカルデータベース
 
 MariaDBとAdminerだけをDocker Composeで起動します。GoとVueはコンテナに入れず、
-ホスト上で実行します。現在のGoバックエンドにはDB接続処理をまだ実装していないため、
-ここで用意するのはローカルDB環境と将来使用する接続設定までです。
+ホスト上で実行します。バックエンド起動時に接続確認と埋め込みmigrationを自動実行します。
 
 ```sh
 docker compose up -d
@@ -79,7 +98,8 @@ docker compose down
 ```
 
 データも含めて初期化するときだけ、`docker compose down --volumes`を使用してください。
-Adminerは内容の確認にのみ使用し、テーブル定義は今後導入するマイグレーションで管理します。
+Adminerは内容の確認にのみ使用し、テーブル定義は
+`backend/internal/database/migrations`のmigrationで管理します。
 
 WSLでDockerが利用できないという案内が出たら、まずDocker Desktopが起動しているか
 確認してください。起動後も利用できない場合は、Docker DesktopのSettingsからResources、
@@ -101,7 +121,7 @@ mise exec -- go run ./cmd/server
 
 ```sh
 cd frontend
-mise exec -- pnpm dev
+mise exec node pnpm -- env pnpm dev
 ```
 
 フロントエンドは <http://localhost:5173>、バックエンドは
@@ -116,14 +136,26 @@ APIは`/api/v1`以下で提供します。API schemaとendpoint pathのsource of
 `servers`、Goルーターの`BaseURL`、フロントエンドAPIクライアントの`baseUrl`に
 それぞれ設定します。
 
+主要な実装範囲は次の通りです。
+
+- Lectureと、その下に独立したSessionを1件以上登録・編集
+- 公開Lectureのキーワード・学年度・分野検索と詳細表示
+- 通常Sessionを`order`順の回として表示するLecture詳細。複数回だけ`#第N回`で回を直接表示し、再放送は学習者向け画面へ表示しない
+- Session単位の完了、Lecture完了、バッジ、ロードマップ進捗の導出
+- `lecture_pre`、`session_main`、`lecture_post`のFlowClassと、対象ごとに1件の適用時スナップショットFlow
+- Lectureと通常Sessionを混在できる、段階なしの一本道ロードマップ
+- Lecture / Session属性の後勝ち自動保存、競合通知、属性単位の更新イベント
+
+Lecture、Session、FlowClass、Flow、Roadmapの削除APIはありません。
+
 仕様を変更した場合は、GoとTypeScriptのコードを再生成します。
 
 ```sh
 cd backend
-mise exec -- go generate ./...
+GOCACHE=/tmp/1m26-go-cache mise exec -- go generate ./...
 
 cd ../frontend
-mise exec -- pnpm generate:api
+mise exec node pnpm -- env pnpm generate:api
 ```
 
 ## traQユーザー・グループ
@@ -157,8 +189,8 @@ MariaDBはバックエンドアプリの作成時に有効化します。NeoShow
 
 ```sh
 cd frontend
-mise exec -- pnpm check
-mise exec -- pnpm build
+mise exec node pnpm -- env pnpm check
+mise exec node pnpm -- env pnpm build
 ```
 
 バックエンド:
@@ -171,6 +203,16 @@ mise exec -- go test ./...
 mise exec -- go build ./...
 ```
 
+起動済みのローカルAPIに対するMariaDB結合確認:
+
+```sh
+API_BASE_URL=http://127.0.0.1:8080/api/v1 ./scripts/smoke-api.sh
+```
+
+このスクリプトは、認証、Lectureと第1回Sessionと3件のFlowの原子的な登録、Session追加、
+Flowの適用時スナップショット、チェックとページ位置、属性自動保存と競合通知、履歴、JSON書き出しを
+一巡します。確認用レコードは削除しません。
+
 ## ディレクトリ構成
 
 ```text
@@ -178,6 +220,7 @@ mise exec -- go build ./...
 ├── api/       # OpenAPI仕様
 ├── backend/   # Goバックエンド
 ├── frontend/  # Vueフロントエンド
+├── scripts/   # 再現可能な結合スモークテスト
 └── compose.yaml  # ローカル開発用MariaDB・Adminer
 ```
 

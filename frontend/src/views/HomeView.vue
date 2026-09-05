@@ -1,33 +1,551 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { BasiqButton, BasiqCard, BasiqFormField, BasiqInput, BasiqSelect } from "basiq-ui";
+import { computed, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
-import { getHealth } from "@/api/health";
+import {
+  getDirectory,
+  listFields,
+  listLectures,
+  listRoadmaps,
+  type Directory,
+  type Field,
+  type Lecture,
+  type LectureListQuery,
+  type Roadmap,
+} from "@/api/resources";
+import AppIcon from "@/components/AppIcon.vue";
 
-const backendStatus = ref("確認中");
+const route = useRoute();
+const router = useRouter();
+const q = ref(String(route.query.q ?? ""));
+const year = ref(String(route.query.year ?? ""));
+const fieldId = ref(String(route.query.field ?? ""));
+const lectures = ref<Lecture[]>([]);
+const roadmaps = ref<Roadmap[]>([]);
+const fields = ref<Field[]>([]);
+const directory = ref<Directory>({ users: [], groups: [] });
+const loading = ref(true);
+const loadingMore = ref(false);
+const error = ref("");
+const allFieldsValue = "__all_fields__";
 
-onMounted(async () => {
-  try {
-    const health = await getHealth();
-    backendStatus.value = health.status === "ok" ? "接続済み" : "異常";
-  } catch {
-    backendStatus.value = "未接続";
-  }
+const fieldItems = computed(() => [
+  { label: "すべての分野", value: allFieldsValue },
+  ...fields.value.map((field) => ({ label: field.name, value: field.id })),
+]);
+const loadMoreError = ref("");
+const nextCursor = ref("");
+let activeLectureQuery: Omit<LectureListQuery, "limit" | "cursor"> = {};
+
+const visibleRoadmaps = computed(() => {
+  const query = q.value.trim().toLocaleLowerCase("ja");
+  if (!query) return roadmaps.value;
+  return roadmaps.value.filter((roadmap) =>
+    `${roadmap.title} ${roadmap.description}`.toLocaleLowerCase("ja").includes(query),
+  );
 });
+
+function academicYear(lecture: Lecture) {
+  return lecture.academicYearStart === lecture.academicYearEnd
+    ? `${lecture.academicYearStart}年度`
+    : `${lecture.academicYearStart}–${lecture.academicYearEnd}年度`;
+}
+
+function sessionCountLabel(lecture: Lecture) {
+  const count = lecture.sessions.filter((session) => !session.isReplay).length;
+  if (count === 0) return "開催準備中";
+  return count === 1 ? "1回完結" : `全${count}回`;
+}
+
+function organizerLabel(lecture: Lecture) {
+  if (!lecture.organizer) return "運営未設定";
+  if (lecture.organizer.kind === "group") {
+    return lecture.organizer.groupName || "運営グループ";
+  }
+  return (
+    directory.value.users.find((item) => item.id === lecture.organizer?.id)?.displayName ??
+    "運営担当者"
+  );
+}
+
+async function load() {
+  loading.value = true;
+  error.value = "";
+  loadMoreError.value = "";
+  try {
+    const queryYear = Number(year.value);
+    activeLectureQuery = {
+      q: q.value || undefined,
+      year: Number.isFinite(queryYear) && queryYear > 0 ? queryYear : undefined,
+      fieldId: fieldId.value || undefined,
+    };
+    const [lecturePage, roadmapValues, fieldValues, directoryValue] = await Promise.all([
+      listLectures({ ...activeLectureQuery, limit: 24 }),
+      listRoadmaps(),
+      listFields(),
+      getDirectory(),
+    ]);
+    lectures.value = lecturePage.items;
+    nextCursor.value = lecturePage.nextCursor ?? "";
+    roadmaps.value = roadmapValues;
+    fields.value = fieldValues;
+    directory.value = directoryValue;
+  } catch (reason) {
+    error.value = reason instanceof Error ? reason.message : "読み込めませんでした";
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function loadMore() {
+  if (!nextCursor.value || loadingMore.value) return;
+  loadingMore.value = true;
+  loadMoreError.value = "";
+  try {
+    const page = await listLectures({
+      ...activeLectureQuery,
+      limit: 24,
+      cursor: nextCursor.value,
+    });
+    lectures.value.push(...page.items);
+    nextCursor.value = page.nextCursor ?? "";
+  } catch (reason) {
+    loadMoreError.value =
+      reason instanceof Error ? reason.message : "続きの講習会を読み込めませんでした";
+  } finally {
+    loadingMore.value = false;
+  }
+}
+
+async function search() {
+  await router.replace({
+    query: {
+      q: q.value || undefined,
+      year: year.value || undefined,
+      field: fieldId.value || undefined,
+    },
+  });
+  await load();
+}
+
+async function clearFilters() {
+  q.value = "";
+  year.value = "";
+  fieldId.value = "";
+  await search();
+}
+
+watch(
+  () => route.query,
+  () => {
+    q.value = String(route.query.q ?? "");
+    year.value = String(route.query.year ?? "");
+    fieldId.value = String(route.query.field ?? "");
+  },
+  { deep: true },
+);
+onMounted(load);
 </script>
 
 <template>
-  <main :class="$style.root">
-    <h1>1m26_13</h1>
-    <p>開発環境の準備ができました。</p>
-    <p>バックエンド: {{ backendStatus }}</p>
-  </main>
+  <div class="page discovery-page">
+    <h1 class="visually-hidden">講習会とロードマップを探す</h1>
+
+    <section class="view-panel" aria-labelledby="lecture-results-heading">
+      <BasiqCard>
+        <template #header>
+          <div class="filter-header">
+            <div>
+              <span class="filter-icon"><AppIcon name="search" /></span>
+              <div>
+                <strong>講習会とロードマップを探す</strong
+                ><small>キーワードで両方を検索できます</small>
+              </div>
+            </div>
+            <button class="clear-button" type="button" @click="clearFilters">条件をクリア</button>
+          </div>
+        </template>
+        <form class="filter-grid" @submit.prevent="search">
+          <BasiqFormField label="キーワード" class="keyword-field">
+            <BasiqInput
+              v-model="q"
+              type="search"
+              placeholder="例：Web、Git、インフラ"
+              clearable
+              clear-label="キーワードをクリア"
+            />
+          </BasiqFormField>
+          <BasiqFormField label="分野">
+            <BasiqSelect
+              :model-value="fieldId || allFieldsValue"
+              :items="fieldItems"
+              @update:model-value="fieldId = $event === allFieldsValue ? '' : ($event ?? '')"
+            />
+          </BasiqFormField>
+          <BasiqFormField label="年度">
+            <BasiqInput v-model="year" inputmode="numeric" placeholder="すべての年度" />
+          </BasiqFormField>
+          <BasiqButton type="submit" class="search-button"
+            ><AppIcon name="search" :size="18" />この条件で検索</BasiqButton
+          >
+        </form>
+      </BasiqCard>
+
+      <div v-if="loading" class="loading-state" aria-live="polite">講習会を読み込んでいます</div>
+      <div v-else-if="error" class="error-state" role="alert">
+        <p>{{ error }}</p>
+        <BasiqButton tone="neutral" variant="outline" @click="load">再試行</BasiqButton>
+      </div>
+      <template v-else>
+        <div id="lecture-results-heading" class="results-heading">
+          <div>
+            <h2>講習会</h2>
+            <span>見つかった教材を新しい順に表示</span>
+          </div>
+          <strong>{{ lectures.length }}件表示</strong>
+        </div>
+
+        <template v-if="lectures.length">
+          <ul class="discovery-grid">
+            <li v-for="lecture in lectures" :key="lecture.id">
+              <RouterLink :to="`/lectures/${lecture.id}`" class="card-link">
+                <BasiqCard class="discovery-card">
+                  <article class="discovery-card-content">
+                    <h3>{{ lecture.name }}</h3>
+                    <div class="card-description">
+                      <p>{{ lecture.description || "説明はまだありません。" }}</p>
+                      <AppIcon name="chevron" :size="19" />
+                    </div>
+                    <p class="card-meta">
+                      {{ sessionCountLabel(lecture) }} · {{ organizerLabel(lecture) }} ·
+                      {{ academicYear(lecture) }}
+                    </p>
+                  </article>
+                </BasiqCard>
+              </RouterLink>
+            </li>
+          </ul>
+          <div v-if="nextCursor" class="load-more">
+            <BasiqButton
+              tone="neutral"
+              variant="outline"
+              :disabled="loadingMore"
+              @click="loadMore"
+              >{{ loadingMore ? "読み込んでいます…" : "さらに表示" }}</BasiqButton
+            >
+          </div>
+          <p v-if="loadMoreError" class="load-more-error" role="alert">{{ loadMoreError }}</p>
+        </template>
+        <div v-else class="empty-state">
+          <strong>条件に合う講習会はありません</strong>
+          <p>検索語や絞り込みを減らしてみてください。</p>
+        </div>
+      </template>
+    </section>
+
+    <section class="view-panel roadmap-section" aria-labelledby="roadmap-results-heading">
+      <div id="roadmap-results-heading" class="results-heading">
+        <div>
+          <h2>ロードマップ</h2>
+          <span>目的に合った学ぶ順番を表示</span>
+        </div>
+        <strong>{{ visibleRoadmaps.length }}件</strong>
+      </div>
+      <ul v-if="visibleRoadmaps.length" class="discovery-grid">
+        <li v-for="roadmap in visibleRoadmaps" :key="roadmap.id">
+          <RouterLink :to="`/roadmaps/${roadmap.id}`" class="card-link">
+            <BasiqCard class="discovery-card">
+              <article class="discovery-card-content">
+                <h3>{{ roadmap.title }}</h3>
+                <div class="card-description">
+                  <p>{{ roadmap.description }}</p>
+                  <AppIcon name="chevron" :size="19" />
+                </div>
+                <p class="card-meta">
+                  {{ roadmap.totalItemCount }}講習会 · {{ roadmap.progressPercent }}% 完了
+                </p>
+              </article>
+            </BasiqCard>
+          </RouterLink>
+        </li>
+      </ul>
+      <div v-else-if="!loading" class="empty-state">公開中のロードマップはありません。</div>
+    </section>
+  </div>
 </template>
 
-<style module>
-.root {
-  box-sizing: border-box;
-  width: min(100%, 64rem);
-  margin-inline: auto;
-  padding: 2rem;
+<style scoped>
+/* stylelint-disable no-descending-specificity */
+.discovery-page {
+  --discovery-content: 1120px;
+
+  width: min(100%, calc(var(--discovery-content) + 80px));
+}
+
+.view-panel {
+  width: 100%;
+  padding-top: 4px;
+}
+
+.roadmap-section {
+  margin-top: 64px;
+  padding-top: 48px;
+  border-top: 1px solid var(--basiq-color-border-separator);
+}
+
+.filter-header,
+.filter-header > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.filter-header > div > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.filter-header small {
+  margin-top: 1px;
+  color: var(--basiq-color-content-subtle);
+}
+
+.filter-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  color: var(--basiq-color-content-accent);
+  background: var(--app-accent-soft);
+}
+
+.clear-button {
+  border: 0;
+  padding: 8px;
+  color: var(--basiq-color-content-accent);
+  background: transparent;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(160px, 0.8fr) minmax(140px, 0.65fr) auto;
+  gap: 16px;
+  align-items: end;
+}
+
+.filter-grid > * {
+  min-width: 0;
+}
+
+.filter-grid :deep(input) {
+  min-width: 0;
+}
+
+.filter-grid select {
+  width: 100%;
+  height: 40px;
+  padding: 0 34px 0 12px;
+  border: var(--basiq-border-width-strong) solid var(--basiq-color-text-control-border);
+  border-radius: var(--basiq-radius-sm);
+  color: var(--basiq-color-text-control-content);
+  background: var(--basiq-color-text-control-background);
+}
+
+.search-button {
+  min-width: 172px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.results-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  margin: 40px 0 16px;
+}
+
+.results-heading > div {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 12px;
+  align-items: baseline;
+}
+
+.results-heading h2 {
+  font-size: 1.45rem;
+  line-height: 1.35;
+}
+
+.results-heading span {
+  color: var(--basiq-color-content-subtle);
+  font-size: 0.82rem;
+}
+
+.results-heading > strong {
+  min-width: 52px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  color: var(--basiq-color-content-accent);
+  background: var(--app-accent-soft);
+  text-align: center;
+}
+
+.discovery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  list-style: none;
+}
+
+.discovery-grid > li,
+.card-link,
+.discovery-card {
+  height: 100%;
+}
+
+.card-link {
+  display: block;
+  text-decoration: none;
+}
+
+.card-link:focus-visible {
+  border-radius: var(--basiq-radius-sm);
+  outline: 2px solid var(--basiq-color-accent-default);
+  outline-offset: 3px;
+}
+
+.discovery-card-content {
+  min-height: 170px;
+  display: flex;
+  flex-direction: column;
+}
+
+.discovery-card-content h3 {
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.card-description {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.card-description p {
+  font-size: 0.86rem;
+  line-height: 1.75;
+}
+
+.card-description :deep(.app-icon) {
+  color: var(--basiq-color-content-accent);
+}
+
+.card-meta {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--basiq-color-border-separator);
+  color: var(--basiq-color-content-subtle);
+  font-size: 0.74rem;
+}
+
+.empty-state p {
+  margin-top: 4px;
+}
+
+.load-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.load-more-error {
+  margin-top: 12px;
+  color: var(--basiq-color-content-danger);
+  text-align: center;
+}
+
+@media (width <= 1120px) {
+  .discovery-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filter-grid {
+    grid-template-columns: minmax(0, 1.3fr) minmax(150px, 0.8fr) minmax(130px, 0.6fr);
+  }
+
+  .search-button {
+    grid-column: 1 / -1;
+    width: max-content;
+  }
+}
+
+@media (width <= 760px) {
+  .discovery-page {
+    width: 100%;
+  }
+
+  .view-panel {
+    padding-top: 0;
+  }
+
+  .roadmap-section {
+    margin-top: 48px;
+    padding-top: 40px;
+  }
+
+  .filter-header {
+    align-items: flex-start;
+  }
+
+  .clear-button {
+    display: none;
+  }
+
+  .filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .keyword-field,
+  .search-button {
+    grid-column: 1 / -1;
+  }
+
+  .search-button {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .results-heading {
+    margin-top: 32px;
+  }
+
+  .results-heading > div {
+    display: block;
+  }
+
+  .results-heading span {
+    display: block;
+    margin-top: 2px;
+  }
+
+  .discovery-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .discovery-card-content {
+    min-height: 148px;
+  }
 }
 </style>

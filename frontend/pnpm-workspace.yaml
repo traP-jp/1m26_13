@@ -2,3 +2,5 @@ minimumReleaseAge: 4320
 minimumReleaseAgeStrict: true
 blockExoticSubdeps: true
 saveExact: true
+allowBuilds:
+  vue-demi: true

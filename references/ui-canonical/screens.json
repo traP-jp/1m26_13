@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "updatedAt": "2026-09-04",
+  "comparisonViewports": [
+    { "width": 1440, "height": 900 },
+    { "width": 390, "height": 844 }
+  ],
+  "screens": [
+    { "id": "shell-home", "commit": "5d4eda48e4544c9371d58cf339ecddf6358d7970", "source": "app/preview", "targets": ["frontend/src/App.vue", "frontend/src/styles/index.css", "frontend/src/views/HomeView.vue"] },
+    { "id": "discovery", "commit": "26861270595877592a2175818fe45a7a557303e5", "source": "app/prototypes/discovery", "targets": ["frontend/src/views/HomeView.vue", "frontend/src/views/RoadmapListView.vue"] },
+    { "id": "workshop-detail", "commit": "137afbd494e4e688108e6714c67605678fadc26f", "source": "app/prototypes/workshop-detail", "targets": ["frontend/src/views/LectureDetailView.vue", "frontend/src/views/SessionDetailView.vue"] },
+    { "id": "roadmap-detail", "commit": "76417a981918012dee5fc559089fd4e83e656a6d", "source": "app/prototypes/roadmap-detail", "targets": ["frontend/src/views/RoadmapDetailView.vue"] },
+    { "id": "profile", "strategy": "canonical-with-production-header-stats", "preserveFromProduction": ["完了した講習会の数値", "完了した開催の数値", "ロードマップ内の完了の数値"], "commit": "574c7ec5925345ada1c67094f502f16a3a5901ab", "source": "app/prototypes/profile", "targets": ["frontend/src/views/ProfileView.vue", "frontend/src/components/BadgeAlpha.vue"] },
+    { "id": "admin-home", "commit": "9959bfc802d068839d5160dd43f3c852f81b5ad1", "source": "app/prototypes/admin-home", "targets": ["frontend/src/views/AdminView.vue"] },
+    { "id": "workshop-editor", "commit": "33246806db2947ddf9467c904eba824b8f6abc56", "source": "app/prototypes/workshop-editor", "targets": ["frontend/src/views/LectureEditorView.vue", "frontend/src/components/FlowInlineRunner.vue"] },
+    { "id": "roadmap-editor", "commit": "939b4207ff711463d16fc31c99814c2d321567b4", "source": "app/prototypes/roadmap-editor", "targets": ["frontend/src/views/RoadmapEditorView.vue"] }
+  ]
+}
