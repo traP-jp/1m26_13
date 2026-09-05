@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BasiqAvatar, BasiqCard, BasiqTabs } from "basiq-ui";
+import { BasiqCard, BasiqTabs } from "basiq-ui";
 import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 
@@ -17,11 +17,6 @@ const loading = ref(true);
 const error = ref("");
 const selectedBadge = computed(() =>
   profile.value?.badges.find((badge) => badge.lectureId === selectedBadgeId.value),
-);
-const avatarUrl = computed(() =>
-  profile.value
-    ? `https://q.trap.jp/api/v3/public/icon/${encodeURIComponent(profile.value.user.traqId)}`
-    : "",
 );
 const roadmapCompletedCount = computed(() =>
   (profile.value?.roadmaps ?? []).reduce((total, roadmap) => total + roadmap.completedItemCount, 0),
@@ -71,20 +66,10 @@ onMounted(load);
     <template v-else-if="profile">
       <header class="profile-header">
         <div class="profile-identity">
-          <BasiqAvatar
-            alt=""
-            :name="profile.user.displayName"
-            :src="avatarUrl"
-            :size="64"
-            shape="circle"
-            ><template #fallback>{{
-              profile.user.displayName.slice(0, 1).toLocaleUpperCase("ja-JP") || "?"
-            }}</template></BasiqAvatar
-          >
-          <div>
-            <h1>{{ profile.user.displayName }}</h1>
-            <p>@{{ profile.user.traqId }}</p>
-          </div>
+          <span class="profile-avatar" aria-hidden="true">{{
+            profile.user.displayName.slice(0, 1).toLocaleUpperCase("ja-JP") || "1"
+          }}</span>
+          <h1>{{ profile.user.displayName }}</h1>
         </div>
         <dl class="profile-stats" aria-label="学習状況">
           <div>
@@ -113,7 +98,11 @@ onMounted(load);
           <section v-if="item.value === 'badges'" class="profile-tab-panel badge-panel">
             <div class="badge-collection">
               <div class="section-heading">
-                <h2>講習会バッジ</h2>
+                <div>
+                  <h2>講習会バッジ</h2>
+                  <p>講習会全体を完了した記録です。</p>
+                </div>
+                <span>{{ profile.badges.length }}件</span>
               </div>
               <div v-if="!profile.badges.length" class="empty-state">
                 通常開催をすべて完了すると、講習会バッジが表示されます。
@@ -147,6 +136,12 @@ onMounted(load);
 
             <aside v-if="selectedBadge" class="badge-detail-rail" aria-label="選択したバッジ">
               <BasiqCard class="badge-detail-card">
+                <template #header
+                  ><div class="badge-detail-heading">
+                    <AppIcon name="award" :size="18" />
+                    <h2>バッジ詳細</h2>
+                  </div></template
+                >
                 <div class="badge-detail-mark">
                   <BadgeAlpha
                     :lecture-name="selectedBadge.lectureName"
@@ -169,7 +164,7 @@ onMounted(load);
                 </div>
                 <template #footer>
                   <RouterLink class="action-link" :to="`/lectures/${selectedBadge.lectureId}`"
-                    >講習会を見る</RouterLink
+                    >講習会の詳細を見る</RouterLink
                   >
                 </template>
               </BasiqCard>
@@ -178,7 +173,11 @@ onMounted(load);
 
           <section v-else-if="item.value === 'completions'" class="profile-tab-panel">
             <div class="section-heading">
-              <h2>完了した開催</h2>
+              <div>
+                <h2>完了した開催</h2>
+                <p>完了として記録した開催を、新しい順に確認できます。</p>
+              </div>
+              <span>{{ profile.completions.length }}件</span>
             </div>
             <div v-if="!profile.completions.length" class="empty-state">
               完了した開催はありません。
@@ -187,10 +186,10 @@ onMounted(load);
               <li v-for="completion in profile.completions" :key="completion.sessionId">
                 <RouterLink :to="`/lectures/${completion.lectureId}#第${completion.roundNumber}回`">
                   <span class="completion-record-copy"
-                    ><strong>第{{ completion.roundNumber }}回</strong
+                    ><strong>開催の完了記録</strong
                     ><span>{{ formatDate(completion.completedAt) }}</span></span
                   >
-                  <span class="completion-action">開催を見る</span>
+                  <time :datetime="completion.completedAt">開催を見る →</time>
                 </RouterLink>
               </li>
             </ul>
@@ -198,7 +197,11 @@ onMounted(load);
 
           <section v-else class="profile-tab-panel">
             <div class="section-heading">
-              <h2>ロードマップ</h2>
+              <div>
+                <h2>ロードマップの進み具合</h2>
+                <p>完了記録をもとに、各ロードマップでの現在地を表示します。</p>
+              </div>
+              <span>{{ profile.roadmaps.length }}件</span>
             </div>
             <div v-if="!profile.roadmaps.length" class="empty-state">
               参加中のロードマップはありません。
@@ -236,35 +239,41 @@ onMounted(load);
 <style scoped>
 /* stylelint-disable no-descending-specificity */
 .profile-page {
-  width: min(1040px, 100%);
+  width: min(1120px, 100%);
+  padding: 48px 40px 72px;
 }
 
 .profile-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 24px;
-  margin-bottom: 16px;
-  padding-bottom: 16px;
+  gap: 32px;
+  margin-bottom: 24px;
+  padding-bottom: 24px;
   border-bottom: 1px solid var(--basiq-color-border-separator);
 }
 
 .profile-identity {
-  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
+}
+
+.profile-avatar {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: var(--basiq-radius-full);
+  color: var(--basiq-color-content-on-accent);
+  background: var(--basiq-color-accent-default);
+  font-size: 1.5rem;
+  font-weight: 800;
 }
 
 .profile-header h1 {
-  font-size: 1.5rem;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-
-.profile-identity p {
-  color: var(--basiq-color-content-subtle);
-  font-size: 0.875rem;
+  font-size: 1.75rem;
 }
 
 .profile-stats {
@@ -272,7 +281,7 @@ onMounted(load);
 }
 
 .profile-stats div {
-  min-width: 108px;
+  min-width: 116px;
   padding-inline: 16px;
   border-left: 1px solid var(--basiq-color-border-separator);
   text-align: center;
@@ -280,33 +289,28 @@ onMounted(load);
 
 .profile-stats dt {
   color: var(--basiq-color-content-subtle);
-  font-size: 0.75rem;
+  font-size: 0.72rem;
 }
 
 .profile-stats dd {
   margin: 2px 0 0;
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: 1.4rem;
+  font-weight: 800;
 }
 
 .profile-tabs {
   width: 100%;
-
-  --basiq-color-tabs-content-background: var(--basiq-color-surface-base);
-}
-
-.profile-tabs :deep([role="tabpanel"]) {
-  padding: 16px 0 0;
 }
 
 .profile-tab-panel {
   min-width: 0;
+  min-height: 420px;
 }
 
 .badge-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 264px;
-  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) 288px;
+  gap: 16px;
   align-items: start;
 }
 
@@ -316,26 +320,26 @@ onMounted(load);
 
 .section-heading > span {
   color: var(--basiq-color-content-subtle);
-  font-size: 0.75rem;
+  font-size: 0.8rem;
 }
 
 .badge-grid {
   display: grid;
-  gap: 0;
-  border-top: 1px solid var(--basiq-color-border-separator);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
   list-style: none;
 }
 
 .badge-tile {
   width: 100%;
-  min-height: 72px;
+  min-height: 106px;
   display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) auto;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  padding: 12px 8px;
-  border: 0;
-  border-bottom: 1px solid var(--basiq-color-border-separator);
+  padding: 12px;
+  border: 1px solid var(--basiq-color-border-separator);
+  border-radius: var(--basiq-radius-sm);
   color: inherit;
   background: var(--basiq-color-surface-base);
   text-align: left;
@@ -347,17 +351,13 @@ onMounted(load);
 }
 
 .badge-tile.is-selected {
+  border-color: var(--basiq-color-accent-default);
   background: var(--app-accent-soft);
 }
 
-.badge-tile:focus-visible {
-  outline: 2px solid var(--basiq-color-accent-default);
-  outline-offset: -2px;
-}
-
 .badge-mark {
-  width: 48px;
-  height: 48px;
+  width: 58px;
+  height: 58px;
   flex: 0 0 auto;
 }
 
@@ -375,19 +375,30 @@ onMounted(load);
 }
 
 .badge-tile-copy small {
-  margin-top: 4px;
+  margin-top: 3px;
   color: var(--basiq-color-content-subtle);
 }
 
 .badge-detail-rail {
   position: sticky;
-  top: 24px;
+  top: 32px;
+}
+
+.badge-detail-card h2 {
+  font-size: 1.05rem;
+}
+
+.badge-detail-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--basiq-color-content-accent);
 }
 
 .badge-detail-mark {
-  width: 96px;
-  height: 96px;
-  margin: 4px auto 12px;
+  width: 112px;
+  height: 112px;
+  margin: 12px auto;
 }
 
 .badge-detail-copy {
@@ -437,7 +448,7 @@ onMounted(load);
 }
 
 .completion-record-list a {
-  min-height: 60px;
+  min-height: 68px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -457,17 +468,17 @@ onMounted(load);
 }
 
 .completion-record-copy span,
-.completion-action {
+.completion-record-list time {
   color: var(--basiq-color-content-subtle);
-  font-size: 0.875rem;
+  font-size: 0.8rem;
 }
 
 .profile-roadmap-list a {
-  min-height: 76px;
+  min-height: 86px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 180px;
   align-items: center;
-  gap: 24px;
+  gap: 32px;
   padding: 12px;
   text-decoration: none;
 }
@@ -481,18 +492,18 @@ onMounted(load);
 .profile-roadmap-copy span,
 .profile-roadmap-progress small {
   color: var(--basiq-color-content-subtle);
-  font-size: 0.875rem;
+  font-size: 0.8rem;
 }
 
 .profile-roadmap-progress {
-  gap: 4px;
+  gap: 3px;
 }
 
 .progress {
   width: 100%;
-  height: 4px;
+  height: 6px;
   overflow: hidden;
-  border-radius: 2px;
+  border-radius: 99px;
   background: var(--basiq-color-surface-muted);
 }
 
@@ -525,13 +536,13 @@ onMounted(load);
 
 @media (width <= 760px) {
   .profile-page {
-    padding: 16px 16px 40px;
+    padding: 24px 16px 48px;
   }
 
   .profile-header {
     align-items: flex-start;
     flex-direction: column;
-    gap: 16px;
+    gap: 24px;
   }
 
   .profile-stats {
@@ -553,7 +564,7 @@ onMounted(load);
     min-width: 0;
     flex: 1;
     padding-inline: 6px;
-    font-size: 0.75rem;
+    font-size: 0.76rem;
   }
 
   .badge-panel {

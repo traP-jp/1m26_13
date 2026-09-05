@@ -9,17 +9,4 @@ frontend/node_modules/
 frontend/dist/
 frontend/coverage/
 
-# Local tooling caches and build output
-/node_modules/
-/dist/
-/.next/
-/.pnpm-store/
-/.vinext/
-/.wrangler/
-/tsconfig.tsbuildinfo
-
-# Internal research is local-only; never publish source catalogs or evidence.
-/workshop-research/
-/traP-workshop-research-*.zip
-
 backend/server

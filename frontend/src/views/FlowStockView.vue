@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   BasiqButton,
+  BasiqCard,
   BasiqFormField,
   BasiqInput,
   BasiqSelect,
@@ -54,12 +55,7 @@ function edit(flowClass: FlowClass) {
     listed: flowClass.listed,
     revision: flowClass.revision,
   });
-  if (matchMedia("(max-width: 860px)").matches) {
-    document.querySelector<HTMLFormElement>(".stock-layout > form")?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  }
+  scrollTo({ top: 0, behavior: "smooth" });
 }
 function reset() {
   editingId.value = "";
@@ -81,7 +77,7 @@ async function save() {
     else await createFlowClass(body);
     await load();
     reset();
-    notice.value = "手順テンプレートを保存しました。";
+    notice.value = "FlowClassを保存しました。";
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : "保存できませんでした";
   } finally {
@@ -92,22 +88,28 @@ onMounted(load);
 </script>
 <template>
   <div class="page stock-page">
-    <nav class="breadcrumb" aria-label="パンくず">
+    <div class="breadcrumb">
       <RouterLink to="/admin">運営向けページ</RouterLink><b>/</b><span>Flow Stock</span>
-    </nav>
+    </div>
     <header class="page-heading">
       <div>
-        <h1>Flow Stock</h1>
-        <p>講習会で使う手順テンプレート</p>
+        <p class="eyebrow">FLOW STOCK</p>
+        <h1>運営ノウハウを再利用する</h1>
+        <p>講習会や開催に適用する手順を、再利用できる型として管理します。</p>
       </div>
     </header>
     <div class="stock-layout">
       <form @submit.prevent="save">
-        <section class="stock-form">
-          <h2>{{ editingId ? "テンプレートを編集" : "テンプレートを作成" }}</h2>
+        <BasiqCard class="stock-form-card">
+          <template #header
+            ><div>
+              <p class="card-kicker">{{ editingId ? "編集中" : "新しいFlowClass" }}</p>
+              <h2>{{ editingId ? "FlowClassを編集" : "FlowClassを作成" }}</h2>
+            </div></template
+          >
           <div class="form-stack">
-            <p v-if="notice" class="notice" role="status">{{ notice }}</p>
-            <p v-if="error" class="notice error" role="alert">{{ error }}</p>
+            <p v-if="notice" class="notice">{{ notice }}</p>
+            <p v-if="error" class="notice error">{{ error }}</p>
             <BasiqFormField label="名前" required
               ><BasiqInput v-model="form.name" required
             /></BasiqFormField>
@@ -118,31 +120,33 @@ onMounted(load);
                 @update:model-value="setFlowType"
               />
             </BasiqFormField>
-            <BasiqFormField label="本文" required
+            <BasiqFormField label="Flow本文" required
               ><BasiqTextarea v-model="form.text" :rows="18" required
             /></BasiqFormField>
             <div class="listing">
-              <BasiqSwitch v-model="form.listed">一覧に掲載する</BasiqSwitch
+              <BasiqSwitch v-model="form.listed">Stockに掲載する</BasiqSwitch
               ><small>非掲載にしても、適用済みFlowの本文と進捗は残ります。</small>
             </div>
           </div>
-          <div class="form-actions">
-            <BasiqButton
-              v-if="editingId"
-              tone="neutral"
-              variant="outline"
-              type="button"
-              @click="reset"
-              >新規作成へ戻る</BasiqButton
-            ><BasiqButton type="submit" :disabled="saving">{{
-              saving ? "保存中…" : "保存"
-            }}</BasiqButton>
-          </div>
-        </section>
+          <template #footer
+            ><div class="form-actions">
+              <BasiqButton
+                v-if="editingId"
+                tone="neutral"
+                variant="outline"
+                type="button"
+                @click="reset"
+                >新規作成へ戻る</BasiqButton
+              ><BasiqButton type="submit" :disabled="saving">{{
+                saving ? "保存中…" : "保存"
+              }}</BasiqButton>
+            </div></template
+          >
+        </BasiqCard>
       </form>
       <aside class="stock-side">
-        <details class="syntax-reference">
-          <summary>本文の記法</summary>
+        <BasiqCard class="syntax-card"
+          ><template #header><h2>Flowの文法</h2></template>
           <div class="syntax-list">
             <p><code># 見出し</code><span>ページのタイトル</span></p>
             <p><code>---</code><span>ページ区切り</span></p>
@@ -152,8 +156,8 @@ onMounted(load);
             </p>
             <p><code v-pre>[[ lecture.name ]]</code><span>値の展開</span></p>
             <p><code>- [ ]{#stable-key}</code><span>進捗を持つタスク</span></p>
-          </div>
-        </details>
+          </div></BasiqCard
+        >
         <div class="saved-heading">
           <h2>保存済み</h2>
           <span>{{ flowClasses.length }}件</span>
@@ -165,11 +169,13 @@ onMounted(load);
             :key="flowClass.id"
             type="button"
             :class="{ active: editingId === flowClass.id }"
-            :aria-pressed="editingId === flowClass.id"
             @click="edit(flowClass)"
           >
             <span
-              ><strong>{{ flowClass.name }}</strong></span
+              ><strong>{{ flowClass.name }}</strong
+              ><small
+                >format v{{ flowClass.formatVersion }} · revision {{ flowClass.revision }}</small
+              ></span
             ><span class="tag-column"
               ><b>{{
                 flowClass.type === "lecture_pre"
@@ -194,20 +200,28 @@ onMounted(load);
 
 .stock-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 1.4fr) minmax(300px, 0.75fr);
   align-items: start;
-  gap: 24px;
+  gap: 18px;
 }
 
-.stock-form {
-  min-width: 0;
-  display: grid;
-  gap: 16px;
+.stock-form-card,
+.syntax-card {
+  border: 1px solid var(--basiq-color-border-separator);
 }
 
-.stock-form h2,
+.stock-form-card h2,
+.syntax-card h2,
 .saved-heading h2 {
-  font-size: 1rem;
+  font-size: 17px;
+}
+
+.card-kicker {
+  margin-bottom: 3px;
+  color: var(--basiq-color-content-accent);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
 }
 
 .form-stack,
@@ -218,36 +232,25 @@ onMounted(load);
 
 .listing {
   display: grid;
-  gap: 8px;
+  gap: 5px;
+  padding: 12px;
+  border-radius: var(--basiq-radius-sm);
+  background: var(--basiq-color-surface-muted);
 }
 
 .listing small {
   color: var(--basiq-color-content-subtle);
 }
 
+.stock-form-card :deep([class*="footer"]),
 .form-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin: 0;
-  padding-top: 16px;
-  border-top: 1px solid var(--basiq-color-border-separator);
-}
-
-.syntax-reference {
-  padding-block: 12px;
-  border-block: 1px solid var(--basiq-color-border-separator);
-}
-
-.syntax-reference summary {
-  color: var(--basiq-color-content-subtle);
-  font-weight: 700;
-  cursor: pointer;
 }
 
 .syntax-list {
   display: grid;
-  margin-top: 8px;
 }
 
 .syntax-list p {
@@ -255,33 +258,38 @@ onMounted(load);
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 0;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--basiq-color-border-separator);
+}
+
+.syntax-list p:last-child {
+  border-bottom: 0;
 }
 
 .syntax-list code {
-  font-size: 0.75rem;
+  font-size: 11px;
 }
 
 .syntax-list span {
   color: var(--basiq-color-content-subtle);
-  font-size: 0.75rem;
+  font-size: 11px;
 }
 
 .saved-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .saved-heading span {
   color: var(--basiq-color-content-subtle);
-  font-size: 0.875rem;
+  font-size: 12px;
 }
 
 .saved-list {
   display: grid;
-  border-top: 1px solid var(--basiq-color-border-separator);
+  gap: 8px;
 }
 
 .saved-list > button {
@@ -289,35 +297,25 @@ onMounted(load);
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 8px;
-  border: 0;
-  border-bottom: 1px solid var(--basiq-color-border-separator);
+  padding: 12px;
+  border: 1px solid var(--basiq-color-border-separator);
+  border-radius: var(--basiq-radius-sm);
   color: inherit;
-  background: transparent;
+  background: var(--basiq-color-surface-base);
   text-align: left;
   cursor: pointer;
 }
 
 .saved-list > button:hover,
 .saved-list > button.active {
-  background: var(--basiq-color-navigation-item-background-current-rest);
-}
-
-.saved-list > button:focus-visible {
-  outline: 2px solid var(--basiq-color-accent-default);
-  outline-offset: -2px;
+  border-color: var(--basiq-color-accent-default);
+  background: var(--app-accent-soft);
 }
 
 .saved-list > button > span:first-child {
   min-width: 0;
   display: grid;
-  gap: 4px;
-  overflow-wrap: anywhere;
-}
-
-.saved-list strong {
-  font-size: 0.875rem;
-  font-weight: 500;
+  gap: 3px;
 }
 
 .saved-list small {
@@ -326,21 +324,23 @@ onMounted(load);
 
 .tag-column {
   display: grid;
-  flex: 0 0 auto;
   justify-items: end;
   gap: 4px;
 }
 
 .tag-column b,
 .tag-column em {
-  color: var(--basiq-color-content-subtle);
-  font-size: 0.75rem;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: var(--basiq-color-content-accent);
+  background: var(--app-accent-soft);
+  font-size: 10px;
   font-style: normal;
-  font-weight: 400;
 }
 
 .tag-column em {
-  font-size: 0.6875rem;
+  color: var(--basiq-color-content-subtle);
+  background: var(--basiq-color-surface-muted);
 }
 
 @media (width <= 860px) {
@@ -352,9 +352,8 @@ onMounted(load);
     grid-row: 1;
   }
 
-  .saved-list {
-    max-height: 240px;
-    overflow-y: auto;
+  .syntax-card {
+    display: none;
   }
 }
 </style>

@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { BasiqSidebarLayout, BasiqThemeProvider } from "basiq-ui";
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { BasiqPushNavigationLayout, BasiqSidebarLayout, BasiqThemeProvider } from "basiq-ui";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { RouterLink, RouterView, useRoute } from "vue-router";
 
 import AppNavigation from "@/components/AppNavigation.vue";
-import MobileNavigation from "@/components/MobileNavigation.vue";
 import { useAuthStore } from "@/stores/auth";
 
-const desktopMediaQuery = "(min-width: 54rem)";
+const desktopMediaQuery = "(min-width: 48rem)";
 const auth = useAuthStore();
 const route = useRoute();
 const isDesktop = ref(false);
 const layoutReady = ref(false);
+const mobileNavigationOpen = ref(false);
 let mediaQuery: MediaQueryList | undefined;
 
 const isAdmin = computed(
@@ -26,12 +26,12 @@ const mobileLabel = computed(() => {
   if (isAdmin.value) return "運営";
   if (route.path.startsWith("/roadmaps")) return "ロードマップ";
   if (route.path.startsWith("/profiles")) return "プロフィール";
-  if (route.path === "/lectures") return "講習会を探す";
   if (route.path.startsWith("/lectures") || route.path.startsWith("/sessions")) return "講習会詳細";
-  return "ホーム";
+  return "講習会アーカイブ";
 });
 
 function syncLayout(matches: boolean) {
+  if (matches) mobileNavigationOpen.value = false;
   isDesktop.value = matches;
 }
 
@@ -48,6 +48,12 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => mediaQuery?.removeEventListener("change", onMediaQueryChange));
+watch(
+  () => route.fullPath,
+  () => {
+    mobileNavigationOpen.value = false;
+  },
+);
 </script>
 
 <template>
@@ -58,10 +64,17 @@ onBeforeUnmount(() => mediaQuery?.removeEventListener("change", onMediaQueryChan
       <div id="desktop-layout-content" class="layout-content"></div>
     </BasiqSidebarLayout>
 
-    <div v-show="!isDesktop" class="app-layout mobile-layout">
+    <BasiqPushNavigationLayout
+      v-show="!isDesktop"
+      v-model:open="mobileNavigationOpen"
+      class="app-layout mobile-layout"
+      open-label="ナビゲーションを開く"
+      close-label="ナビゲーションを閉じる"
+      control-offset-block-start="calc(100dvh - 56px)"
+    >
+      <template #navigation="{ close }"><AppNavigation @navigate="close" /></template>
       <div id="mobile-layout-content" class="layout-content"></div>
-      <MobileNavigation />
-    </div>
+    </BasiqPushNavigationLayout>
 
     <Teleport
       v-if="layoutReady"
@@ -70,7 +83,7 @@ onBeforeUnmount(() => mediaQuery?.removeEventListener("change", onMediaQueryChan
       <section class="site-workspace">
         <header class="mobile-header">
           <RouterLink class="mobile-brand" to="/">
-            <img class="brand-mark" src="/brand/leqtures.png" alt="" /><strong>stoQ</strong>
+            <span class="brand-mark">leQ</span><strong>leQtures</strong>
           </RouterLink>
           <span>{{ mobileLabel }}</span>
         </header>

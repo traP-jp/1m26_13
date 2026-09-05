@@ -191,7 +191,7 @@ const editorSaveLabel = computed(() => {
   if (phases.includes("saving")) return "保存中…";
   if (phases.includes("dirty")) return "変更を保存します";
   if (phases.includes("saved")) return "保存しました";
-  return "自動保存";
+  return "変更は自動で保存されます";
 });
 const supportWarnings = computed(
   () =>
@@ -312,22 +312,8 @@ const scalarLectureFields = [
   ["name", "講習会名", "text"],
   ["description", "講習会の説明", "textarea"],
   ["targetAudience", "対象者", "textarea"],
-  ["traqChannelId", "traQチャンネル", "text"],
+  ["traqChannelId", "関連traQチャンネルID", "text"],
 ] as const;
-const saveStateLabels = {
-  idle: "",
-  dirty: "未保存",
-  saving: "保存中…",
-  saved: "",
-  error: "保存エラー",
-} as const;
-const complexLabels: Record<string, string> = {
-  organizer: "運営担当",
-  material: "講義資料",
-  resources: "関連リンク",
-  relations: "関連する講習会",
-  replayOfSessionIds: "再放送・総集編の元となる開催",
-};
 const sessionLanes = [
   ["name", "開催名", "text"],
   ["description", "開催の説明", "textarea"],
@@ -342,15 +328,6 @@ function showToast(message: string) {
   window.setTimeout(() => {
     if (toast.value === message) toast.value = "";
   }, 5000);
-}
-
-function applyDefaultFlowClasses(values: FlowClass[]) {
-  createForm.lecturePreFlowClassId ||=
-    values.find((entry) => entry.listed && entry.type === "lecture_pre")?.id ?? "";
-  createForm.sessionMainFlowClassId ||=
-    values.find((entry) => entry.listed && entry.type === "session_main")?.id ?? "";
-  createForm.lecturePostFlowClassId ||=
-    values.find((entry) => entry.listed && entry.type === "lecture_post")?.id ?? "";
 }
 function clone<T>(value: T): T {
   return value === undefined ? value : JSON.parse(JSON.stringify(value));
@@ -569,7 +546,6 @@ async function load() {
         lecturesLoad,
       ]);
       flowClasses.value = flowValues;
-      applyDefaultFlowClasses(flowValues);
       directory.value = directoryResult.value;
       fields.value = fieldsResult.value;
       lectures.value = lecturesResult.value;
@@ -882,20 +858,15 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
 </script>
 
 <template>
-  <div class="page lecture-workspace">
-    <nav class="breadcrumb" aria-label="パンくず">
-      <RouterLink to="/admin">運営向けページ</RouterLink><b>/</b
-      ><span>{{ isNew ? "講習会を作成" : "講習会を編集" }}</span>
-    </nav>
+  <main class="page lecture-workspace">
     <header class="workspace-header">
       <div>
+        <RouterLink class="back-link" to="/admin">← 運営向けページ</RouterLink>
+        <span v-if="lecture" class="editor-state" :class="{ published: lecture.isPublished }">{{
+          lecture.isPublished ? "公開中" : "下書き"
+        }}</span>
         <h1>{{ isNew ? "講習会を作成" : lecture?.name }}</h1>
-        <div v-if="lecture" class="editor-meta">
-          <span class="editor-state" :class="{ published: lecture.isPublished }">{{
-            lecture.isPublished ? "公開中" : "下書き"
-          }}</span>
-          <p class="editor-save-status" aria-live="polite">{{ editorSaveLabel }}</p>
-        </div>
+        <p v-if="lecture" class="editor-save-status" aria-live="polite">{{ editorSaveLabel }}</p>
       </div>
       <div v-if="lecture" class="header-actions">
         <BasiqButton tone="neutral" variant="outline" type="button" @click="openHistory()"
@@ -916,15 +887,16 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
     <section v-else-if="isNew && !workspace && !createMode" class="creation-choice">
       <header>
         <h2>作り方を選ぶ</h2>
+        <p>あとからすべての項目と使用Flowを変更できます。</p>
       </header>
       <div>
         <button type="button" @click="createMode = 'blank'">
           <strong>白紙から作る</strong>
-          <span>講習会名から入力します。</span>
+          <span>名前と3種類のFlowを選び、新しい講習会を始めます。</span>
         </button>
         <button type="button" @click="createMode = 'inherit'">
           <strong>過去の講習会から引き継ぐ</strong>
-          <span>基本情報・開催枠・手順を再利用します。</span>
+          <span>基本情報、通常開催、使用Flowを引き継いで今年度版を作ります。</span>
         </button>
       </div>
     </section>
@@ -936,6 +908,12 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
     >
       <button class="mode-back" type="button" @click="createMode = ''">← 作り方を選び直す</button>
       <BasiqCard>
+        <template #header
+          ><div>
+            <p class="card-kicker">START</p>
+            <h2>講習会と最初のFlowを作成</h2>
+          </div></template
+        >
         <div class="form-stack">
           <BasiqFormField label="講習会名" required
             ><BasiqInput
@@ -943,38 +921,33 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
               required
               placeholder="例：Webエンジニアになろう講習会"
           /></BasiqFormField>
-          <details class="create-advanced">
-            <summary>使用する手順を変更</summary>
-            <div class="form-stack">
-              <BasiqFormField label="講習会の事前" required>
-                <BasiqSelect
-                  :model-value="createForm.lecturePreFlowClassId || null"
-                  :items="listedFlowClassItems('lecture_pre')"
-                  placeholder="選択してください"
-                  required
-                  @update:model-value="createForm.lecturePreFlowClassId = $event ?? ''"
-                />
-              </BasiqFormField>
-              <BasiqFormField label="各開催" required>
-                <BasiqSelect
-                  :model-value="createForm.sessionMainFlowClassId || null"
-                  :items="listedFlowClassItems('session_main')"
-                  placeholder="選択してください"
-                  required
-                  @update:model-value="createForm.sessionMainFlowClassId = $event ?? ''"
-                />
-              </BasiqFormField>
-              <BasiqFormField label="講習会の事後" required>
-                <BasiqSelect
-                  :model-value="createForm.lecturePostFlowClassId || null"
-                  :items="listedFlowClassItems('lecture_post')"
-                  placeholder="選択してください"
-                  required
-                  @update:model-value="createForm.lecturePostFlowClassId = $event ?? ''"
-                />
-              </BasiqFormField>
-            </div>
-          </details>
+          <BasiqFormField label="講習会の事前Flow" required>
+            <BasiqSelect
+              :model-value="createForm.lecturePreFlowClassId || null"
+              :items="listedFlowClassItems('lecture_pre')"
+              placeholder="選択してください"
+              required
+              @update:model-value="createForm.lecturePreFlowClassId = $event ?? ''"
+            />
+          </BasiqFormField>
+          <BasiqFormField label="第1回のメインFlow" required>
+            <BasiqSelect
+              :model-value="createForm.sessionMainFlowClassId || null"
+              :items="listedFlowClassItems('session_main')"
+              placeholder="選択してください"
+              required
+              @update:model-value="createForm.sessionMainFlowClassId = $event ?? ''"
+            />
+          </BasiqFormField>
+          <BasiqFormField label="講習会の事後Flow" required>
+            <BasiqSelect
+              :model-value="createForm.lecturePostFlowClassId || null"
+              :items="listedFlowClassItems('lecture_post')"
+              placeholder="選択してください"
+              required
+              @update:model-value="createForm.lecturePostFlowClassId = $event ?? ''"
+            />
+          </BasiqFormField>
         </div>
         <template #footer
           ><BasiqButton type="submit" :disabled="saving">{{
@@ -989,7 +962,7 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
       <header>
         <div>
           <h2>引き継ぎ元を選ぶ</h2>
-          <p>回答・進捗・公開状態は引き継ぎません。</p>
+          <p>名前・年度・班・分野で検索できます。回答や進捗、公開状態は引き継ぎません。</p>
         </div>
         <label class="year-field">
           <span>新しい年度</span>
@@ -1050,6 +1023,15 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
           /></BasiqButton>
           <BasiqTabsTrigger v-if="postFlow" :value="postFlow.id">事後</BasiqTabsTrigger>
           <BasiqTabsTrigger value="bulk">一覧編集</BasiqTabsTrigger>
+          <BasiqButton
+            class="tab-action"
+            tone="neutral"
+            variant="outline"
+            type="button"
+            aria-label="その他の操作"
+            @click="modal = 'more'"
+            >…</BasiqButton
+          >
         </BasiqTabsList>
       </div>
 
@@ -1077,7 +1059,9 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
         <section class="bulk-editor">
           <header class="section-heading">
             <div>
+              <p class="eyebrow">ALL ATTRIBUTES</p>
               <h2>一覧編集</h2>
+              <p>入力を止めるかフォーカスを外すと、属性ごとに保存します。</p>
             </div>
             <BasiqButton tone="neutral" variant="outline" type="button" @click="downloadExport"
               >JSONを書き出す</BasiqButton
@@ -1104,7 +1088,7 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
                     @update:model-value="setField('lecture', lecture.id, entry[0], $event)"
                     @blur="flushField('lecture', lecture.id, entry[0])"
                   /><small class="save-state">{{
-                    saveStateLabels[saveStates[bufferKey("lecture", lecture.id, entry[0])]]
+                    saveStates[bufferKey("lecture", lecture.id, entry[0])]
                   }}</small></BasiqFormField
                 >
                 <label class="native-field"
@@ -1225,7 +1209,7 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
                     @update:model-value="setField('session', session.id, lane[0], $event)"
                     @blur="flushField('session', session.id, lane[0])"
                   /><small class="save-state">{{
-                    saveStateLabels[saveStates[bufferKey("session", session.id, lane[0])]]
+                    saveStates[bufferKey("session", session.id, lane[0])]
                   }}</small>
                 </article>
               </div>
@@ -1419,7 +1403,7 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
         </form>
         <template v-else-if="modal === 'complex'"
           ><header>
-            <h2 id="modal-complex-title">{{ complexLabels[complexForm.path] || "項目" }}を編集</h2>
+            <h2 id="modal-complex-title">{{ complexForm.path }}を編集</h2>
             <BasiqButton tone="neutral" variant="outline" type="button" @click="closeModal"
               >閉じる</BasiqButton
             >
@@ -1682,13 +1666,15 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
         >
       </section>
     </div>
-  </div>
+  </main>
 </template>
 
 <style scoped>
 /* stylelint-disable no-descending-specificity */
 .lecture-workspace {
-  min-width: 0;
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 30px 40px 80px;
 }
 
 .workspace-header,
@@ -1702,39 +1688,27 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
 }
 
 .workspace-header {
-  align-items: flex-start;
-  margin-bottom: 24px;
+  min-height: 92px;
+  margin: 0 0 18px;
+  padding: 10px 0 16px;
+  border-bottom: 1px solid var(--basiq-color-border-separator);
 }
 
 .workspace-header h1 {
-  margin: 0;
-  font-size: 1.5rem;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
+  margin: 2px 0;
+  font-size: 1.45rem;
 }
 
-.workspace-header > div:first-child {
-  min-width: 0;
-}
-
-.header-actions,
-.editor-meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.header-actions {
-  flex: 0 0 auto;
-}
-
-.editor-meta {
-  gap: 12px;
-  margin-top: 8px;
+.back-link {
+  display: inline-block;
+  margin-bottom: 5px;
+  color: var(--basiq-color-content-subtle);
+  font-size: 0.78rem;
+  text-decoration: none;
 }
 
 .editor-state {
+  margin-left: 12px;
   color: var(--basiq-color-content-subtle);
   font-size: 0.75rem;
   font-weight: 700;
@@ -1750,53 +1724,54 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
   font-size: 0.75rem;
 }
 
+.eyebrow,
+.card-kicker {
+  color: var(--basiq-color-content-accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.publication-pill {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--basiq-color-surface-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.publication-pill.published {
+  color: var(--app-success);
+  background: var(--app-success-soft);
+}
+
 .toast {
   position: fixed;
   z-index: 90;
-  top: 24px;
-  right: 24px;
+  top: 20px;
+  right: 20px;
   max-width: 420px;
   padding: 12px 16px;
   border: 1px solid var(--basiq-color-border-control);
   border-radius: var(--basiq-radius-sm);
   background: var(--basiq-color-surface-base);
+  box-shadow: 0 8px 28px rgb(0 0 0/14%);
 }
 
 .create-panel {
   max-width: 720px;
-  margin: 24px 0;
-}
-
-.create-advanced {
-  padding-top: 4px;
-  border-top: 1px solid var(--basiq-color-border-separator);
-}
-
-.create-advanced summary {
-  padding: 12px 0;
-  color: var(--basiq-color-content-subtle);
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.create-advanced > .form-stack {
-  padding: 8px 0 4px;
+  margin: 40px auto;
 }
 
 .creation-choice,
 .inherit-panel {
   max-width: 820px;
-  margin: 24px 0;
+  margin: 36px auto;
 }
 
 .creation-choice > header,
 .inherit-panel > header {
-  margin-bottom: 16px;
-}
-
-.creation-choice h2,
-.inherit-panel h2 {
-  font-size: 1.125rem;
+  margin-bottom: 18px;
 }
 
 .creation-choice > header p,
@@ -1807,7 +1782,8 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
 
 .creation-choice > div {
   overflow: hidden;
-  border-block: 1px solid var(--basiq-color-border-separator);
+  border: 1px solid var(--basiq-color-border-separator);
+  border-radius: var(--basiq-radius-sm);
   background: var(--basiq-color-surface-base);
 }
 
@@ -1815,7 +1791,7 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
   width: 100%;
   display: grid;
   gap: 4px;
-  padding: 16px 12px;
+  padding: 20px;
   border: 0;
   color: inherit;
   background: transparent;
@@ -1833,12 +1809,6 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
   background: var(--basiq-color-navigation-item-background-current-rest);
 }
 
-.creation-choice button:focus-visible,
-.mode-back:focus-visible {
-  outline: 2px solid var(--basiq-color-accent-default);
-  outline-offset: -2px;
-}
-
 .creation-choice button span,
 .inherit-list p {
   color: var(--basiq-color-content-subtle);
@@ -1846,13 +1816,13 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
 }
 
 .mode-back {
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   padding: 0;
   border: 0;
   color: var(--basiq-color-content-subtle);
   background: transparent;
   font: inherit;
-  font-size: 0.8125rem;
+  font-size: 0.82rem;
   cursor: pointer;
 }
 
@@ -1860,13 +1830,13 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
   display: flex;
   align-items: end;
   justify-content: space-between;
-  gap: 16px;
+  gap: 18px;
 }
 
 .year-field {
   width: 150px;
   display: grid;
-  gap: 8px;
+  gap: 5px;
   flex: 0 0 auto;
   font-size: 0.8rem;
   font-weight: 700;
@@ -1874,7 +1844,7 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
 
 .year-field input {
   min-height: 40px;
-  padding: 8px 12px;
+  padding: 7px 10px;
   border: 1px solid var(--basiq-color-border-control);
   border-radius: var(--basiq-radius-sm);
   font: inherit;
@@ -1883,7 +1853,8 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
 .inherit-list {
   margin-top: 16px;
   overflow: hidden;
-  border-block: 1px solid var(--basiq-color-border-separator);
+  border: 1px solid var(--basiq-color-border-separator);
+  border-radius: var(--basiq-radius-sm);
 }
 
 .inherit-list article {
@@ -1891,16 +1862,7 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
   grid-template-columns: 90px minmax(0, 1fr) auto;
   align-items: center;
   gap: 16px;
-  padding: 12px 0;
-}
-
-.inherit-list h3 {
-  font-size: 0.875rem;
-}
-
-.inherit-list article > span {
-  color: var(--basiq-color-content-subtle);
-  font-size: 0.8125rem;
+  padding: 14px 16px;
 }
 
 .inherit-list h3,
@@ -1910,7 +1872,7 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
 
 .inherit-empty {
   margin: 0;
-  padding: 24px;
+  padding: 20px;
 }
 
 .support-warning,
@@ -1924,34 +1886,34 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
 .support-warning {
   display: grid;
   gap: 4px;
-  margin-bottom: 16px;
-  padding: 12px 16px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
 }
 
 .inline-warning {
-  padding: 12px;
+  padding: 10px 12px;
 }
 
 .form-stack {
   display: grid;
-  gap: 16px;
+  gap: 18px;
 }
 
 .native-field {
   display: grid;
-  gap: 8px;
+  gap: 7px;
 }
 
 .native-field > span {
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: 0.86rem;
+  font-weight: 700;
 }
 
 .native-field input,
 .session-mini input {
   width: 100%;
-  min-height: 40px;
-  padding: 8px 12px;
+  min-height: 42px;
+  padding: 8px 10px;
   border: 1px solid var(--basiq-color-border-control);
   border-radius: var(--basiq-radius-sm);
   background: var(--basiq-color-surface-base);
@@ -1979,9 +1941,9 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
 }
 
 .workspace-tabs :deep([role="tab"]) {
-  min-height: 44px;
-  min-width: 80px;
-  padding: 8px 16px;
+  min-height: 54px;
+  min-width: 104px;
+  padding: 9px 16px;
   white-space: normal;
 }
 
@@ -1992,22 +1954,22 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
 .workspace-tabs :deep([role="tabpanel"]) {
   width: 100%;
   margin: 0;
-  padding: 24px 0 0;
+  padding: 22px 0 0;
   background: transparent;
 }
 
 .tab-action {
-  min-width: 40px;
-  align-self: center;
+  min-width: 42px;
 }
 
 .bulk-editor {
   display: grid;
-  gap: 24px;
+  gap: 22px;
 }
 
-.section-heading {
-  margin: 0;
+.section-heading p:last-child {
+  margin-top: 5px;
+  color: var(--basiq-color-content-subtle);
 }
 
 .bulk-card {
@@ -2019,16 +1981,16 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
 }
 
 .bulk-card summary {
-  padding: 12px 0;
+  padding: 16px 20px;
   cursor: pointer;
-  font-weight: 700;
+  font-weight: 750;
 }
 
 .lecture-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  padding: 4px 0 16px;
+  gap: 18px;
+  padding: 4px 20px 22px;
 }
 
 .switch-field {
@@ -2039,15 +2001,15 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
 .complex-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 4px 0 16px;
+  gap: 10px;
+  padding: 4px 20px 22px;
 }
 
 .attribute-lane {
   display: flex;
   gap: 12px;
   overflow-x: auto;
-  padding: 4px 0 16px;
+  padding: 4px 20px 22px;
 }
 
 .session-mini {
@@ -2055,9 +2017,10 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
   display: grid;
   flex: 0 0 250px;
   gap: 8px;
-  align-content: start;
-  padding: 12px;
-  background: var(--basiq-color-surface-muted);
+  padding: 14px;
+  border: 1px solid var(--basiq-color-border-separator);
+  border-radius: var(--basiq-radius-sm);
+  background: var(--basiq-color-surface-base);
 }
 
 .session-mini > small {
@@ -2065,12 +2028,9 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
 }
 
 .save-state {
+  min-height: 18px;
   color: var(--basiq-color-content-subtle);
-  font-size: 0.75rem;
-}
-
-.save-state:empty {
-  display: none;
+  font-size: 0.72rem;
 }
 
 .modal-backdrop {
@@ -2079,36 +2039,32 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
   inset: 0;
   display: grid;
   place-items: center;
-  padding: 24px;
+  padding: 20px;
   background: rgb(0 0 0/38%);
 }
 
 .modal-panel {
   width: min(680px, 100%);
-  max-height: min(820px, calc(100dvh - 48px));
+  max-height: min(820px, calc(100vh - 40px));
   overflow: auto;
   padding: 24px;
   border-radius: var(--basiq-radius-md);
   background: var(--basiq-color-surface-base);
-  border: 1px solid var(--basiq-color-border-separator);
+  box-shadow: 0 24px 70px rgb(0 0 0/22%);
 }
 
 .modal-panel header {
-  margin-bottom: 24px;
-}
-
-.modal-panel h2 {
-  font-size: 1.125rem;
+  margin-bottom: 22px;
 }
 
 .modal-panel footer {
   justify-content: flex-end;
-  margin-top: 24px;
+  margin-top: 22px;
 }
 
 .action-list {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .row-editor {
@@ -2121,12 +2077,12 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
 .check-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
 }
 
 .warning-box {
   margin-top: 16px;
-  padding: 16px;
+  padding: 14px;
   border: 1px solid #d29b2d;
   border-radius: var(--basiq-radius-sm);
   background: #fff8e8;
@@ -2139,7 +2095,7 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
 .order-list,
 .history-list {
   display: grid;
-  gap: 8px;
+  gap: 9px;
   list-style: none;
 }
 
@@ -2214,13 +2170,17 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
 }
 
 @media (width <= 760px) {
+  .lecture-workspace {
+    padding: 20px 16px 88px;
+  }
+
   .workspace-header {
     align-items: flex-start;
     flex-direction: column;
   }
 
   .workspace-header h1 {
-    font-size: 1.25rem;
+    font-size: 1.3rem;
   }
 
   .workspace-header .header-actions {
@@ -2228,7 +2188,7 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
   }
 
   .workspace-tabs :deep([role="tab"]) {
-    min-width: 80px;
+    min-width: 112px;
   }
 
   .inherit-panel > header {

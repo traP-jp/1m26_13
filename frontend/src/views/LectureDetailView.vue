@@ -3,22 +3,13 @@ import { BasiqButton, BasiqTabs } from "basiq-ui";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
-import {
-  getDirectory,
-  getLecture,
-  listLectures,
-  setCompletion,
-  type Lecture,
-  type Session,
-} from "@/api/resources";
+import { getLecture, setCompletion, type Lecture, type Session } from "@/api/resources";
 import AppIcon from "@/components/AppIcon.vue";
 import LectureRoundDetail from "@/components/LectureRoundDetail.vue";
 
 const route = useRoute();
 const router = useRouter();
 const lecture = ref<Lecture>();
-const lectureNames = ref<Record<string, string>>({});
-const instructorNames = ref<Record<string, string>>({});
 type RoundGroup = {
   round: number;
   order: number;
@@ -31,32 +22,15 @@ const loading = ref(true);
 const updating = ref(false);
 const error = ref("");
 const rounds = computed<RoundGroup[]>(() => {
-  const sessions = [...(lecture.value?.sessions ?? [])].sort(
-    (left, right) => left.order - right.order,
-  );
-  const normalSessions = sessions.filter((session) => !session.isReplay);
-  const groupedReplayIds = new Set<string>();
-  const groups: RoundGroup[] = normalSessions.map((session, index) => {
-    const replays = sessions.filter(
-      (candidate) =>
-        candidate.isReplay &&
-        candidate.replayOfSessionIds.includes(session.id) &&
-        !groupedReplayIds.has(candidate.id),
-    );
-    replays.forEach((replay) => groupedReplayIds.add(replay.id));
-    return {
+  return (lecture.value?.sessions ?? [])
+    .filter((session) => !session.isReplay)
+    .sort((left, right) => left.order - right.order)
+    .map((session, index) => ({
       round: index + 1,
       order: session.order,
-      sessions: [session, ...replays],
+      sessions: [session],
       normal: session,
-    };
-  });
-  for (const replay of sessions.filter(
-    (session) => session.isReplay && !groupedReplayIds.has(session.id),
-  )) {
-    groups.push({ round: groups.length + 1, order: replay.order, sessions: [replay] });
-  }
-  return groups;
+    }));
 });
 const roundTabs = computed(() =>
   rounds.value.map((round) => ({ value: String(round.round), label: `第${round.round}回` })),
@@ -76,16 +50,7 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    const [value, allLectures, directory] = await Promise.all([
-      getLecture(String(route.params.id)),
-      listLectures().catch(() => []),
-      getDirectory().catch(() => ({ users: [], groups: [] })),
-    ]);
-    lecture.value = value;
-    lectureNames.value = Object.fromEntries(allLectures.map((item) => [item.id, item.name]));
-    instructorNames.value = Object.fromEntries(
-      directory.users.map((user) => [user.id, `${user.displayName} (@${user.traqId})`]),
-    );
+    lecture.value = await getLecture(String(route.params.id));
     await nextTick();
     syncRoundFromHash();
   } catch (reason) {
@@ -188,9 +153,8 @@ onMounted(load);
     </div>
     <template v-else-if="lecture">
       <nav class="breadcrumb" aria-label="パンくずリスト">
-        <RouterLink to="/">ホーム</RouterLink><AppIcon name="chevron" :size="14" /><RouterLink
-          to="/lectures"
-          >講習会</RouterLink
+        <RouterLink to="/">ホーム</RouterLink><AppIcon name="chevron" :size="14" /><span
+          >講習会</span
         ><AppIcon name="chevron" :size="14" /><strong>詳細</strong>
       </nav>
       <header class="lecture-heading">
@@ -200,7 +164,7 @@ onMounted(load);
             ><span v-if="lecture.isIntroductory">初心者向け</span><span>{{ rounds.length }}回</span>
           </div>
           <h1>{{ lecture.name }}</h1>
-          <p v-if="lecture.description">{{ lecture.description }}</p>
+          <p>{{ lecture.description || "この講習会の説明はまだありません。" }}</p>
         </div>
         <BasiqButton
           tone="neutral"
@@ -224,8 +188,6 @@ onMounted(load);
               v-if="round"
               :lecture="lecture"
               :round="round"
-              :lecture-names="lectureNames"
-              :instructor-names="instructorNames"
               :updating="updating"
               @toggle-completion="toggleCompletion"
             />
@@ -236,8 +198,6 @@ onMounted(load);
         v-else-if="activeRound"
         :lecture="lecture"
         :round="activeRound"
-        :lecture-names="lectureNames"
-        :instructor-names="instructorNames"
         :updating="updating"
         @toggle-completion="toggleCompletion"
       />
@@ -248,7 +208,8 @@ onMounted(load);
 
 <style scoped>
 .lecture-detail-page {
-  width: min(1080px, 100%);
+  width: min(1160px, calc(100% - 80px));
+  padding: 32px 0 72px;
 }
 
 .breadcrumb strong {
@@ -260,7 +221,7 @@ onMounted(load);
   justify-content: space-between;
   align-items: flex-start;
   gap: 24px;
-  padding-bottom: 16px;
+  padding-bottom: 24px;
   border-bottom: 1px solid var(--basiq-color-border-separator);
 }
 
@@ -269,19 +230,17 @@ onMounted(load);
 }
 
 .lecture-heading h1 {
-  margin-top: 8px;
-  font-size: 1.5rem;
-  line-height: 1.5;
-  letter-spacing: normal;
-  overflow-wrap: anywhere;
+  margin-top: 12px;
+  font-size: clamp(1.8rem, 3vw, 2.25rem);
+  line-height: 1.25;
+  letter-spacing: -0.03em;
 }
 
 .lecture-heading p {
   max-width: 760px;
   margin-top: 8px;
   color: var(--basiq-color-content-subtle);
-  font-size: 0.875rem;
-  overflow-wrap: anywhere;
+  font-size: 0.98rem;
 }
 
 .meta-tags {
@@ -291,16 +250,15 @@ onMounted(load);
 }
 
 .meta-tags span {
+  min-height: 24px;
   display: inline-flex;
   align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--basiq-radius-sm);
   color: var(--basiq-color-content-subtle);
-  font-size: 0.75rem;
-}
-
-.meta-tags span + span::before {
-  margin-right: 8px;
-  color: var(--basiq-color-border-control);
-  content: "·";
+  background: var(--basiq-color-surface-container);
+  font-size: 0.73rem;
+  font-weight: 700;
 }
 
 .session-tabs {
@@ -319,15 +277,15 @@ onMounted(load);
 
 @media (width <= 980px) {
   .lecture-detail-page {
-    width: 100%;
+    width: calc(100% - 48px);
   }
 }
 
 @media (width <= 760px) {
   .lecture-detail-page {
-    width: 100%;
-    margin-inline: 0;
-    padding: 16px 16px 40px;
+    width: auto;
+    margin-inline: 16px;
+    padding: 24px 0 32px;
   }
 
   .lecture-heading {
@@ -336,7 +294,7 @@ onMounted(load);
   }
 
   .lecture-heading h1 {
-    font-size: 1.5rem;
+    font-size: 1.72rem;
   }
 }
 </style>
