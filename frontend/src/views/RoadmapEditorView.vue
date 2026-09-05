@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {
   BasiqButton,
-  BasiqCard,
   BasiqFormField,
   BasiqInput,
   BasiqRadioGroup,
@@ -265,28 +264,30 @@ onBeforeUnmount(finishDrag);
     <header class="page-heading">
       <div>
         <h1>{{ isNew ? "ロードマップを作成" : "ロードマップを編集" }}</h1>
-        <p>ロードマップの内容と、講習会や開催の順番を編集します。</p>
       </div>
     </header>
     <div v-if="loading" class="loading-state">編集データを読み込んでいます</div>
     <form v-else class="editor-form" @submit.prevent="save">
       <p v-if="notice" class="notice" role="status">{{ notice }}</p>
       <p v-if="error" class="notice error" role="alert">{{ error }}</p>
-      <BasiqCard title="基本情報"
-        ><div class="basic-grid">
+      <section class="basic-section" aria-labelledby="basic-title">
+        <h2 id="basic-title">基本情報</h2>
+        <div class="basic-grid">
           <BasiqFormField class="span-two" label="ロードマップ名" required
             ><BasiqInput v-model="form.title" required maxlength="200"
           /></BasiqFormField>
-          <BasiqFormField class="span-two" label="概要" required
+          <BasiqFormField class="span-two" label="概要"
             ><BasiqTextarea
               v-model="form.description"
-              required
               :rows="3"
               resize="vertical"
               maxlength="10000"
           /></BasiqFormField>
-          <BasiqFormField label="対象者" required
-            ><BasiqInput v-model="form.audience" required maxlength="2000" placeholder="例：新入生"
+          <BasiqFormField label="対象者"
+            ><BasiqInput
+              v-model="form.audience"
+              maxlength="2000"
+              placeholder="例：Web開発を始めたい新入生"
           /></BasiqFormField>
           <div class="publication-field">
             <strong>公開状態</strong
@@ -294,15 +295,13 @@ onBeforeUnmount(finishDrag);
               ><span>{{ form.published ? "公開中" : "下書き" }}</span></BasiqSwitch
             >
           </div>
-        </div></BasiqCard
-      >
+        </div>
+      </section>
       <section class="sequence-section" aria-labelledby="sequence-title">
         <div class="section-heading">
           <div>
             <h2 id="sequence-title">学ぶ順番</h2>
-            <p id="reorder-help">
-              グリップをドラッグ、またはフォーカスしてAlt＋↑ / ↓で並べ替えます。
-            </p>
+            <p id="reorder-help">ドラッグ、またはAlt＋↑ / ↓で並べ替え</p>
           </div>
           <div class="section-actions">
             <BasiqButton
@@ -323,7 +322,7 @@ onBeforeUnmount(finishDrag);
           </div>
         </div>
         <div v-if="!form.items.length" class="empty-sequence">
-          まだ項目はありません。講習会または開催を追加してください。
+          講習会または開催を追加してください。
         </div>
         <ol v-else class="workshop-sequence">
           <li
@@ -335,41 +334,40 @@ onBeforeUnmount(finishDrag);
               'is-drop-target': dragOverId === item.id,
             }"
           >
-            <BasiqCard
-              ><div class="sequence-item">
-                <button
-                  class="drag-handle"
+            <div class="sequence-item">
+              <button
+                class="drag-handle"
+                type="button"
+                :aria-label="`${resolveItem(item).title}を並べ替え。Altと上下矢印でも移動できます`"
+                aria-describedby="reorder-help"
+                @pointerdown="startDrag(item.id, $event)"
+                @keydown="onHandleKeydown($event, index)"
+              >
+                <AppIcon name="grip" :size="22" />
+              </button>
+              <span class="sequence-number">{{ index + 1 }}</span
+              ><AppIcon :name="item.targetType === 'lecture' ? 'map' : 'calendar'" />
+              <span class="workshop-copy"
+                ><strong>{{ resolveItem(item).title }}</strong
+                ><small>{{ resolveItem(item).meta }}</small></span
+              >
+              <div class="sequence-actions">
+                <BasiqButton
                   type="button"
-                  :aria-label="`${resolveItem(item).title}を並べ替え。Altと上下矢印でも移動できます`"
-                  aria-describedby="reorder-help"
-                  @pointerdown="startDrag(item.id, $event)"
-                  @keydown="onHandleKeydown($event, index)"
-                >
-                  <AppIcon name="grip" :size="22" />
-                </button>
-                <span class="sequence-number">{{ index + 1 }}</span
-                ><AppIcon :name="item.targetType === 'lecture' ? 'map' : 'calendar'" />
-                <span class="workshop-copy"
-                  ><strong>{{ resolveItem(item).title }}</strong
-                  ><small>{{ resolveItem(item).meta }}</small></span
-                >
-                <div class="sequence-actions">
-                  <BasiqButton
-                    type="button"
-                    tone="neutral"
-                    variant="outline"
-                    @click="openPicker(item.targetType, item.id)"
-                    >変更</BasiqButton
-                  ><BasiqButton
-                    type="button"
-                    tone="danger"
-                    variant="outline"
-                    :aria-label="`${resolveItem(item).title}を外す`"
-                    @click="removeItem(item.id)"
-                    ><AppIcon name="trash" :size="17"
-                  /></BasiqButton>
-                </div></div
-            ></BasiqCard>
+                  tone="neutral"
+                  variant="outline"
+                  @click="openPicker(item.targetType, item.id)"
+                  >変更</BasiqButton
+                ><BasiqButton
+                  type="button"
+                  tone="danger"
+                  variant="outline"
+                  :aria-label="`${resolveItem(item).title}を外す`"
+                  @click="removeItem(item.id)"
+                  ><AppIcon name="trash" :size="17"
+                /></BasiqButton>
+              </div>
+            </div>
           </li>
         </ol>
       </section>
@@ -422,27 +420,25 @@ onBeforeUnmount(finishDrag);
 <style scoped>
 .roadmap-editor-page {
   width: min(1060px, 100%);
-  margin: 0 auto;
-  padding: 28px 36px 72px;
 }
 
 .page-heading {
   display: flex;
   justify-content: space-between;
   gap: 24px;
-  margin-bottom: 20px;
-  padding-bottom: 18px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
   border-bottom: 1px solid var(--basiq-color-border-separator);
 }
 
 .page-heading h1 {
-  font-size: clamp(1.7rem, 3vw, 2rem);
-  line-height: 1.25;
-  letter-spacing: -0.02em;
+  font-size: 1.5rem;
+  line-height: 1.5;
+  letter-spacing: normal;
 }
 
 .page-heading p {
-  margin-top: 6px;
+  margin-top: 8px;
   color: var(--basiq-color-content-subtle);
 }
 
@@ -451,10 +447,15 @@ onBeforeUnmount(finishDrag);
   gap: 24px;
 }
 
+.basic-section h2 {
+  margin-bottom: 16px;
+  font-size: 1.125rem;
+}
+
 .basic-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.65fr);
-  gap: 16px 22px;
+  gap: 16px 24px;
 }
 
 .span-two {
@@ -462,58 +463,58 @@ onBeforeUnmount(finishDrag);
 }
 
 .publication-field {
-  min-height: 90px;
+  min-height: 48px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  padding: 13px 15px;
-  border-radius: var(--basiq-radius-sm);
-  background: var(--basiq-color-surface-base);
+  gap: 16px;
+  padding: 8px 0;
 }
 
 .publication-field strong {
-  font-size: 1rem;
+  font-size: 0.875rem;
 }
 
 .section-heading {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  gap: 18px;
+  gap: 16px;
   margin-bottom: 12px;
 }
 
 .section-heading h2 {
-  font-size: 1.25rem;
+  font-size: 1.125rem;
 }
 
 .section-heading p {
-  margin-top: 3px;
+  margin-top: 4px;
   color: var(--basiq-color-content-subtle);
-  font-size: 0.84rem;
+  font-size: 0.875rem;
 }
 
 .section-actions,
 .sequence-actions,
 .action-bar {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
 .workshop-sequence {
   display: grid;
-  gap: 10px;
+  gap: 0;
   margin: 0;
   padding: 0;
   list-style: none;
+  border-top: 1px solid var(--basiq-color-border-separator);
 }
 
 .workshop-sequence > li {
-  border-radius: var(--basiq-radius-md);
+  border-bottom: 1px solid var(--basiq-color-border-separator);
   transition:
     opacity 120ms ease,
-    box-shadow 120ms ease;
+    background-color 120ms ease;
 }
 
 .workshop-sequence > li.is-dragging {
@@ -521,16 +522,19 @@ onBeforeUnmount(finishDrag);
 }
 
 .workshop-sequence > li.is-drop-target {
-  box-shadow: 0 0 0 2px var(--basiq-color-accent-default);
+  outline: 2px solid var(--basiq-color-accent-default);
+  outline-offset: -2px;
+  background: var(--app-accent-soft);
 }
 
 .sequence-item {
   min-width: 0;
-  min-height: 62px;
+  min-height: 64px;
   display: grid;
   grid-template-columns: 26px 32px 20px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
+  padding-block: 8px;
 }
 
 .drag-handle {
@@ -562,10 +566,9 @@ onBeforeUnmount(finishDrag);
   height: 32px;
   display: grid;
   place-items: center;
-  border-radius: 50%;
-  color: var(--basiq-color-content-on-accent);
-  background: var(--basiq-color-accent-default);
-  font-weight: 800;
+  color: var(--basiq-color-content-subtle);
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .sequence-item > .app-icon {
@@ -586,12 +589,12 @@ onBeforeUnmount(finishDrag);
 }
 
 .workshop-copy strong {
-  font-size: 0.9rem;
+  font-size: 0.875rem;
 }
 
 .workshop-copy small {
   color: var(--basiq-color-content-subtle);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
 }
 
 .sequence-actions {
@@ -607,12 +610,9 @@ onBeforeUnmount(finishDrag);
 
 .empty-sequence,
 .picker-empty {
-  padding: 28px;
-  border: 1px dashed var(--basiq-color-border-separator);
-  border-radius: var(--basiq-radius-sm);
+  padding-block: 24px;
+  border-block: 1px solid var(--basiq-color-border-separator);
   color: var(--basiq-color-content-subtle);
-  background: var(--basiq-color-surface-muted);
-  text-align: center;
 }
 
 .picker-dialog {
@@ -624,7 +624,7 @@ onBeforeUnmount(finishDrag);
   border-radius: var(--basiq-radius-md);
   color: var(--basiq-color-content-default);
   background: var(--basiq-color-surface-base);
-  box-shadow: 0 20px 52px rgb(26 39 52 / 24%);
+  box-shadow: 0 8px 24px rgb(26 39 52 / 16%);
 }
 
 .picker-dialog::backdrop {
@@ -635,26 +635,26 @@ onBeforeUnmount(finishDrag);
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 18px;
-  padding: 20px 22px 16px;
+  gap: 16px;
+  padding: 16px;
   border-bottom: 1px solid var(--basiq-color-border-separator);
 }
 
 .picker-dialog-heading h2 {
-  font-size: 1.2rem;
+  font-size: 1.125rem;
 }
 
 .picker-dialog-heading p {
-  margin-top: 3px;
+  margin-top: 4px;
   color: var(--basiq-color-content-subtle);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
 }
 
 .picker-dialog-body {
   display: grid;
-  gap: 18px;
+  gap: 16px;
   max-height: calc(100dvh - 140px);
-  padding: 18px 22px 22px;
+  padding: 16px;
   overflow-y: auto;
 }
 
@@ -664,10 +664,9 @@ onBeforeUnmount(finishDrag);
   bottom: 0;
   justify-content: flex-end;
   margin-top: -4px;
-  padding: 13px 0;
+  padding: 12px 0;
   border-top: 1px solid var(--basiq-color-border-separator);
-  background: color-mix(in srgb, var(--basiq-color-surface-base) 94%, transparent);
-  backdrop-filter: blur(8px);
+  background: var(--basiq-color-surface-base);
 }
 
 @media (width <= 900px) and (width >= 761px) {
@@ -679,16 +678,16 @@ onBeforeUnmount(finishDrag);
 @media (width <= 760px) {
   .roadmap-editor-page {
     width: 100%;
-    padding: 18px 16px 112px;
+    padding: 16px 16px 112px;
   }
 
   .page-heading {
     margin-bottom: 16px;
-    padding-bottom: 14px;
+    padding-bottom: 16px;
   }
 
   .page-heading h1 {
-    font-size: 1.65rem;
+    font-size: 1.5rem;
   }
 
   .page-heading p {
@@ -697,12 +696,12 @@ onBeforeUnmount(finishDrag);
   }
 
   .editor-form {
-    gap: 20px;
+    gap: 24px;
   }
 
   .basic-grid {
     grid-template-columns: 1fr;
-    gap: 14px;
+    gap: 12px;
   }
 
   .span-two {
@@ -710,8 +709,7 @@ onBeforeUnmount(finishDrag);
   }
 
   .publication-field {
-    min-height: 78px;
-    padding: 11px 12px;
+    min-height: 48px;
   }
 
   .section-heading {
@@ -734,7 +732,7 @@ onBeforeUnmount(finishDrag);
 
   .sequence-item {
     grid-template-columns: 26px 32px minmax(0, 1fr) auto;
-    gap: 9px;
+    gap: 8px;
   }
 
   .sequence-item > .app-icon {
@@ -751,7 +749,7 @@ onBeforeUnmount(finishDrag);
   }
 
   .picker-dialog-heading {
-    padding: 16px 16px 14px;
+    padding: 16px;
   }
 
   .picker-dialog-body {
@@ -763,19 +761,19 @@ onBeforeUnmount(finishDrag);
     position: fixed;
     inset: auto 0 64px;
     margin: 0;
-    padding: 10px 16px;
+    padding: 12px 16px;
     background: color-mix(in srgb, var(--basiq-color-surface-base) 96%, transparent);
   }
 }
 
 @media (width <= 420px) {
   .roadmap-editor-page {
-    padding-inline: 14px;
+    padding-inline: 16px;
   }
 
   .sequence-item {
     grid-template-columns: 22px 28px minmax(0, 1fr) auto;
-    gap: 7px;
+    gap: 8px;
   }
 
   .sequence-number {
@@ -789,7 +787,7 @@ onBeforeUnmount(finishDrag);
 
   .sequence-actions button:first-child {
     min-width: 52px;
-    padding-inline: 10px;
+    padding-inline: 12px;
   }
 }
 </style>

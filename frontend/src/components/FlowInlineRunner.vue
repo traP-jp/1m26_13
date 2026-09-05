@@ -126,9 +126,9 @@ const labels: Record<string, string> = {
   "lecture.organizer": "運営担当",
   "lecture.targetAudience": "対象者",
   "lecture.isIntroductory": "その分野の0→1講習",
-  "lecture.traqChannelId": "関連traQチャンネルID",
+  "lecture.traqChannelId": "traQチャンネル",
   "lecture.material": "講義資料",
-  "lecture.resources": "関連Resource",
+  "lecture.resources": "関連リンク",
   "lecture.relations": "関連する講習会",
   "session.name": "開催名",
   "session.description": "開催の説明",
@@ -138,8 +138,8 @@ const labels: Record<string, string> = {
   "session.knoqUrl": "knoQイベントURL",
   "session.instructorId": "講師",
   "session.material": "講義資料",
-  "session.resources": "関連Resource",
-  "session.replayOfSessionIds": "再放送・総集編の元Session",
+  "session.resources": "関連リンク",
+  "session.replayOfSessionIds": "再放送・総集編の元となる開催",
   "session.status": "公開状態",
 };
 
@@ -497,7 +497,7 @@ onBeforeUnmount(() => {
     <template v-if="page">
       <div class="flow-workspace">
         <nav class="flow-toc" aria-label="Flow内のページ">
-          <p>このFlowの内容</p>
+          <p>目次</p>
           <ol>
             <li v-for="(entry, index) in pages" :key="`${index}-${entry.title}`">
               <button
@@ -518,8 +518,8 @@ onBeforeUnmount(() => {
 
         <section class="flow-page">
           <header class="runner-header">
-            <span>{{ pageIndex + 1 }} / {{ pages.length }}</span>
             <h2>{{ page.title }}</h2>
+            <span>{{ pageIndex + 1 }} / {{ pages.length }}</span>
           </header>
 
           <p v-if="warning" class="notice warning" role="status">{{ warning }}</p>
@@ -533,10 +533,7 @@ onBeforeUnmount(() => {
               </p>
 
               <div v-else-if="node.kind === 'input' && node.mode === 'edit'" class="complex-field">
-                <span
-                  ><strong>{{ labels[node.path] || node.path }}</strong
-                  ><small>複数の値をまとめて編集します。</small></span
-                >
+                <strong>{{ labels[node.path] || node.path }}</strong>
                 <BasiqButton
                   tone="neutral"
                   variant="outline"
@@ -617,7 +614,7 @@ onBeforeUnmount(() => {
                 </div>
 
                 <small
-                  v-if="stateFor(node.path).phase !== 'idle'"
+                  v-if="!['idle', 'saved'].includes(stateFor(node.path).phase)"
                   :class="['save-state', stateFor(node.path).phase]"
                   role="status"
                 >
@@ -626,9 +623,7 @@ onBeforeUnmount(() => {
                       ? "保存待ち"
                       : stateFor(node.path).phase === "saving"
                         ? "保存中…"
-                        : stateFor(node.path).phase === "saved"
-                          ? "保存済み"
-                          : stateFor(node.path).error
+                        : stateFor(node.path).error
                   }}
                 </small>
               </div>
@@ -687,14 +682,14 @@ onBeforeUnmount(() => {
 
 .flow-workspace {
   display: grid;
-  grid-template-columns: 210px minmax(0, 1fr);
+  grid-template-columns: 192px minmax(0, 1fr);
   align-items: start;
-  gap: 28px;
+  gap: 24px;
 }
 
 .flow-toc {
   position: sticky;
-  top: 20px;
+  top: 16px;
   min-width: 0;
 }
 
@@ -713,12 +708,12 @@ onBeforeUnmount(() => {
 
 .flow-toc button {
   width: 100%;
-  min-height: 44px;
+  min-height: 40px;
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr) auto;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
-  padding: 7px 8px;
+  padding: 8px;
   border: 0;
   border-radius: var(--basiq-radius-sm);
   color: var(--basiq-color-content-subtle);
@@ -735,50 +730,55 @@ onBeforeUnmount(() => {
 }
 
 .flow-toc button > span {
-  width: 20px;
-  height: 20px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  color: var(--basiq-color-content-accent);
-  background: var(--basiq-color-surface-muted);
-  font-size: 0.7rem;
-  font-weight: 800;
+  color: var(--basiq-color-content-subtle);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
 }
 
 .flow-toc button strong {
   min-width: 0;
-  font-size: 0.85rem;
-  line-height: 1.35;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.flow-toc button.current strong {
+  font-weight: 700;
 }
 
 .flow-toc button small {
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .flow-page {
   min-width: 0;
+  padding: 0;
 }
 
 .runner-header {
-  margin-bottom: 22px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--basiq-color-border-separator);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
 .runner-header > span {
-  color: var(--basiq-color-content-accent);
+  flex: 0 0 auto;
+  color: var(--basiq-color-content-subtle);
   font-size: 0.75rem;
-  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .runner-header h2 {
-  margin: 3px 0 0;
-  font-size: 1.35rem;
+  margin: 0;
+  font-size: 1.125rem;
 }
 
 .flow-content {
+  min-height: 0;
   display: grid;
   gap: 16px;
 }
@@ -789,32 +789,32 @@ onBeforeUnmount(() => {
 
 .attribute-field {
   display: grid;
-  gap: 5px;
+  gap: 4px;
 }
 
 .native-field {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   font-weight: 500;
 }
 
 .native-field > span {
-  font-size: 12px;
+  font-size: 0.875rem;
 }
 
 .native-field input {
   width: 100%;
   min-height: 40px;
-  padding: 8px 11px;
+  padding: 8px 12px;
   border: 1px solid var(--basiq-color-border-control);
   border-radius: var(--basiq-radius-sm);
   color: var(--basiq-color-content-default);
-  background: var(--basiq-color-surface-container);
+  background: var(--basiq-color-surface-base);
   font: inherit;
 }
 
 .switch-field {
-  min-height: 48px;
+  min-height: 40px;
   display: flex;
   align-items: center;
 }
@@ -822,11 +822,7 @@ onBeforeUnmount(() => {
 .save-state {
   justify-self: end;
   color: var(--basiq-color-content-subtle);
-  font-size: 10px;
-}
-
-.save-state.saved {
-  color: var(--app-success);
+  font-size: 0.75rem;
 }
 
 .save-state.error {
@@ -839,9 +835,9 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 13px;
-  border: 1px solid var(--basiq-color-border-separator);
-  border-radius: var(--basiq-radius-sm);
+  min-height: 40px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--basiq-color-border-separator);
 }
 
 .complex-field > span,
@@ -854,32 +850,30 @@ onBeforeUnmount(() => {
 .complex-field small,
 .draft-review p {
   color: var(--basiq-color-content-subtle);
-  font-size: 11px;
+  font-size: 0.8rem;
 }
 
 .flow-task {
-  min-height: 48px;
+  min-height: 40px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 11px;
-  border: 1px solid var(--basiq-color-border-separator);
-  border-radius: var(--basiq-radius-sm);
-  background: var(--basiq-color-surface-base);
+  gap: 8px;
+  padding: 8px 0;
+  cursor: pointer;
 }
 
 .copy-panel {
   display: grid;
   justify-items: start;
-  gap: 10px;
+  gap: 12px;
   margin: 0;
-  padding: 15px;
+  padding: 16px;
   overflow: auto;
   border-radius: var(--basiq-radius-sm);
   background: var(--basiq-color-surface-muted);
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-  font-size: 12px;
-  line-height: 1.65;
+  font-size: 0.8rem;
+  line-height: 1.6;
   white-space: pre-wrap;
 }
 
@@ -887,15 +881,15 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  margin-top: 22px;
+  margin-top: 24px;
   padding-top: 16px;
   border-top: 1px solid var(--basiq-color-border-separator);
 }
 
 .draft-review {
   display: grid;
-  gap: 10px;
-  padding: 14px;
+  gap: 12px;
+  padding: 16px;
   border: 1px solid color-mix(in srgb, var(--basiq-color-content-danger) 35%, white);
   border-radius: var(--basiq-radius-sm);
   background: color-mix(in srgb, var(--basiq-color-content-danger) 5%, white);
@@ -915,18 +909,19 @@ onBeforeUnmount(() => {
 @media (width <= 760px) {
   .flow-workspace {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 16px;
   }
 
   .flow-toc {
     position: static;
   }
 
-  .runner-header h2 {
-    font-size: 22px;
+  .flow-toc ol {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px 8px;
   }
 
-  .complex-field,
   .draft-review-row {
     align-items: stretch;
     flex-direction: column;

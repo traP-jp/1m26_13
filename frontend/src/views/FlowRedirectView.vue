@@ -27,7 +27,7 @@ onMounted(openEditor);
 </script>
 
 <template>
-  <main class="page redirect-page">
+  <div class="page redirect-page">
     <p v-if="!error" class="loading-state">講習会のFlowタブを開いています</p>
     <BasiqCard v-else>
       <template #header><h1>Flowを開けませんでした</h1></template>
@@ -36,13 +36,13 @@ onMounted(openEditor);
         <BasiqButton type="button" @click="openEditor">再試行</BasiqButton>
       </template>
     </BasiqCard>
-  </main>
+  </div>
 </template>
 
 <style scoped>
 .redirect-page {
   max-width: 720px;
   margin: 0 auto;
-  padding: 72px 24px;
+  padding: 32px 24px;
 }
 </style>

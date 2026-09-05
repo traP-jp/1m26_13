@@ -3,8 +3,9 @@
   color-scheme: light;
   background: var(--basiq-color-surface-base);
 
-  --app-sidebar: 248px;
-  --app-content: 1200px;
+  --basiq-font-family-sans: "M PLUS 1p", system-ui, -apple-system, sans-serif;
+  --app-sidebar: 232px;
+  --app-content: 1120px;
   --app-success: #24734a;
   --app-success-soft: #edf7f1;
   --app-danger-soft: #fff4f2;
@@ -26,7 +27,6 @@
 
 html {
   min-width: 320px;
-  scroll-behavior: smooth;
 }
 
 body {
@@ -36,8 +36,8 @@ body {
   color: var(--basiq-color-content-default);
   background: var(--basiq-color-surface-base);
   font-family: var(--basiq-font-family-sans);
-  font-size: 15px;
-  line-height: 1.55;
+  font-size: 0.875rem;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -136,26 +136,23 @@ ol {
 }
 
 .site-brand {
-  min-height: 82px;
+  min-height: 64px;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px 24px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--basiq-color-border-separator);
   text-decoration: none;
 }
 
 .brand-mark {
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+  width: 32px;
+  height: 32px;
+  display: block;
   flex: 0 0 auto;
   border-radius: var(--basiq-radius-sm);
-  color: var(--basiq-color-content-on-accent);
-  background: var(--basiq-color-accent-default);
-  font-size: 0.77rem;
-  font-weight: 800;
 }
 
 .brand-copy {
@@ -175,31 +172,76 @@ ol {
 }
 
 .desktop-nav {
-  padding: 32px 16px;
+  padding: 16px 8px;
 }
 
 .desktop-nav > p,
 .desktop-operation > p {
   margin: 0 8px 8px;
   color: var(--basiq-color-content-subtle);
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .navigation-link > a {
   gap: 12px;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .desktop-operation {
   margin-top: auto;
-  padding: 24px 16px;
+  padding: 16px 8px;
   border-top: 1px solid var(--basiq-color-border-separator);
 }
 
 .desktop-operation > p {
   margin-inline: 8px;
+}
+
+.sidebar-create {
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.sidebar-profile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px 8px 4px;
+  border-top: 1px solid var(--basiq-color-border-separator);
+  text-decoration: none;
+}
+
+.sidebar-profile.active {
+  color: var(--basiq-color-content-accent);
+}
+
+.sidebar-profile:focus-visible {
+  outline: 2px solid var(--basiq-color-accent-default);
+  outline-offset: 2px;
+}
+
+.sidebar-profile > span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-profile strong,
+.sidebar-profile small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-profile strong {
+  font-size: 0.875rem;
+}
+
+.sidebar-profile small {
+  color: var(--basiq-color-content-subtle);
+  font-size: 0.75rem;
 }
 
 .site-version {
@@ -215,7 +257,23 @@ ol {
 }
 
 .layout-content {
+  min-width: 0;
   min-height: 100%;
+}
+
+#main-content {
+  min-width: 0;
+}
+
+:where(
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible
+) {
+  outline: 2px solid var(--basiq-color-accent-default);
+  outline-offset: 2px;
 }
 
 .mobile-header {
@@ -225,7 +283,7 @@ ol {
 .page {
   width: min(var(--app-content), 100%);
   margin: 0 auto;
-  padding: 40px 40px 80px;
+  padding: 24px 24px 48px;
 }
 
 .page.narrow {
@@ -237,9 +295,9 @@ ol {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   color: var(--basiq-color-content-subtle);
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
 }
 
 .breadcrumb a {
@@ -249,41 +307,40 @@ ol {
 
 .page-heading {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 16px;
   margin-bottom: 24px;
 }
 
 .page-heading h1 {
-  font-size: clamp(1.75rem, 3vw, 2.2rem);
-  line-height: 1.25;
-  letter-spacing: -0.03em;
+  font-size: 1.5rem;
+  line-height: 1.4;
 }
 
 .page-heading p {
   max-width: 720px;
-  margin-top: 7px;
+  margin-top: 4px;
   color: var(--basiq-color-content-subtle);
 }
 
 .section-heading {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
-  gap: 24px;
-  margin: 40px 0 16px;
+  align-items: center;
+  gap: 16px;
+  margin: 24px 0 12px;
 }
 
 .section-heading h2 {
-  font-size: 1.35rem;
-  line-height: 1.35;
+  font-size: 1.125rem;
+  line-height: 1.5;
 }
 
 .section-heading p {
   margin-top: 3px;
   color: var(--basiq-color-content-subtle);
-  font-size: 0.82rem;
+  font-size: 0.875rem;
 }
 
 .visually-hidden,
@@ -302,7 +359,7 @@ ol {
 .loading-state,
 .error-state,
 .empty-state {
-  padding: 48px 20px;
+  padding: 24px 16px;
   border-block: 1px solid var(--basiq-color-border-separator);
   color: var(--basiq-color-content-subtle);
   text-align: center;
@@ -313,7 +370,7 @@ ol {
 }
 
 .notice {
-  padding: 10px 12px;
+  padding: 8px 12px;
   border-radius: var(--basiq-radius-sm);
   color: var(--app-success);
   background: var(--app-success-soft);
@@ -331,21 +388,13 @@ ol {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 2px 9px;
-  border-radius: var(--basiq-radius-full);
+  padding: 2px 8px;
+  border-radius: var(--basiq-radius-sm);
   color: var(--basiq-color-content-accent);
   background: var(--app-accent-soft);
-  font-size: 0.72rem;
+  font-size: 0.8125rem;
   font-weight: 700;
   white-space: nowrap;
-}
-
-.status-badge::before {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: currentcolor;
-  content: "";
 }
 
 .status-badge.published,
@@ -356,14 +405,14 @@ ol {
 
 .status-badge.draft,
 .pill.draft {
-  color: var(--basiq-color-content-danger);
-  background: var(--app-danger-soft);
+  color: var(--basiq-color-content-subtle);
+  background: var(--basiq-color-surface-muted);
 }
 
 .field,
 .form-grid {
   display: grid;
-  gap: 14px;
+  gap: 16px;
 }
 
 .form-grid {
@@ -376,7 +425,7 @@ ol {
 
 .field > span,
 .field > label {
-  font-size: 0.82rem;
+  font-size: 0.875rem;
   font-weight: 700;
 }
 
@@ -442,7 +491,7 @@ ol {
 .button.compact {
   min-height: 32px;
   padding: 4px 9px;
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
 }
 
 .button:disabled {
@@ -461,22 +510,6 @@ ol {
   padding: 20px;
 }
 
-.resource-list {
-  display: grid;
-  gap: 8px;
-  list-style: none;
-}
-
-.resource-list a {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
-  border: 1px solid var(--basiq-color-border-separator);
-  border-radius: var(--basiq-radius-sm);
-  text-decoration: none;
-}
-
 .meta-list {
   display: grid;
   gap: 12px;
@@ -484,7 +517,7 @@ ol {
 
 .meta-list dt {
   color: var(--basiq-color-content-subtle);
-  font-size: 0.72rem;
+  font-size: 0.8125rem;
   font-weight: 700;
 }
 
@@ -534,7 +567,7 @@ ol {
 .editor-row p {
   margin-top: 3px;
   color: var(--basiq-color-content-subtle);
-  font-size: 0.8rem;
+  font-size: 0.875rem;
 }
 
 .editor-main-action {
@@ -559,25 +592,6 @@ ol {
   border-top: 1px solid var(--basiq-color-border-separator);
 }
 
-.flow-page {
-  padding: 24px;
-}
-
-.flow-content {
-  min-height: 260px;
-  display: grid;
-  gap: 16px;
-}
-
-.flow-task {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 12px;
-  border-radius: var(--basiq-radius-sm);
-  background: var(--basiq-color-surface-muted);
-}
-
 .copy-block {
   padding: 16px;
   border-radius: var(--basiq-radius-sm);
@@ -586,20 +600,9 @@ ol {
   white-space: pre-wrap;
 }
 
-@media (width < 48rem) {
+@media (width < 54rem) {
   body {
-    font-size: 14px;
-  }
-
-  /*
-   * BasiqPushNavigationLayout reserves a 40px edge rail for its control.
-   * Keep the control over the header, but let the page itself use the full viewport width.
-   */
-  .mobile-layout > div:nth-child(2) {
-    height: 100%;
-    min-height: 0;
-    padding-left: 0;
-    overflow: hidden;
+    font-size: 0.875rem;
   }
 
   .mobile-layout .layout-content {
@@ -610,27 +613,22 @@ ol {
     scrollbar-gutter: stable;
   }
 
-  .mobile-layout > div:nth-child(2) > div:first-child {
-    z-index: 30;
-    pointer-events: none;
-  }
-
-  .mobile-layout > div:nth-child(2) > div:first-child > button {
-    pointer-events: auto;
+  .mobile-layout .site-workspace {
+    min-height: 100%;
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
   }
 
   .mobile-header {
     position: sticky;
     z-index: 20;
     top: 0;
-    min-height: 58px;
+    min-height: 52px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 9px 16px 9px 48px;
+    padding: 8px 16px;
     border-bottom: 1px solid var(--basiq-color-border-separator);
-    background: color-mix(in srgb, var(--basiq-color-surface-base) 96%, transparent);
-    backdrop-filter: blur(12px);
+    background: var(--basiq-color-surface-base);
   }
 
   .mobile-brand {
@@ -641,19 +639,20 @@ ol {
   }
 
   .mobile-brand .brand-mark {
+    object-fit: contain;
+    mix-blend-mode: multiply;
     width: 30px;
     height: 30px;
-    font-size: 0.64rem;
   }
 
   .mobile-header > span {
     color: var(--basiq-color-content-subtle);
-    font-size: 0.72rem;
+    font-size: 0.8125rem;
   }
 
   .page {
     width: 100%;
-    padding: 20px 16px 46px;
+    padding: 16px 16px 32px;
   }
 
   .page-heading {
@@ -662,7 +661,7 @@ ol {
   }
 
   .page-heading h1 {
-    font-size: 1.65rem;
+    font-size: 1.375rem;
   }
 
   .form-grid {
