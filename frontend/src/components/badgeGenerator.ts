@@ -25,7 +25,7 @@ type BadgeParams = {
   accentContrast: boolean;
 };
 
-function cyrb53(value: string, seed = 0) {
+export function cyrb53(value: string, seed = 0) {
   let h1 = 0xdeadbeef ^ seed;
   let h2 = 0x41c6ce57 ^ seed;
   for (let index = 0; index < value.length; index += 1) {
@@ -224,7 +224,7 @@ function generateIdentifier(rng: SeededRng) {
   return `${rng.choice(first)}_${rng.choice(second)}`;
 }
 
-function generateParams(seed: string): BadgeParams {
+export function generateParams(seed: string): BadgeParams {
   const rng = new SeededRng(seed);
   const hash = cyrb53(seed);
   const theme = solidThemes[Math.floor(rng.next() * solidThemes.length)] as SolidTheme;
@@ -246,7 +246,7 @@ function generateParams(seed: string): BadgeParams {
   };
 }
 
-function renderOuterBezel(cx: number, cy: number, params: BadgeParams) {
+export function renderOuterBezel(cx: number, cy: number, params: BadgeParams) {
   const theme = params.theme;
   const outerRadius = 162;
   const innerRadius = outerRadius - params.bezelWidth;
@@ -288,7 +288,7 @@ function renderOuterBezel(cx: number, cy: number, params: BadgeParams) {
   }
 }
 
-function renderMiddleSolidShapes(cx: number, cy: number, params: BadgeParams) {
+export function renderMiddleSolidShapes(cx: number, cy: number, params: BadgeParams) {
   const theme = params.theme;
   const outerRadius = 126;
   const innerRadius = 94;
@@ -336,7 +336,7 @@ function renderMiddleSolidShapes(cx: number, cy: number, params: BadgeParams) {
   }
 }
 
-function renderReverseAccentShapes(cx: number, cy: number, params: BadgeParams) {
+export function renderReverseAccentShapes(cx: number, cy: number, params: BadgeParams) {
   const theme = params.theme;
   const radius = 70;
   const count = params.symmetry >= 6 ? params.symmetry / 2 : params.symmetry;
@@ -352,7 +352,7 @@ function renderReverseAccentShapes(cx: number, cy: number, params: BadgeParams) 
   return `${svg}<circle cx="${cx}" cy="${cy}" r="${radius}" stroke="${theme.secondary}" stroke-width="3" stroke-dasharray="16 16" fill="none"/>`;
 }
 
-function renderSolidCore(cx: number, cy: number, params: BadgeParams) {
+export function renderSolidCore(cx: number, cy: number, params: BadgeParams) {
   const theme = params.theme;
   const radius = 46;
 

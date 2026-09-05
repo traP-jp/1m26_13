@@ -1,10 +1,19 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, useId } from "vue";
 
-import { buildBadgeSvg } from "@/components/badgeGenerator";
+import { buildLectureBadge } from "@/components/badgeDesign";
 
-const props = defineProps<{ lectureName: string }>();
-const svgMarkup = computed(() => buildBadgeSvg(`badge-alpha-v1:${props.lectureName}`));
+const props = defineProps<{ lectureName: string; hostGroupNames?: string[]; family?: string }>();
+const instanceId = useId();
+const svgMarkup = computed(
+  () =>
+    buildLectureBadge({
+      lectureName: props.lectureName,
+      hostGroupNames: props.hostGroupNames,
+      family: props.family,
+      instanceId,
+    }).svg,
+);
 </script>
 
 <template>

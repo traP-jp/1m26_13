@@ -578,6 +578,9 @@ components:
       properties:
         lectureId: { $ref: "#/components/schemas/LectureId" }
         lectureName: { type: string }
+        organizer:
+          allOf: [{ $ref: "#/components/schemas/Organizer" }]
+          description: Current lecture organizer, used for badge host color; omitted when unset.
         academicYearStart: { type: integer }
         academicYearEnd: { type: integer }
         earnedAt: { type: string, format: date-time }

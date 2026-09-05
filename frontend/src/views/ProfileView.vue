@@ -3,12 +3,14 @@ import { BasiqAvatar, BasiqCard, BasiqTabs } from "basiq-ui";
 import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 
-import { getProfile, type Profile } from "@/api/resources";
+import { getProfile, listLectures, type Profile } from "@/api/resources";
 import AppIcon from "@/components/AppIcon.vue";
 import BadgeAlpha from "@/components/BadgeAlpha.vue";
+import { inferBadgeFamilies, normalizeBadgeName } from "@/components/badgeNameAffinity";
 
 const route = useRoute();
 const profile = ref<Profile>();
+const badgeFamilies = ref(new Map<string, string>());
 const activeTab = ref("badges");
 const selectedBadgeId = ref("");
 const loading = ref(true);
@@ -33,7 +35,13 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    profile.value = await getProfile(String(route.params.traqId));
+    const [loadedProfile, lectures] = await Promise.all([
+      getProfile(String(route.params.traqId)),
+      listLectures(),
+    ]);
+    // Use the published catalog so the same badge does not change with a user's completion set.
+    badgeFamilies.value = inferBadgeFamilies(lectures.map((lecture) => lecture.name));
+    profile.value = loadedProfile;
     if (!profile.value.badges.some((badge) => badge.lectureId === selectedBadgeId.value))
       selectedBadgeId.value = profile.value.badges[0]?.lectureId ?? "";
   } catch (reason) {
@@ -45,6 +53,12 @@ async function load() {
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium" }).format(new Date(value));
+}
+
+function hostGroupNames(badge: Profile["badges"][number]): string[] {
+  return badge.organizer?.kind === "group" && badge.organizer.groupName
+    ? [badge.organizer.groupName]
+    : [];
 }
 
 onMounted(load);
@@ -113,7 +127,12 @@ onMounted(load);
                     :aria-pressed="badge.lectureId === selectedBadgeId"
                     @click="selectedBadgeId = badge.lectureId"
                   >
-                    <span class="badge-mark"><BadgeAlpha :lecture-name="badge.lectureName" /></span>
+                    <span class="badge-mark"
+                      ><BadgeAlpha
+                        :lecture-name="badge.lectureName"
+                        :host-group-names="hostGroupNames(badge)"
+                        :family="badgeFamilies.get(normalizeBadgeName(badge.lectureName))"
+                    /></span>
                     <span class="badge-tile-copy">
                       <strong>{{ badge.lectureName }}</strong>
                       <small
@@ -129,7 +148,11 @@ onMounted(load);
             <aside v-if="selectedBadge" class="badge-detail-rail" aria-label="選択したバッジ">
               <BasiqCard class="badge-detail-card">
                 <div class="badge-detail-mark">
-                  <BadgeAlpha :lecture-name="selectedBadge.lectureName" />
+                  <BadgeAlpha
+                    :lecture-name="selectedBadge.lectureName"
+                    :host-group-names="hostGroupNames(selectedBadge)"
+                    :family="badgeFamilies.get(normalizeBadgeName(selectedBadge.lectureName))"
+                  />
                 </div>
                 <div class="badge-detail-copy">
                   <strong>{{ selectedBadge.lectureName }}</strong>

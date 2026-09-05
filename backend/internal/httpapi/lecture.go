@@ -34,6 +34,13 @@ func resourceToAPI(resource *domain.Resource) *api.Resource {
 	return &api.Resource{Title: stringPointer(resource.Title), Url: resource.URL}
 }
 
+func organizerToAPI(organizer *domain.Organizer) *api.Organizer {
+	if organizer == nil {
+		return nil
+	}
+	return &api.Organizer{Kind: api.OrganizerKind(organizer.Kind), Id: organizer.ID, GroupName: stringPointer(organizer.GroupName)}
+}
+
 func sessionToAPI(session domain.Session) api.Session {
 	result := api.Session{Id: session.ID, LectureId: session.LectureID, Name: session.Name,
 		Description: stringPointer(session.Description), Order: session.Order, StartTime: stringPointer(session.StartTime),
@@ -62,9 +69,7 @@ func lectureToAPI(lecture domain.Lecture) api.Lecture {
 		Revision: lecture.Revision, CreatedAt: lecture.CreatedAt, UpdatedAt: lecture.UpdatedAt,
 		Resources: make([]api.Resource, 0, len(lecture.Resources)), Relations: make([]api.LectureRelation, 0, len(lecture.Relations)),
 		Sessions: make([]api.Session, 0, len(lecture.Sessions))}
-	if lecture.Organizer != nil {
-		result.Organizer = &api.Organizer{Kind: api.OrganizerKind(lecture.Organizer.Kind), Id: lecture.Organizer.ID, GroupName: stringPointer(lecture.Organizer.GroupName)}
-	}
+	result.Organizer = organizerToAPI(lecture.Organizer)
 	for _, resource := range lecture.Resources {
 		result.Resources = append(result.Resources, *resourceToAPI(&resource))
 	}

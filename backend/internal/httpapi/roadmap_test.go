@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 	"time"
@@ -8,6 +9,40 @@ import (
 	"github.com/traP-jp/1m26_13/backend/internal/api"
 	"github.com/traP-jp/1m26_13/backend/internal/domain"
 )
+
+func TestBadgeToAPIIncludesCurrentOrganizerWithoutChangingCompletion(t *testing.T) {
+	earned := time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC)
+	lecture := domain.Lecture{ID: "10", Name: "Git講習会", AcademicYearStart: 2026, AcademicYearEnd: 2027,
+		Organizer: &domain.Organizer{Kind: "group", ID: "group-id", GroupName: "SysAd"}}
+	got := badgeToAPI(lecture, earned)
+	if got.LectureId != "10" || got.LectureName != lecture.Name || got.EarnedAt != earned || got.AcademicYearStart != 2026 || got.AcademicYearEnd != 2027 {
+		t.Fatalf("completion identity changed: %#v", got)
+	}
+	if got.Organizer == nil || got.Organizer.Id != "group-id" || got.Organizer.GroupName == nil || *got.Organizer.GroupName != "SysAd" {
+		t.Fatalf("missing organizer: %#v", got.Organizer)
+	}
+	lecture.Organizer = nil
+	got = badgeToAPI(lecture, earned)
+	if got.Organizer != nil {
+		t.Fatalf("unset organizer should remain absent: %#v", got.Organizer)
+	}
+	encoded, err := json.Marshal(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(encoded, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := payload["organizer"]; exists {
+		t.Fatal("unset organizer must be omitted")
+	}
+	lecture.Organizer = &domain.Organizer{Kind: "user", ID: "user-id"}
+	got = badgeToAPI(lecture, earned)
+	if got.Organizer == nil || got.Organizer.Kind != api.User || got.Organizer.GroupName != nil {
+		t.Fatalf("individual organizer misrepresented as a group: %#v", got.Organizer)
+	}
+}
 
 func TestRoadmapFromWriteKeepsFlatMixedTargets(t *testing.T) {
 	input := api.RoadmapWrite{Title: " path ", Items: []api.RoadmapItem{
