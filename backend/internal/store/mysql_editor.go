@@ -346,9 +346,7 @@ func (store *MySQL) PatchLectureAttribute(ctx context.Context, id, path string, 
 		}
 	case "material":
 		var value any
-		if next == nil {
-			value = nil
-		} else {
+		if next != nil {
 			value, err = encodeJSON(next)
 			if err != nil {
 				return domain.Lecture{}, false, err
