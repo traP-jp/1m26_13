@@ -50,8 +50,8 @@ Before handing off a change, run the checks relevant to the files changed.
 
 ```sh
 cd frontend
-mise exec -- pnpm check
-mise exec -- pnpm build
+mise exec node pnpm -- env pnpm check
+mise exec node pnpm -- env pnpm build
 
 cd ../backend
 test -z "$(mise exec -- gofmt -l .)"

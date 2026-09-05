@@ -26,7 +26,7 @@ create_flow_class() {
   jq -r .id "$output"
 }
 
-pre_id="$(create_flow_class '事前Flow' lecture_pre $'# 準備\n\n{{ edit lecture.name }}\n\n- [ ] 目的を確認する' "$work_dir/pre.json")"
+pre_id="$(create_flow_class '事前Flow' lecture_pre $'# 準備\n\n{{ lecture.name }}\n\n- [ ] 目的を確認する' "$work_dir/pre.json")"
 main_id="$(create_flow_class '開催Flow' session_main $'# 開催\n\n{{ session.name }}\n\n- [ ] 実施する' "$work_dir/main.json")"
 post_id="$(create_flow_class '事後Flow' lecture_post $'# 事後\n\n- [ ] 振り返る' "$work_dir/post.json")"
 replacement_id="$(create_flow_class '開催Flow 改訂' session_main $'# 開催 改訂\n\n- [ ] 改訂内容を確認する' "$work_dir/replacement.json")"
@@ -36,7 +36,7 @@ lecture_body="$(jq -cn --arg pre "$pre_id" --arg main "$main_id" --arg post "$po
 request POST /lectures "$lecture_body" "$work_dir/workspace.json"
 lecture_id="$(jq -r .lecture.id "$work_dir/workspace.json")"
 session_id="$(jq -r '.lecture.sessions[0].id' "$work_dir/workspace.json")"
-session_flow_id="$(jq -r --arg target "$session_id" '.flows[] | select(.targetId == $target).id' "$work_dir/workspace.json")"
+session_flow_id="$(jq -r --arg target "$session_id" '.flows[] | select(.type == "session_main" and .targetId == $target).id' "$work_dir/workspace.json")"
 jq -e '.lecture.sessions | length == 1' "$work_dir/workspace.json" >/dev/null
 jq -e '.flows | length == 3' "$work_dir/workspace.json" >/dev/null
 

@@ -5,13 +5,13 @@
 
 ## シナリオ
 
-1. Flow Stockで`lecture_pre`のFlowClassを作る。
-2. 運営画面からLectureを作り、事前Flowを適用して途中保存・再開する。
+1. Flow Stockで`lecture_pre`、`session_main`、`lecture_post`のFlowClassを作る。
+2. 運営画面で3種類のFlowClassを選んでLectureを作り、原子的に作成された第1回Sessionと3件のFlowを確認する。事前Flowを途中保存して再開する。
 3. 通常Sessionを2件、再放送Sessionを1件作る。再放送は通常のLecture詳細に出ないことを確認する。
 4. 別の利用者が検索と一本道ロードマップからLectureへ到達する。
 5. 通常Sessionを1件ずつ完了し、プロフィール、講習会バッジ、ロードマップ進捗が同じ記録から変わることを確認する。
 6. FlowClass本文を更新し、適用済みFlowの本文が変わらないことを確認する。
-7. 二つのブラウザで同じ項目を編集し、古いrevisionの保存が競合として拒否されることを確認する。
+7. 二つのブラウザでLecture / Sessionの同じ属性を編集し、後から保存した値が反映され、競合警告と属性履歴の両方が残ることを確認する。
 
 ## 記録項目
 
