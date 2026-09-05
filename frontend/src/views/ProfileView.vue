@@ -196,8 +196,8 @@ onMounted(load);
                       ><span :style="{ width: `${roadmap.progressPercent}%` }"></span
                     ></span>
                     <small>{{
-                      roadmap.nextLectureId
-                        ? "次の講習会あり"
+                      roadmap.nextItemId
+                        ? "次の学習項目あり"
                         : roadmap.totalItemCount
                           ? "完了"
                           : "講習会未登録"

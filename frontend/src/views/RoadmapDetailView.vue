@@ -14,28 +14,43 @@ const loading = ref(true);
 const error = ref("");
 const copied = ref(false);
 
-const items = computed(() =>
-  (roadmap.value?.stages ?? []).flatMap((stage) =>
-    stage.items.map((item) => ({
-      ...item,
-      stageTitle: stage.title,
-      stageDescription: stage.description,
-    })),
-  ),
-);
+const items = computed(() => roadmap.value?.items ?? []);
+function resolveItem(item: Roadmap["items"][number]) {
+  if (item.targetType === "lecture") {
+    const lecture = lectures.value[item.targetId];
+    return {
+      title: lecture?.name ?? "講習会",
+      description: lecture?.description ?? "",
+      meta: `${lecture?.academicYearStart ?? ""}年度`,
+      link: `/lectures/${item.targetId}`,
+    };
+  }
+  const lecture = Object.values(lectures.value).find((entry) =>
+    entry.sessions.some((session) => session.id === item.targetId),
+  );
+  const session = lecture?.sessions.find((entry) => entry.id === item.targetId);
+  return {
+    title: `${lecture?.name ?? "講習会"} 第${(session?.order ?? 0) + 1}回`,
+    description: session?.description ?? lecture?.description ?? "",
+    meta: session?.date ?? "日付未設定",
+    link: `/lectures/${lecture?.id ?? ""}#第${(session?.order ?? 0) + 1}回`,
+  };
+}
 const shareMarkdown = computed(() => {
   if (!roadmap.value) return "";
   const lines = items.value.map((item, index) => {
-    const lecture = lectures.value[item.lectureId];
-    return `${index + 1}. [${lecture?.name ?? "講習会"}](${window.location.origin}/lectures/${item.lectureId})`;
+    const target = resolveItem(item);
+    return `${index + 1}. [${target.title}](${window.location.origin}${target.link})`;
   });
   return `## ${roadmap.value.title}\n\n${lines.join("\n")}`;
 });
 const remaining = computed(() =>
   Math.max(0, (roadmap.value?.totalItemCount ?? 0) - (roadmap.value?.completedItemCount ?? 0)),
 );
-const nextLecture = computed(() =>
-  roadmap.value?.nextLectureId ? lectures.value[roadmap.value.nextLectureId] : undefined,
+const nextItem = computed(() =>
+  roadmap.value?.nextItemId
+    ? items.value.find((item) => item.id === roadmap.value?.nextItemId)
+    : undefined,
 );
 
 async function load() {
@@ -82,8 +97,7 @@ onMounted(load);
           <h1>{{ roadmap.title }}</h1>
           <p>{{ roadmap.description }}</p>
           <div class="roadmap-tags">
-            <span>一本道</span><span>講習会 {{ roadmap.totalItemCount }}件</span
-            ><span>{{ roadmap.stages.length }}段階</span>
+            <span>一本道</span><span>学習項目 {{ roadmap.totalItemCount }}件</span>
           </div>
         </div>
         <BasiqButton tone="neutral" variant="outline" @click="scrollToShare"
@@ -116,16 +130,24 @@ onMounted(load);
         <BasiqCard class="current-card">
           <div class="current-content">
             <div>
-              <span class="current-label">{{ nextLecture ? "現在地" : "完了" }}</span>
-              <h2>{{ nextLecture?.name ?? "このロードマップを完了しました" }}</h2>
-              <p>{{ nextLecture?.description ?? "学習記録がすべて反映されています。" }}</p>
-              <div v-if="nextLecture" class="current-meta">
-                <span>{{ nextLecture.sessions.length }}開催</span
-                ><span>{{ nextLecture.academicYearStart }}年度</span>
+              <span class="current-label">{{ nextItem ? "現在地" : "完了" }}</span>
+              <h2>
+                {{ nextItem ? resolveItem(nextItem).title : "このロードマップを完了しました" }}
+              </h2>
+              <p>
+                {{
+                  nextItem
+                    ? resolveItem(nextItem).description
+                    : "学習記録がすべて反映されています。"
+                }}
+              </p>
+              <div v-if="nextItem" class="current-meta">
+                <span>{{ nextItem.targetType === "lecture" ? "講習会" : "開催" }}</span
+                ><span>{{ resolveItem(nextItem).meta }}</span>
               </div>
             </div>
-            <BasiqButton v-if="nextLecture" @click="router.push(`/lectures/${nextLecture.id}`)"
-              >講習会を見る</BasiqButton
+            <BasiqButton v-if="nextItem" @click="router.push(resolveItem(nextItem).link)"
+              >学習項目を見る</BasiqButton
             >
           </div>
         </BasiqCard>
@@ -142,34 +164,32 @@ onMounted(load);
           <ol class="path-list">
             <li
               v-for="(item, index) in items"
-              :key="item.lectureId"
+              :key="item.id"
               class="path-row"
               :class="{
-                'is-completed': roadmap.completedLectureIds.includes(item.lectureId),
-                'is-current': roadmap.nextLectureId === item.lectureId,
+                'is-completed': roadmap.completedItemIds.includes(item.id),
+                'is-current': roadmap.nextItemId === item.id,
               }"
             >
               <div class="path-marker" aria-hidden="true">
-                <span v-if="roadmap.completedLectureIds.includes(item.lectureId)">✓</span
+                <span v-if="roadmap.completedItemIds.includes(item.id)">✓</span
                 ><span v-else>{{ String(index + 1).padStart(2, "0") }}</span>
               </div>
-              <RouterLink :to="`/lectures/${item.lectureId}`" class="path-link">
+              <RouterLink :to="resolveItem(item).link" class="path-link">
                 <BasiqCard class="path-card">
                   <div class="path-card-content">
                     <div>
                       <span class="path-status">{{
-                        roadmap.completedLectureIds.includes(item.lectureId)
+                        roadmap.completedItemIds.includes(item.id)
                           ? "完了"
-                          : roadmap.nextLectureId === item.lectureId
+                          : roadmap.nextItemId === item.id
                             ? "現在地"
                             : "未着手"
                       }}</span>
-                      <h3>{{ lectures[item.lectureId]?.name ?? "講習会" }}</h3>
+                      <h3>{{ resolveItem(item).title }}</h3>
                       <div class="path-meta">
-                        <span>{{ item.stageTitle }}</span
-                        ><span>{{
-                          item.note || `${lectures[item.lectureId]?.sessions.length ?? 0}開催`
-                        }}</span>
+                        <span>{{ item.targetType === "lecture" ? "講習会" : "開催" }}</span
+                        ><span>{{ resolveItem(item).meta }}</span>
                       </div>
                     </div>
                     <AppIcon name="arrow" />

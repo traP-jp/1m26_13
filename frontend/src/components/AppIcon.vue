@@ -18,6 +18,7 @@ withDefaults(
       | "plus"
       | "record"
       | "search"
+      | "trash"
       | "user";
     size?: number;
   }>(),
@@ -92,6 +93,9 @@ withDefaults(
     <template v-else-if="name === 'copy'">
       <rect x="8" y="8" width="11" height="11" rx="2" />
       <path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" />
+    </template>
+    <template v-else-if="name === 'trash'">
+      <path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13" />
     </template>
     <template v-else-if="name === 'check'"><path d="M6 12.5 10 16l8-9" /></template>
     <template v-else-if="name === 'record'"><circle cx="12" cy="12" r="8" /></template>
