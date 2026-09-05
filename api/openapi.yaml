@@ -65,6 +65,17 @@ paths:
         "200": { description: Editor workspace, content: { application/json: { schema: { $ref: "#/components/schemas/LectureWorkspace" } } } }
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
+  /lectures/{lectureId}/inherit:
+    parameters:
+      - { $ref: "#/components/parameters/LectureId" }
+    post:
+      operationId: inheritLecture
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/LectureInherit" } } } }
+      responses:
+        "201": { description: Inherited draft workspace, content: { application/json: { schema: { $ref: "#/components/schemas/LectureWorkspace" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
   /lectures/{lectureId}/attributes:
     parameters:
       - { $ref: "#/components/parameters/LectureId" }
@@ -347,6 +358,12 @@ components:
         lecturePreFlowClassId: { type: string }
         sessionMainFlowClassId: { type: string }
         lecturePostFlowClassId: { type: string }
+        academicYearStart: { type: integer, minimum: 2000, maximum: 2200 }
+        academicYearEnd: { type: integer, minimum: 2000, maximum: 2200 }
+    LectureInherit:
+      type: object
+      required: [academicYearStart, academicYearEnd]
+      properties:
         academicYearStart: { type: integer, minimum: 2000, maximum: 2200 }
         academicYearEnd: { type: integer, minimum: 2000, maximum: 2200 }
     Lecture:

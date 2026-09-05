@@ -28,6 +28,11 @@ type LectureCreate struct {
 	LecturePreFlowClassID, SessionMainFlowClassID, LecturePostFlowClassID string
 }
 
+type LectureInherit struct {
+	SourceLectureID                    string
+	AcademicYearStart, AcademicYearEnd int
+}
+
 type SessionCreate struct {
 	Mode, FlowClassID, SourceSessionID string
 	ReplayOfSessionIDs                 []string
@@ -42,6 +47,7 @@ type Repository interface {
 	ListLectures(context.Context, LectureFilter, string) ([]domain.Lecture, error)
 	GetLecture(context.Context, string, string, bool) (domain.Lecture, error)
 	CreateLectureWorkspace(context.Context, LectureCreate, string) (domain.LectureWorkspace, error)
+	InheritLectureWorkspace(context.Context, LectureInherit, string) (domain.LectureWorkspace, error)
 	GetLectureWorkspace(context.Context, string, string) (domain.LectureWorkspace, error)
 	PatchLectureAttribute(context.Context, string, string, any, any, bool, string) (domain.Lecture, bool, error)
 	UpdateLecture(context.Context, domain.Lecture, int, string) (domain.Lecture, error)

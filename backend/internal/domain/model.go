@@ -9,6 +9,26 @@ type Resource struct {
 type Organizer struct {
 	Kind, ID, GroupName string
 }
+
+func (lecture Lecture) OrganizerKind() string {
+	if lecture.Organizer == nil {
+		return ""
+	}
+	return lecture.Organizer.Kind
+}
+func (lecture Lecture) OrganizerID() string {
+	if lecture.Organizer == nil {
+		return ""
+	}
+	return lecture.Organizer.ID
+}
+func (lecture Lecture) OrganizerGroupName() string {
+	if lecture.Organizer == nil {
+		return ""
+	}
+	return lecture.Organizer.GroupName
+}
+
 type Relation struct {
 	ToLectureID string `json:"toLectureId"`
 	Type        string `json:"type"`

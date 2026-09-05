@@ -22,6 +22,7 @@ import {
   getDirectory,
   getLectureHistory,
   getLectureWorkspace,
+  inheritLecture,
   listFields,
   listFlowClasses,
   listLectures,
@@ -68,6 +69,9 @@ const route = useRoute();
 const router = useRouter();
 const lectureId = computed(() => String(route.params.id ?? ""));
 const isNew = computed(() => !lectureId.value);
+const createMode = ref<"" | "blank" | "inherit">("");
+const inheritQuery = ref("");
+const inheritYear = ref(new Date().getFullYear());
 const loading = ref(true);
 const saving = ref(false);
 const error = ref("");
@@ -90,6 +94,9 @@ const reviewDrafts = ref<EditorAttributeDraft[]>([]);
 const buffers = reactive<Record<string, unknown>>({});
 const baseValues = reactive<Record<string, unknown>>({});
 const saveStates = reactive<Record<string, "idle" | "dirty" | "saving" | "saved" | "error">>({});
+const flowSaveStates = reactive<Record<string, "idle" | "dirty" | "saving" | "saved" | "error">>(
+  {},
+);
 const timers = new Map<string, number>();
 
 const createForm = reactive({
@@ -153,9 +160,37 @@ const replacementCandidates = computed(() => {
   const flow = workspace.value?.flows.find((entry) => entry.id === replaceForm.flowId);
   return flowClasses.value.filter((entry) => entry.listed && entry.type === flow?.type);
 });
+const inheritanceCandidates = computed(() => {
+  const words = inheritQuery.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  return [...lectures.value]
+    .filter((entry) => {
+      const fieldName = fields.value.find((field) => field.id === entry.fieldId)?.name ?? "";
+      const haystack = [
+        entry.name,
+        entry.description,
+        entry.academicYearStart,
+        entry.academicYearEnd,
+        entry.organizer?.groupName,
+        fieldName,
+      ]
+        .filter((value) => value !== undefined && value !== null)
+        .join(" ")
+        .toLowerCase();
+      return words.every((word) => haystack.includes(word));
+    })
+    .sort((a, b) => b.academicYearStart - a.academicYearStart || a.name.localeCompare(b.name));
+});
 const normalOrderIds = computed(() =>
   orderIds.value.filter((id) => !sessions.value.find((entry) => entry.id === id)?.isReplay),
 );
+const editorSaveLabel = computed(() => {
+  const phases = [...Object.values(saveStates), ...Object.values(flowSaveStates)];
+  if (phases.includes("error")) return "保存に失敗しました";
+  if (phases.includes("saving")) return "保存中…";
+  if (phases.includes("dirty")) return "変更を保存します";
+  if (phases.includes("saved")) return "保存しました";
+  return "変更は自動で保存されます";
+});
 const supportWarnings = computed(
   () =>
     [
@@ -445,10 +480,29 @@ async function submitCreate() {
   try {
     const created = await createLecture({ ...createForm });
     await router.replace(`/admin/lectures/${created.lecture.id}`);
+    window.scrollTo({ top: 0 });
     workspace.value = created;
     activeTab.value = created.flows.find((flow) => flow.type === "lecture_pre")?.id ?? "";
   } catch (reason) {
     error.value = reason instanceof Error ? reason.message : "講習会を作成できませんでした";
+  } finally {
+    saving.value = false;
+  }
+}
+async function submitInherited(sourceLectureId: string) {
+  saving.value = true;
+  error.value = "";
+  try {
+    const created = await inheritLecture(sourceLectureId, {
+      academicYearStart: inheritYear.value,
+      academicYearEnd: inheritYear.value,
+    });
+    await router.replace(`/admin/lectures/${created.lecture.id}`);
+    window.scrollTo({ top: 0 });
+    workspace.value = created;
+    activeTab.value = created.flows.find((flow) => flow.type === "lecture_pre")?.id ?? "";
+  } catch (reason) {
+    error.value = reason instanceof Error ? reason.message : "講習会を引き継げませんでした";
   } finally {
     saving.value = false;
   }
@@ -699,18 +753,23 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
 
 <template>
   <main class="page lecture-workspace">
-    <nav class="breadcrumb" aria-label="パンくず">
-      <RouterLink to="/admin">運営向けページ</RouterLink><b>/</b
-      ><span>{{ isNew ? "講習会を作成" : "講習会を編集" }}</span>
-    </nav>
     <header class="workspace-header">
       <div>
-        <p class="eyebrow">LECTURE EDITOR</p>
+        <RouterLink class="back-link" to="/admin">← 運営向けページ</RouterLink>
+        <span v-if="lecture" class="editor-state" :class="{ published: lecture.isPublished }">{{
+          lecture.isPublished ? "公開中" : "下書き"
+        }}</span>
         <h1>{{ isNew ? "講習会を作成" : lecture?.name }}</h1>
+        <p v-if="lecture" class="editor-save-status" aria-live="polite">{{ editorSaveLabel }}</p>
       </div>
-      <span v-if="lecture" class="publication-pill" :class="{ published: lecture.isPublished }">{{
-        lecture.isPublished ? "公開中" : "下書き"
-      }}</span>
+      <div v-if="lecture" class="header-actions">
+        <BasiqButton tone="neutral" variant="outline" type="button" @click="openHistory()"
+          >変更履歴</BasiqButton
+        >
+        <BasiqButton tone="neutral" variant="outline" type="button" @click="modal = 'more'"
+          >その他</BasiqButton
+        >
+      </div>
     </header>
     <p v-if="toast" class="toast" role="status">{{ toast }}</p>
     <p v-if="error" class="notice error" role="alert">{{ error }}</p>
@@ -719,7 +778,29 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
     </div>
     <div v-if="loading" class="loading-state">編集データを読み込んでいます</div>
 
-    <form v-else-if="isNew && !workspace" class="create-panel" @submit.prevent="submitCreate">
+    <section v-else-if="isNew && !workspace && !createMode" class="creation-choice">
+      <header>
+        <h2>作り方を選ぶ</h2>
+        <p>あとからすべての項目と使用Flowを変更できます。</p>
+      </header>
+      <div>
+        <button type="button" @click="createMode = 'blank'">
+          <strong>白紙から作る</strong>
+          <span>名前と3種類のFlowを選び、新しい講習会を始めます。</span>
+        </button>
+        <button type="button" @click="createMode = 'inherit'">
+          <strong>過去の講習会から引き継ぐ</strong>
+          <span>基本情報、通常開催、使用Flowを引き継いで今年度版を作ります。</span>
+        </button>
+      </div>
+    </section>
+
+    <form
+      v-else-if="isNew && !workspace && createMode === 'blank'"
+      class="create-panel"
+      @submit.prevent="submitCreate"
+    >
+      <button class="mode-back" type="button" @click="createMode = ''">← 作り方を選び直す</button>
       <BasiqCard>
         <template #header
           ><div>
@@ -788,6 +869,49 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
       </BasiqCard>
     </form>
 
+    <section v-else-if="isNew && !workspace && createMode === 'inherit'" class="inherit-panel">
+      <button class="mode-back" type="button" @click="createMode = ''">← 作り方を選び直す</button>
+      <header>
+        <div>
+          <h2>引き継ぎ元を選ぶ</h2>
+          <p>名前・年度・班・分野で検索できます。回答や進捗、公開状態は引き継ぎません。</p>
+        </div>
+        <label class="year-field">
+          <span>新しい年度</span>
+          <input v-model.number="inheritYear" type="number" min="2000" max="2200" />
+        </label>
+      </header>
+      <BasiqFormField label="講習会を検索">
+        <BasiqInput v-model="inheritQuery" type="search" placeholder="名前、年度、班、分野" />
+      </BasiqFormField>
+      <div class="inherit-list">
+        <article v-for="candidate in inheritanceCandidates" :key="candidate.id">
+          <span>{{ candidate.academicYearStart }}年度</span>
+          <div>
+            <h3>{{ candidate.name }}</h3>
+            <p>
+              {{ fields.find((field) => field.id === candidate.fieldId)?.name || "分野未設定" }}
+              <template v-if="candidate.organizer?.groupName">
+                · {{ candidate.organizer.groupName }}</template
+              >
+              · 通常開催 {{ candidate.sessions.filter((session) => !session.isReplay).length }}件
+            </p>
+          </div>
+          <BasiqButton
+            type="button"
+            tone="neutral"
+            variant="outline"
+            :disabled="saving"
+            @click="submitInherited(candidate.id)"
+            >{{ saving ? "作成中…" : "引き継ぐ" }}</BasiqButton
+          >
+        </article>
+        <p v-if="!inheritanceCandidates.length" class="inherit-empty">
+          条件に合う講習会はありません。
+        </p>
+      </div>
+    </section>
+
     <BasiqTabsRoot v-else-if="workspace && lecture" v-model="activeTab" class="workspace-tabs">
       <div class="tab-scroll">
         <BasiqTabsList aria-label="講習会編集" width="max-content">
@@ -839,6 +963,7 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
           @request-publish="
             (request) => requestPublish(flow.targetId, request.nextValue, request.baseValue)
           "
+          @save-status="(phase) => (flowSaveStates[flow.id] = phase)"
         />
       </BasiqTabsContent>
 
@@ -1509,11 +1634,40 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
 }
 
 .workspace-header {
-  margin: 22px 0 28px;
+  min-height: 92px;
+  margin: 0 0 18px;
+  padding: 10px 0 16px;
+  border-bottom: 1px solid var(--basiq-color-border-separator);
 }
 
 .workspace-header h1 {
-  font-size: 32px;
+  margin: 2px 0;
+  font-size: 1.45rem;
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 5px;
+  color: var(--basiq-color-content-subtle);
+  font-size: 0.78rem;
+  text-decoration: none;
+}
+
+.editor-state {
+  margin-left: 12px;
+  color: var(--basiq-color-content-subtle);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.editor-state.published {
+  color: var(--app-success);
+}
+
+.editor-save-status {
+  margin: 0;
+  color: var(--basiq-color-content-subtle);
+  font-size: 0.75rem;
 }
 
 .eyebrow,
@@ -1553,6 +1707,118 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
 .create-panel {
   max-width: 720px;
   margin: 40px auto;
+}
+
+.creation-choice,
+.inherit-panel {
+  max-width: 820px;
+  margin: 36px auto;
+}
+
+.creation-choice > header,
+.inherit-panel > header {
+  margin-bottom: 18px;
+}
+
+.creation-choice > header p,
+.inherit-panel > header p {
+  margin: 4px 0 0;
+  color: var(--basiq-color-content-subtle);
+}
+
+.creation-choice > div {
+  overflow: hidden;
+  border: 1px solid var(--basiq-color-border-separator);
+  border-radius: var(--basiq-radius-sm);
+  background: var(--basiq-color-surface-base);
+}
+
+.creation-choice button {
+  width: 100%;
+  display: grid;
+  gap: 4px;
+  padding: 20px;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.creation-choice button + button,
+.inherit-list article + article {
+  border-top: 1px solid var(--basiq-color-border-separator);
+}
+
+.creation-choice button:hover {
+  background: var(--basiq-color-navigation-item-background-current-rest);
+}
+
+.creation-choice button span,
+.inherit-list p {
+  color: var(--basiq-color-content-subtle);
+  font-size: 0.85rem;
+}
+
+.mode-back {
+  margin-bottom: 14px;
+  padding: 0;
+  border: 0;
+  color: var(--basiq-color-content-subtle);
+  background: transparent;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.inherit-panel > header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.year-field {
+  width: 150px;
+  display: grid;
+  gap: 5px;
+  flex: 0 0 auto;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.year-field input {
+  min-height: 40px;
+  padding: 7px 10px;
+  border: 1px solid var(--basiq-color-border-control);
+  border-radius: var(--basiq-radius-sm);
+  font: inherit;
+}
+
+.inherit-list {
+  margin-top: 16px;
+  overflow: hidden;
+  border: 1px solid var(--basiq-color-border-separator);
+  border-radius: var(--basiq-radius-sm);
+}
+
+.inherit-list article {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+}
+
+.inherit-list h3,
+.inherit-list p {
+  margin: 0;
+}
+
+.inherit-empty {
+  margin: 0;
+  padding: 20px;
 }
 
 .support-warning,
@@ -1618,13 +1884,25 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
 
 .workspace-tabs :deep([role="tablist"]) {
   gap: 2px;
+  overflow-x: auto;
   border-bottom: 0;
+}
+
+.workspace-tabs :deep([role="tab"]) {
+  min-height: 54px;
+  min-width: 104px;
+  padding: 9px 16px;
+  white-space: normal;
+}
+
+.workspace-tabs :deep([role="tab"][data-state="active"]) {
+  background: var(--basiq-color-navigation-item-background-current-rest);
 }
 
 .workspace-tabs :deep([role="tabpanel"]) {
   width: 100%;
   margin: 0;
-  padding: 28px 0 0;
+  padding: 22px 0 0;
   background: transparent;
 }
 
@@ -1845,10 +2123,32 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
 
   .workspace-header {
     align-items: flex-start;
+    flex-direction: column;
   }
 
   .workspace-header h1 {
-    font-size: 26px;
+    font-size: 1.3rem;
+  }
+
+  .workspace-header .header-actions {
+    width: 100%;
+  }
+
+  .workspace-tabs :deep([role="tab"]) {
+    min-width: 112px;
+  }
+
+  .inherit-panel > header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .year-field {
+    width: 100%;
+  }
+
+  .inherit-list article {
+    grid-template-columns: 1fr;
   }
 
   .lecture-grid {

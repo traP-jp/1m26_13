@@ -417,6 +417,12 @@ type LectureExportSchemaVersion int
 // LectureId defines model for LectureId.
 type LectureId = string
 
+// LectureInherit defines model for LectureInherit.
+type LectureInherit struct {
+	AcademicYearEnd   int `json:"academicYearEnd"`
+	AcademicYearStart int `json:"academicYearStart"`
+}
+
 // LecturePatchResult defines model for LecturePatchResult.
 type LecturePatchResult struct {
 	ConflictDetected bool    `json:"conflictDetected"`
@@ -643,6 +649,9 @@ type CreateLectureJSONRequestBody = LectureCreate
 // PatchLectureAttributeJSONRequestBody defines body for PatchLectureAttribute for application/json ContentType.
 type PatchLectureAttributeJSONRequestBody = AttributePatch
 
+// InheritLectureJSONRequestBody defines body for InheritLecture for application/json ContentType.
+type InheritLectureJSONRequestBody = LectureInherit
+
 // ReorderSessionsJSONRequestBody defines body for ReorderSessions for application/json ContentType.
 type ReorderSessionsJSONRequestBody = SessionOrderWrite
 
@@ -717,6 +726,9 @@ type ServerInterface interface {
 
 	// (GET /lectures/{lectureId}/history)
 	GetLectureHistory(ctx echo.Context, lectureId LectureId, params GetLectureHistoryParams) error
+
+	// (POST /lectures/{lectureId}/inherit)
+	InheritLecture(ctx echo.Context, lectureId LectureId) error
 
 	// (PUT /lectures/{lectureId}/session-order)
 	ReorderSessions(ctx echo.Context, lectureId LectureId) error
@@ -1099,6 +1111,22 @@ func (w *ServerInterfaceWrapper) GetLectureHistory(ctx echo.Context) error {
 	return err
 }
 
+// InheritLecture converts echo context to params.
+func (w *ServerInterfaceWrapper) InheritLecture(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "lectureId" -------------
+	var lectureId LectureId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "lectureId", ctx.Param("lectureId"), &lectureId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter lectureId: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.InheritLecture(ctx, lectureId)
+	return err
+}
+
 // ReorderSessions converts echo context to params.
 func (w *ServerInterfaceWrapper) ReorderSessions(ctx echo.Context) error {
 	var err error
@@ -1368,6 +1396,7 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 	router.POST(options.BaseURL+"/lectures", wrapper.CreateLecture, options.OperationMiddlewares["createLecture"]...)
 	router.GET(options.BaseURL+"/lectures/:lectureId", wrapper.GetLecture, options.OperationMiddlewares["getLecture"]...)
 	router.GET(options.BaseURL+"/lectures/:lectureId/workspace", wrapper.GetLectureWorkspace, options.OperationMiddlewares["getLectureWorkspace"]...)
+	router.POST(options.BaseURL+"/lectures/:lectureId/inherit", wrapper.InheritLecture, options.OperationMiddlewares["inheritLecture"]...)
 	router.PATCH(options.BaseURL+"/lectures/:lectureId/attributes", wrapper.PatchLectureAttribute, options.OperationMiddlewares["patchLectureAttribute"]...)
 	router.POST(options.BaseURL+"/lectures/:lectureId/sessions", wrapper.CreateSession, options.OperationMiddlewares["createSession"]...)
 	router.PUT(options.BaseURL+"/lectures/:lectureId/session-order", wrapper.ReorderSessions, options.OperationMiddlewares["reorderSessions"]...)
@@ -2142,6 +2171,71 @@ func (response GetLectureHistory404JSONResponse) VisitGetLectureHistoryResponse(
 	return err
 }
 
+type InheritLectureRequestObject struct {
+	LectureId LectureId `json:"lectureId"`
+	Body      *InheritLectureJSONRequestBody
+}
+
+type InheritLectureResponseObject interface {
+	VisitInheritLectureResponse(w http.ResponseWriter) error
+}
+
+type InheritLecture201JSONResponse LectureWorkspace
+
+func (response InheritLecture201JSONResponse) VisitInheritLectureResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type InheritLecture400JSONResponse struct{ ErrorJSONResponse }
+
+func (response InheritLecture400JSONResponse) VisitInheritLectureResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type InheritLecture404JSONResponse ErrorResponse
+
+func (response InheritLecture404JSONResponse) VisitInheritLectureResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type InheritLecture409JSONResponse ErrorResponse
+
+func (response InheritLecture409JSONResponse) VisitInheritLectureResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ReorderSessionsRequestObject struct {
 	LectureId LectureId `json:"lectureId"`
 	Body      *ReorderSessionsJSONRequestBody
@@ -2795,6 +2889,9 @@ type StrictServerInterface interface {
 	// (GET /lectures/{lectureId}/history)
 	GetLectureHistory(ctx context.Context, request GetLectureHistoryRequestObject) (GetLectureHistoryResponseObject, error)
 
+	// (POST /lectures/{lectureId}/inherit)
+	InheritLecture(ctx context.Context, request InheritLectureRequestObject) (InheritLectureResponseObject, error)
+
 	// (PUT /lectures/{lectureId}/session-order)
 	ReorderSessions(ctx context.Context, request ReorderSessionsRequestObject) (ReorderSessionsResponseObject, error)
 
@@ -3421,6 +3518,47 @@ func (sh *strictHandler) GetLectureHistory(ctx echo.Context, lectureId LectureId
 		return err
 	} else if validResponse, ok := response.(GetLectureHistoryResponseObject); ok {
 		return validResponse.VisitGetLectureHistoryResponse(ctx.Response())
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// InheritLecture operation middleware
+func (sh *strictHandler) InheritLecture(ctx echo.Context, lectureId LectureId) error {
+	var request InheritLectureRequestObject
+
+	request.LectureId = lectureId
+
+	var body InheritLectureJSONRequestBody
+	var err error
+	if binder, ok := ctx.Echo().Binder.(*echo.DefaultBinder); ok {
+		// Bind only the request body, so that path and query parameters
+		// are not also bound into the body struct.
+		err = binder.BindBody(ctx, &body)
+	} else {
+		// A custom binder is installed on the Echo instance; defer to it
+		// entirely, since echo.Binder does not expose body-only binding.
+		err = ctx.Bind(&body)
+	}
+	if err != nil {
+		return err
+	}
+	request.Body = &body
+
+	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.InheritLecture(ctx.Request().Context(), request.(InheritLectureRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "InheritLecture")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return err
+	} else if validResponse, ok := response.(InheritLectureResponseObject); ok {
+		return validResponse.VisitInheritLectureResponse(ctx.Response())
 	} else if response != nil {
 		return fmt.Errorf("unexpected response type: %T", response)
 	}

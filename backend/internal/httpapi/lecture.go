@@ -162,6 +162,33 @@ func (server server) CreateLecture(ctx context.Context, request api.CreateLectur
 	return api.CreateLecture201JSONResponse(workspaceToAPI(workspace)), nil
 }
 
+func (server server) InheritLecture(ctx context.Context, request api.InheritLectureRequestObject) (api.InheritLectureResponseObject, error) {
+	if request.Body == nil {
+		return api.InheritLecture400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_body", Message: "request body is required"}}, nil
+	}
+	user, err := server.currentUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	workspace, err := server.repository.InheritLectureWorkspace(ctx, store.LectureInherit{
+		SourceLectureID: request.LectureId, AcademicYearStart: request.Body.AcademicYearStart,
+		AcademicYearEnd: request.Body.AcademicYearEnd,
+	}, user.ID)
+	if errors.Is(err, store.ErrNotFound) {
+		return api.InheritLecture404JSONResponse{Code: "lecture_or_flow_class_not_found", Message: "引き継ぎ元またはFlowClassが見つかりません"}, nil
+	}
+	if errors.Is(err, store.ErrIncompleteWorkspace) {
+		return api.InheritLecture409JSONResponse{Code: "incomplete_workspace", Message: "引き継ぎ元の必須Flowが不足しています"}, nil
+	}
+	if errors.Is(err, store.ErrInvalid) {
+		return api.InheritLecture400JSONResponse{ErrorJSONResponse: api.ErrorJSONResponse{Code: "invalid_source", Message: "引き継ぎ元または年度を確認してください"}}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return api.InheritLecture201JSONResponse(workspaceToAPI(workspace)), nil
+}
+
 func (server server) GetLecture(ctx context.Context, request api.GetLectureRequestObject) (api.GetLectureResponseObject, error) {
 	user, err := server.currentUser(ctx)
 	if err != nil {

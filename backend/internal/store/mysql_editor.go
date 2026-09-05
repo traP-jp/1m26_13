@@ -153,6 +153,172 @@ func (store *MySQL) CreateLectureWorkspace(ctx context.Context, input LectureCre
 	return store.GetLectureWorkspace(ctx, lectureID, actorID)
 }
 
+// InheritLectureWorkspace creates a new, independent draft workspace from the
+// reusable parts of an earlier Lecture. Flow execution state is intentionally
+// reset by creating every Flow from the current FlowClass text.
+func (store *MySQL) InheritLectureWorkspace(ctx context.Context, input LectureInherit, actorID string) (domain.LectureWorkspace, error) {
+	if input.SourceLectureID == "" || input.AcademicYearStart < 2000 || input.AcademicYearEnd > 2200 || input.AcademicYearStart > input.AcademicYearEnd {
+		return domain.LectureWorkspace{}, ErrInvalid
+	}
+	tx, err := store.db.BeginTx(ctx, nil)
+	if err != nil {
+		return domain.LectureWorkspace{}, err
+	}
+	defer tx.Rollback()
+
+	source, err := scanLecture(tx.QueryRowContext(ctx, "SELECT "+lectureColumns+" FROM lectures WHERE id=? FOR UPDATE", input.SourceLectureID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return domain.LectureWorkspace{}, ErrNotFound
+	}
+	if err != nil {
+		return domain.LectureWorkspace{}, err
+	}
+
+	var preClassID, postClassID string
+	if err := tx.QueryRowContext(ctx, `SELECT flow_class_id FROM flows WHERE lecture_id=? AND flow_type='lecture_pre' AND status='active'`, source.ID).Scan(&preClassID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.LectureWorkspace{}, ErrIncompleteWorkspace
+		}
+		return domain.LectureWorkspace{}, err
+	}
+	if err := tx.QueryRowContext(ctx, `SELECT flow_class_id FROM flows WHERE lecture_id=? AND flow_type='lecture_post' AND status='active'`, source.ID).Scan(&postClassID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.LectureWorkspace{}, ErrIncompleteWorkspace
+		}
+		return domain.LectureWorkspace{}, err
+	}
+	pre, err := flowClassTx(ctx, tx, preClassID, "lecture_pre")
+	if err != nil {
+		return domain.LectureWorkspace{}, err
+	}
+	post, err := flowClassTx(ctx, tx, postClassID, "lecture_post")
+	if err != nil {
+		return domain.LectureWorkspace{}, err
+	}
+
+	rows, err := tx.QueryContext(ctx, `SELECT id, lecture_id, name, description, display_order,
+		COALESCE(DATE_FORMAT(session_date, '%Y-%m-%d'), ''), COALESCE(TIME_FORMAT(start_time, '%H:%i'), ''),
+		location, COALESCE(knoq_url, ''), instructor_id, instructor_ids, material, resources, replay_of_session_ids,
+		status, revision, created_at, updated_at FROM sessions
+		WHERE lecture_id=? AND JSON_LENGTH(replay_of_session_ids)=0 ORDER BY display_order, id FOR UPDATE`, source.ID)
+	if err != nil {
+		return domain.LectureWorkspace{}, err
+	}
+	type sourceSession struct {
+		value domain.Session
+		class domain.FlowClass
+	}
+	values := make([]domain.Session, 0)
+	for rows.Next() {
+		session, scanErr := scanSession(rows)
+		if scanErr != nil {
+			rows.Close()
+			return domain.LectureWorkspace{}, scanErr
+		}
+		values = append(values, session)
+	}
+	if err := rows.Close(); err != nil {
+		return domain.LectureWorkspace{}, err
+	}
+	sourceSessions := make([]sourceSession, 0, len(values))
+	for _, session := range values {
+		var classID string
+		if err := tx.QueryRowContext(ctx, `SELECT flow_class_id FROM flows WHERE session_id=? AND flow_type='session_main' AND status='active'`, session.ID).Scan(&classID); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return domain.LectureWorkspace{}, ErrIncompleteWorkspace
+			}
+			return domain.LectureWorkspace{}, err
+		}
+		class, err := flowClassTx(ctx, tx, classID, "session_main")
+		if err != nil {
+			return domain.LectureWorkspace{}, err
+		}
+		sourceSessions = append(sourceSessions, sourceSession{value: session, class: class})
+	}
+	if len(sourceSessions) == 0 {
+		return domain.LectureWorkspace{}, fmt.Errorf("%w: source has no normal session", ErrInvalid)
+	}
+
+	now := store.now()
+	result, err := tx.ExecContext(ctx, `INSERT INTO lectures
+		(name, description, academic_year_start, academic_year_end, field_id, organizer_type, organizer_id,
+		organizer_group_name, organizer_group_ids, organizer_user_ids, contact_group_ids, contact_user_ids,
+		target_audience, is_introductory, traq_channel_id, material, resources, revision,
+		created_by, updated_by, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, '[]', '[]', '[]', '[]', ?, ?, NULL, NULL, '[]', 1, ?, ?, ?, ?)`,
+		source.Name, source.Description, input.AcademicYearStart, input.AcademicYearEnd, nullable(source.FieldID),
+		nullable(source.OrganizerKind()), nullable(source.OrganizerID()), nullable(source.OrganizerGroupName()),
+		source.TargetAudience, source.IsIntroductory, actorID, actorID, now, now)
+	if err != nil {
+		return domain.LectureWorkspace{}, fmt.Errorf("insert inherited lecture: %w", err)
+	}
+	lectureNumber, err := result.LastInsertId()
+	if err != nil {
+		return domain.LectureWorkspace{}, err
+	}
+	lectureID := strconv.FormatInt(lectureNumber, 10)
+
+	relations := []domain.Relation{{ToLectureID: source.ID, Type: "previous_year"}}
+	relationRows, err := tx.QueryContext(ctx, `SELECT to_lecture_id, relation_type FROM lecture_relations
+		WHERE from_lecture_id=? AND relation_type IN ('prerequisite','recommended_next')`, source.ID)
+	if err != nil {
+		return domain.LectureWorkspace{}, err
+	}
+	for relationRows.Next() {
+		var relation domain.Relation
+		if err := relationRows.Scan(&relation.ToLectureID, &relation.Type); err != nil {
+			relationRows.Close()
+			return domain.LectureWorkspace{}, err
+		}
+		relations = append(relations, relation)
+	}
+	if err := relationRows.Close(); err != nil {
+		return domain.LectureWorkspace{}, err
+	}
+	if err := insertRelations(ctx, tx, lectureID, relations, now); err != nil {
+		return domain.LectureWorkspace{}, err
+	}
+
+	if _, err := insertFlowTx(ctx, tx, pre, lectureID, "", actorID, now); err != nil {
+		return domain.LectureWorkspace{}, err
+	}
+	for index, sourceSession := range sourceSessions {
+		sessionResult, err := tx.ExecContext(ctx, `INSERT INTO sessions
+			(lecture_id, name, description, display_order, session_date, start_time, location, knoq_url,
+			instructor_id, instructor_ids, material, resources, replay_of_session_ids, status, revision,
+			created_by, updated_by, created_at, updated_at)
+			VALUES (?, ?, ?, ?, NULL, NULL, '', NULL, NULL, '[]', NULL, '[]', '[]', 'draft', 1, ?, ?, ?, ?)`,
+			lectureID, sourceSession.value.Name, sourceSession.value.Description, index, actorID, actorID, now, now)
+		if err != nil {
+			return domain.LectureWorkspace{}, fmt.Errorf("insert inherited session: %w", err)
+		}
+		sessionNumber, err := sessionResult.LastInsertId()
+		if err != nil {
+			return domain.LectureWorkspace{}, err
+		}
+		sessionID := strconv.FormatInt(sessionNumber, 10)
+		if _, err := insertFlowTx(ctx, tx, sourceSession.class, "", sessionID, actorID, now); err != nil {
+			return domain.LectureWorkspace{}, err
+		}
+		if err := recordEvents(ctx, tx, "session", sessionID, actorID, map[string]any{}, map[string]any{"name": sourceSession.value.Name, "description": sourceSession.value.Description, "order": index, "status": "draft"}, now); err != nil {
+			return domain.LectureWorkspace{}, err
+		}
+	}
+	if _, err := insertFlowTx(ctx, tx, post, lectureID, "", actorID, now); err != nil {
+		return domain.LectureWorkspace{}, err
+	}
+	if err := recordEvents(ctx, tx, "lecture", lectureID, actorID, map[string]any{}, map[string]any{
+		"name": source.Name, "description": source.Description, "academicYearStart": input.AcademicYearStart,
+		"academicYearEnd": input.AcademicYearEnd, "fieldId": source.FieldID, "organizer": source.Organizer,
+		"targetAudience": source.TargetAudience, "isIntroductory": source.IsIntroductory, "relations": relations}, now); err != nil {
+		return domain.LectureWorkspace{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return domain.LectureWorkspace{}, err
+	}
+	return store.GetLectureWorkspace(ctx, lectureID, actorID)
+}
+
 func (store *MySQL) GetLectureWorkspace(ctx context.Context, lectureID, actorID string) (domain.LectureWorkspace, error) {
 	lecture, err := store.GetLecture(ctx, lectureID, actorID, true)
 	if err != nil {

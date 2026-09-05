@@ -45,6 +45,16 @@ export async function createLecture(body: LectureCreate) {
   const { data, response } = await apiClient.POST("/lectures", { body });
   return result(response, data, "講習会を保存できませんでした");
 }
+export async function inheritLecture(
+  sourceLectureId: string,
+  body: components["schemas"]["LectureInherit"],
+) {
+  const { data, response } = await apiClient.POST("/lectures/{lectureId}/inherit", {
+    params: { path: { lectureId: sourceLectureId } },
+    body,
+  });
+  return result(response, data, "講習会を引き継げませんでした");
+}
 export async function getLectureWorkspace(id: string) {
   const { data, response } = await apiClient.GET("/lectures/{lectureId}/workspace", {
     params: { path: { lectureId: id } },

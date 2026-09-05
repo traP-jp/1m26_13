@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {
   BasiqButton,
-  BasiqCard,
   BasiqCheckbox,
   BasiqFormField,
   BasiqInput,
@@ -53,6 +52,7 @@ const emit = defineEmits<{
   "session-updated": [session: Session];
   "open-complex": [path: string, target: ComplexTarget];
   "request-publish": [request: PublishRequest];
+  "save-status": [phase: "idle" | "dirty" | "saving" | "saved" | "error"];
 }>();
 
 const currentFlow = ref(props.flow);
@@ -72,6 +72,14 @@ let warningTimer: ReturnType<typeof setTimeout> | undefined;
 
 const pages = computed(() => parseFlow(currentFlow.value.text));
 const page = computed(() => pages.value[pageIndex.value]);
+const savePhase = computed<SavePhase>(() => {
+  const phases = Object.values(attributeStates).map((state) => state.phase);
+  if (phases.includes("error") || error.value) return "error";
+  if (phases.includes("saving") || checkboxSaving.value.size || moving.value) return "saving";
+  if (phases.includes("dirty")) return "dirty";
+  if (phases.includes("saved") || notice.value) return "saved";
+  return "idle";
+});
 const scalarPaths = computed(() =>
   pages.value.flatMap((entry) =>
     entry.nodes
@@ -95,6 +103,19 @@ const values = computed<Record<string, unknown>>(() => {
   for (const [path, state] of Object.entries(attributeStates)) result[path] = state.nextValue;
   return result;
 });
+const pageProgress = computed(() =>
+  pages.value.map((entry) => {
+    const actionable = entry.nodes.filter((node) => node.kind === "task" || node.kind === "input");
+    const completed = actionable.filter((node) => {
+      if (node.kind === "task") return node.checked;
+      const value = values.value[node.path];
+      if (Array.isArray(value)) return value.length > 0;
+      if (typeof value === "boolean") return value;
+      return value !== undefined && value !== null && String(value).trim() !== "";
+    }).length;
+    return { completed, total: actionable.length };
+  }),
+);
 
 const labels: Record<string, string> = {
   "lecture.name": "講習会名",
@@ -421,6 +442,8 @@ watch(
   { immediate: true },
 );
 
+watch(savePhase, (phase) => emit("save-status", phase), { immediate: true });
+
 watch(
   () => props.lecture,
   (lecture) => {
@@ -472,189 +495,184 @@ onBeforeUnmount(() => {
     </div>
 
     <template v-if="page">
-      <header class="runner-header">
-        <div>
-          <p class="eyebrow">FLOW · {{ pageIndex + 1 }}/{{ pages.length }}</p>
-          <h2>{{ page.title }}</h2>
-          <p>
-            {{
-              currentFlow.type === "lecture_pre"
-                ? "講習会の事前"
-                : currentFlow.type === "lecture_post"
-                  ? "講習会の事後"
-                  : "各開催のメイン"
-            }}
-          </p>
-        </div>
-      </header>
-
-      <ol
-        v-if="pages.length > 1"
-        class="flow-progress"
-        :style="{ gridTemplateColumns: `repeat(${pages.length}, minmax(0, 1fr))` }"
-        aria-label="Flowのページ"
-      >
-        <li
-          v-for="(entry, index) in pages"
-          :key="`${index}-${entry.title}`"
-          :class="{ current: index === pageIndex }"
-        >
-          <span>{{ index + 1 }}</span
-          ><small>{{ entry.title }}</small>
-        </li>
-      </ol>
-
-      <p v-if="warning" class="notice warning" role="status">{{ warning }}</p>
-      <p v-if="notice" class="notice" role="status">{{ notice }}</p>
-      <p v-if="error" class="notice error" role="alert">{{ error }}</p>
-
-      <BasiqCard class="flow-card">
-        <div class="flow-content">
-          <template v-for="(node, index) in page.nodes" :key="index">
-            <p v-if="node.kind === 'paragraph'" class="prose">
-              {{ expandValues(node.text, values) }}
-            </p>
-
-            <div v-else-if="node.kind === 'input' && node.mode === 'edit'" class="complex-field">
-              <span
-                ><strong>{{ labels[node.path] || node.path }}</strong
-                ><small>複数の値をまとめて編集します。</small></span
-              >
-              <BasiqButton
-                tone="neutral"
-                variant="outline"
+      <div class="flow-workspace">
+        <nav class="flow-toc" aria-label="Flow内のページ">
+          <p>このFlowの内容</p>
+          <ol>
+            <li v-for="(entry, index) in pages" :key="`${index}-${entry.title}`">
+              <button
                 type="button"
-                @click="openComplex(node.path)"
-                >編集</BasiqButton
+                :class="{ current: index === pageIndex }"
+                :aria-current="index === pageIndex ? 'step' : undefined"
+                @click="movePage(index)"
               >
-            </div>
+                <span>{{ index + 1 }}</span>
+                <strong>{{ entry.title }}</strong>
+                <small v-if="pageProgress[index]?.total">
+                  {{ pageProgress[index]?.completed }}/{{ pageProgress[index]?.total }}
+                </small>
+              </button>
+            </li>
+          </ol>
+        </nav>
 
-            <div v-else-if="node.kind === 'input'" class="attribute-field">
-              <BasiqFormField
-                v-if="flowFieldKind(node.path) === 'textarea'"
-                :label="labels[node.path] || node.path"
-                ><BasiqTextarea
-                  :model-value="asString(stateFor(node.path).nextValue)"
-                  :rows="4"
-                  :invalid="stateFor(node.path).phase === 'error'"
-                  @update:model-value="setFieldValue(node.path, $event)"
-                  @blur="flushField(node.path)"
-              /></BasiqFormField>
+        <section class="flow-page">
+          <header class="runner-header">
+            <span>{{ pageIndex + 1 }} / {{ pages.length }}</span>
+            <h2>{{ page.title }}</h2>
+          </header>
 
-              <BasiqFormField
-                v-else-if="
-                  flowFieldKind(node.path) === 'text' || flowFieldKind(node.path) === 'url'
-                "
-                :label="labels[node.path] || node.path"
-                ><BasiqInput
-                  :model-value="asString(stateFor(node.path).nextValue)"
-                  :type="flowFieldKind(node.path) === 'url' ? 'url' : 'text'"
-                  :invalid="stateFor(node.path).phase === 'error'"
-                  @update:model-value="setFieldValue(node.path, $event)"
-                  @blur="flushField(node.path)"
-              /></BasiqFormField>
+          <p v-if="warning" class="notice warning" role="status">{{ warning }}</p>
+          <p v-if="notice" class="notice" role="status">{{ notice }}</p>
+          <p v-if="error" class="notice error" role="alert">{{ error }}</p>
 
-              <label v-else-if="flowFieldKind(node.path) === 'number'" class="native-field">
-                <span>{{ labels[node.path] || node.path }}</span>
-                <input
-                  type="number"
-                  min="2000"
-                  max="2200"
-                  :value="stateFor(node.path).nextValue as number"
-                  @input="
-                    setFieldValue(node.path, Number(($event.target as HTMLInputElement).value))
+          <div class="flow-content">
+            <template v-for="(node, index) in page.nodes" :key="index">
+              <p v-if="node.kind === 'paragraph'" class="prose">
+                {{ expandValues(node.text, values) }}
+              </p>
+
+              <div v-else-if="node.kind === 'input' && node.mode === 'edit'" class="complex-field">
+                <span
+                  ><strong>{{ labels[node.path] || node.path }}</strong
+                  ><small>複数の値をまとめて編集します。</small></span
+                >
+                <BasiqButton
+                  tone="neutral"
+                  variant="outline"
+                  type="button"
+                  @click="openComplex(node.path)"
+                  >編集</BasiqButton
+                >
+              </div>
+
+              <div v-else-if="node.kind === 'input'" class="attribute-field">
+                <BasiqFormField
+                  v-if="flowFieldKind(node.path) === 'textarea'"
+                  :label="labels[node.path] || node.path"
+                  ><BasiqTextarea
+                    :model-value="asString(stateFor(node.path).nextValue)"
+                    :rows="4"
+                    :invalid="stateFor(node.path).phase === 'error'"
+                    @update:model-value="setFieldValue(node.path, $event)"
+                    @blur="flushField(node.path)"
+                /></BasiqFormField>
+
+                <BasiqFormField
+                  v-else-if="
+                    flowFieldKind(node.path) === 'text' || flowFieldKind(node.path) === 'url'
                   "
-                  @blur="flushField(node.path)"
-                />
-              </label>
+                  :label="labels[node.path] || node.path"
+                  ><BasiqInput
+                    :model-value="asString(stateFor(node.path).nextValue)"
+                    :type="flowFieldKind(node.path) === 'url' ? 'url' : 'text'"
+                    :invalid="stateFor(node.path).phase === 'error'"
+                    @update:model-value="setFieldValue(node.path, $event)"
+                    @blur="flushField(node.path)"
+                /></BasiqFormField>
 
-              <label
-                v-else-if="
-                  flowFieldKind(node.path) === 'date' || flowFieldKind(node.path) === 'time'
-                "
-                class="native-field"
-              >
-                <span>{{ labels[node.path] || node.path }}</span>
-                <input
-                  :type="flowFieldKind(node.path)"
-                  :value="asString(stateFor(node.path).nextValue)"
-                  @input="setFieldValue(node.path, ($event.target as HTMLInputElement).value)"
-                  @blur="flushField(node.path)"
-                />
-              </label>
+                <label v-else-if="flowFieldKind(node.path) === 'number'" class="native-field">
+                  <span>{{ labels[node.path] || node.path }}</span>
+                  <input
+                    type="number"
+                    min="2000"
+                    max="2200"
+                    :value="stateFor(node.path).nextValue as number"
+                    @input="
+                      setFieldValue(node.path, Number(($event.target as HTMLInputElement).value))
+                    "
+                    @blur="flushField(node.path)"
+                  />
+                </label>
 
-              <div v-else-if="flowFieldKind(node.path) === 'boolean'" class="switch-field">
-                <BasiqSwitch
-                  :model-value="Boolean(stateFor(node.path).nextValue)"
-                  @update:model-value="setFieldValue(node.path, $event, true)"
-                  >{{ labels[node.path] || node.path }}</BasiqSwitch
+                <label
+                  v-else-if="
+                    flowFieldKind(node.path) === 'date' || flowFieldKind(node.path) === 'time'
+                  "
+                  class="native-field"
                 >
+                  <span>{{ labels[node.path] || node.path }}</span>
+                  <input
+                    :type="flowFieldKind(node.path)"
+                    :value="asString(stateFor(node.path).nextValue)"
+                    @input="setFieldValue(node.path, ($event.target as HTMLInputElement).value)"
+                    @blur="flushField(node.path)"
+                  />
+                </label>
+
+                <div v-else-if="flowFieldKind(node.path) === 'boolean'" class="switch-field">
+                  <BasiqSwitch
+                    :model-value="Boolean(stateFor(node.path).nextValue)"
+                    @update:model-value="setFieldValue(node.path, $event, true)"
+                    >{{ labels[node.path] || node.path }}</BasiqSwitch
+                  >
+                </div>
+
+                <div v-else-if="flowFieldKind(node.path) === 'status'" class="switch-field">
+                  <BasiqSwitch
+                    :model-value="currentSession?.status === 'published'"
+                    @update:model-value="requestPublish"
+                    >{{ currentSession?.status === "published" ? "公開" : "下書き" }}</BasiqSwitch
+                  >
+                </div>
+
+                <small
+                  v-if="stateFor(node.path).phase !== 'idle'"
+                  :class="['save-state', stateFor(node.path).phase]"
+                  role="status"
+                >
+                  {{
+                    stateFor(node.path).phase === "dirty"
+                      ? "保存待ち"
+                      : stateFor(node.path).phase === "saving"
+                        ? "保存中…"
+                        : stateFor(node.path).phase === "saved"
+                          ? "保存済み"
+                          : stateFor(node.path).error
+                  }}
+                </small>
               </div>
 
-              <div v-else-if="flowFieldKind(node.path) === 'status'" class="switch-field">
-                <BasiqSwitch
-                  :model-value="currentSession?.status === 'published'"
-                  @update:model-value="requestPublish"
-                  >{{ currentSession?.status === "published" ? "公開" : "下書き" }}</BasiqSwitch
+              <label v-else-if="node.kind === 'task'" class="flow-task">
+                <BasiqCheckbox
+                  :model-value="node.checked"
+                  :disabled="checkboxSaving.has(`${node.pageIndex}:${node.checkboxIndex}`)"
+                  @update:model-value="toggleCheckbox(node, $event)"
+                />
+                <span>{{ expandValues(node.text, values) }}</span>
+              </label>
+
+              <div v-else-if="node.kind === 'copy'" class="copy-panel">
+                <pre>{{ expandValues(node.text, values) }}</pre>
+                <BasiqButton tone="neutral" variant="outline" type="button" @click="copy(node.text)"
+                  >コピー</BasiqButton
                 >
               </div>
+              <pre v-else-if="node.kind === 'code'" class="copy-panel">{{ node.text }}</pre>
+            </template>
+          </div>
 
-              <small
-                v-if="stateFor(node.path).phase !== 'idle'"
-                :class="['save-state', stateFor(node.path).phase]"
-                role="status"
-              >
-                {{
-                  stateFor(node.path).phase === "dirty"
-                    ? "保存待ち"
-                    : stateFor(node.path).phase === "saving"
-                      ? "保存中…"
-                      : stateFor(node.path).phase === "saved"
-                        ? "保存済み"
-                        : stateFor(node.path).error
-                }}
-              </small>
-            </div>
-
-            <label v-else-if="node.kind === 'task'" class="flow-task">
-              <BasiqCheckbox
-                :model-value="node.checked"
-                :disabled="checkboxSaving.has(`${node.pageIndex}:${node.checkboxIndex}`)"
-                @update:model-value="toggleCheckbox(node, $event)"
-              />
-              <span>{{ expandValues(node.text, values) }}</span>
-            </label>
-
-            <div v-else-if="node.kind === 'copy'" class="copy-panel">
-              <pre>{{ expandValues(node.text, values) }}</pre>
-              <BasiqButton tone="neutral" variant="outline" type="button" @click="copy(node.text)"
-                >コピー</BasiqButton
-              >
-            </div>
-            <pre v-else-if="node.kind === 'code'" class="copy-panel">{{ node.text }}</pre>
-          </template>
-        </div>
-      </BasiqCard>
-
-      <footer v-if="pages.length > 1" class="runner-actions">
-        <BasiqButton
-          v-if="pageIndex > 0"
-          variant="outline"
-          tone="neutral"
-          type="button"
-          :disabled="moving"
-          @click="movePage(pageIndex - 1)"
-          >前へ</BasiqButton
-        >
-        <span v-else></span>
-        <BasiqButton
-          v-if="pageIndex < pages.length - 1"
-          type="button"
-          :disabled="moving"
-          @click="movePage(pageIndex + 1)"
-          >次へ</BasiqButton
-        >
-      </footer>
+          <footer v-if="pages.length > 1" class="runner-actions">
+            <BasiqButton
+              v-if="pageIndex > 0"
+              variant="outline"
+              tone="neutral"
+              type="button"
+              :disabled="moving"
+              @click="movePage(pageIndex - 1)"
+              >前へ</BasiqButton
+            >
+            <span v-else></span>
+            <BasiqButton
+              v-if="pageIndex < pages.length - 1"
+              type="button"
+              :disabled="moving"
+              @click="movePage(pageIndex + 1)"
+              >次へ</BasiqButton
+            >
+          </footer>
+        </section>
+      </div>
     </template>
     <p v-else class="notice error" role="alert">Flow本文に表示できるページがありません。</p>
   </section>
@@ -664,95 +682,105 @@ onBeforeUnmount(() => {
 /* stylelint-disable no-descending-specificity */
 .inline-runner {
   display: grid;
-  gap: 18px;
+  gap: 16px;
 }
 
-.runner-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.runner-header h2 {
-  font-size: 28px;
-  letter-spacing: -0.025em;
-}
-
-.runner-header p:last-child {
-  margin-top: 5px;
-  color: var(--basiq-color-content-subtle);
-}
-
-.flow-progress {
+.flow-workspace {
   display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  align-items: start;
+  gap: 28px;
+}
+
+.flow-toc {
+  position: sticky;
+  top: 20px;
+  min-width: 0;
+}
+
+.flow-toc > p {
+  margin: 0 0 8px;
+  color: var(--basiq-color-content-subtle);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.flow-toc ol {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.flow-progress li {
-  position: relative;
-  display: grid;
-  justify-items: center;
-  gap: 5px;
-  color: var(--basiq-color-content-subtle);
-  text-align: center;
-}
-
-.flow-progress li::before {
-  position: absolute;
-  z-index: 0;
-  top: 13px;
-  right: 50%;
+.flow-toc button {
   width: 100%;
-  height: 2px;
-  background: var(--basiq-color-border-separator);
-  content: "";
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: var(--basiq-radius-sm);
+  color: var(--basiq-color-content-subtle);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.flow-progress li:first-child::before {
-  display: none;
+.flow-toc button:hover,
+.flow-toc button.current {
+  color: var(--basiq-color-content-default);
+  background: var(--basiq-color-navigation-item-background-current-rest);
 }
 
-.flow-progress li > span {
-  position: relative;
-  z-index: 1;
-  width: 28px;
-  height: 28px;
+.flow-toc button > span {
+  width: 20px;
+  height: 20px;
   display: grid;
   place-items: center;
-  border: 2px solid var(--basiq-color-border-control);
   border-radius: 50%;
-  background: var(--basiq-color-surface-base);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.flow-progress li.current {
   color: var(--basiq-color-content-accent);
+  background: var(--basiq-color-surface-muted);
+  font-size: 0.7rem;
+  font-weight: 800;
 }
 
-.flow-progress li.current > span {
-  border-color: var(--basiq-color-accent-default);
-  color: var(--basiq-color-content-on-accent);
-  background: var(--basiq-color-accent-default);
-}
-
-.flow-progress small {
-  max-width: 140px;
-  font-size: 10px;
-  font-weight: 700;
+.flow-toc button strong {
+  min-width: 0;
+  font-size: 0.85rem;
   line-height: 1.35;
 }
 
-.flow-card {
-  border: 1px solid var(--basiq-color-border-separator);
+.flow-toc button small {
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.flow-page {
+  min-width: 0;
+}
+
+.runner-header {
+  margin-bottom: 22px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--basiq-color-border-separator);
+}
+
+.runner-header > span {
+  color: var(--basiq-color-content-accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.runner-header h2 {
+  margin: 3px 0 0;
+  font-size: 1.35rem;
 }
 
 .flow-content {
   display: grid;
-  gap: 18px;
+  gap: 16px;
 }
 
 .prose {
@@ -859,6 +887,9 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: space-between;
   gap: 8px;
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--basiq-color-border-separator);
 }
 
 .draft-review {
@@ -882,6 +913,15 @@ onBeforeUnmount(() => {
 }
 
 @media (width <= 760px) {
+  .flow-workspace {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .flow-toc {
+    position: static;
+  }
+
   .runner-header h2 {
     font-size: 22px;
   }
