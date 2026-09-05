@@ -120,6 +120,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/lectures/{lectureId}/inherit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["inheritLecture"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/lectures/{lectureId}/attributes": {
         parameters: {
             query?: never;
@@ -520,6 +538,10 @@ export interface components {
             lecturePostFlowClassId: string;
             academicYearStart?: number;
             academicYearEnd?: number;
+        };
+        LectureInherit: {
+            academicYearStart: number;
+            academicYearEnd: number;
         };
         Lecture: {
             id: components["schemas"]["LectureId"];
@@ -931,6 +953,35 @@ export interface operations {
                     "application/json": components["schemas"]["LectureWorkspace"];
                 };
             };
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    inheritLecture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lectureId: components["parameters"]["LectureId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LectureInherit"];
+            };
+        };
+        responses: {
+            /** @description Inherited draft workspace */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LectureWorkspace"];
+                };
+            };
+            400: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
         };

@@ -603,6 +603,17 @@
 
 検証: 空DB migration、旧複数Stage互換、混在CRUD・進捗・再放送拒否、frontend/backend全gate、PC/390px実ブラウザで横overflowとconsole warning/error 0件を確認する。
 
+### P11. Flowタブ編集面と年度引き継ぎ作成を統合する
+
+状態: 実装・ローカル検証完了、画面確認待ち（2026-09-05）
+
+- 講習会、各開催、事後の横タブを、それぞれに対応するFlowの作業面として表示する。Flow本文のページから目次、現在位置、入力・チェック進捗を導出する。
+- PCは左目次と右本文、390pxは目次と本文の縦積みにし、横タブだけをスクロール可能にする。
+- 新規作成を白紙作成と過去Lectureからの引き継ぎに分け、名前・年度・班・分野で引き継ぎ元を検索できるようにする。
+- 引き継ぎは新年度、許可したLecture属性、通常Sessionの名前・説明・順序、現在のFlowClassだけを同一transactionで新規作成する。公開状態、日時、場所、講師、教材、回答・チェック・進捗、再放送、履歴は引き継がない。
+
+検証: frontend/backend全gate、引き継ぎAPIの実DB実行、PC/390px実ブラウザ、横overflowとconsole warning/error 0件を確認し、commit・push前に本人の画面確認を受ける。
+
 ## 停止条件
 
 - `PROJECT_BRIEF.md`の完了条件のうち、実装とローカル検証で達成可能な項目を満たしている。

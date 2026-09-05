@@ -1,7 +1,7 @@
 # Status
 
 更新日: 2026-09-05
-フェーズ: P10 Roadmapの段階なし混在順序リストへの移行と統合QAを完了。
+フェーズ: P11 Flowタブ編集面と年度引き継ぎ作成をローカル実装し、画面確認待ち。
 
 ## 現在地
 
@@ -30,6 +30,8 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 - Lecture運営担当は個人または1グループ、Session講師は個人0〜1名とする。問い合わせ先を運営担当へ統合する。Materialは`{url,title?}`で対象ごとに最大1件、その他のResourcesは複数とする。
 - 公開前の推奨項目警告、最後のpublished Sessionをdraftへ戻す影響警告、属性レーン型一覧編集、開催順の明示保存、分類した履歴の閲覧・コピー、保存済み現在値のJSON書き出しを実装対象とする。
 - `LECTURE_SESSION_FLOW_SPEC.md`のOpenAPI契約と、旧列をdropしないadditive migrationを実装した。
+- 各Flowタブの内容を、Flow本文から生成するページ目次と選択ページの入力・チェック・コピー操作そのものにした。PCは2列、390pxは縦積みで、横タブだけが内部スクロールする。
+- 新規作成に白紙作成と過去Lectureからの引き継ぎを追加した。引き継ぎは現在のFlowClassから新しいFlowを作るため、元Flowのチェックやページ位置をコピーしない。
 
 ## 実装済み
 
@@ -52,6 +54,11 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 - `+`は空作成または複製によるSession追加、`一覧編集`は属性レーン、`…`はFlow変更、開催順、履歴、JSON書き出しを扱う。削除操作は置かない。
 
 ## 最終検証
+
+- P11のfrontendはVue型検査、ESLint、oxlint、stylelint、Vitest 26件、Vite production buildに成功した。backendはgofmt、go vet、全Go test、全package buildに成功した。
+- 実MariaDBに対する`POST /lectures/{lectureId}/inherit`で、Lecture、通常Session 2件、Flow 4件を201で一括作成した。新年度、`previous_year`、通常Sessionの順序・名前・説明を保持し、全Sessionがdraft、公開Session数0、完了0、日時・場所・講師・教材・Resource・再放送を空、全Flowが現在のFlowClass本文・先頭ページ・未チェックであることを確認した。
+- 存在しない引き継ぎ元では404となり、同じ実DBのLecture件数が失敗前後とも5件で増えないことを確認した。必須Flow・FlowClass検証と全INSERTは同一transaction内で、失敗時はrollbackする。
+- PCで新規作成の二択、引き継ぎ元の年度・班・分野付き検索一覧、Flowタブの左目次＋右本文を確認した。390pxでは作成二択・引き継ぎ一覧・Flow編集が横overflow 0で、タブ列だけが`clientWidth 323 / scrollWidth 664`として横スクロールでき、console warning/errorは0件だった。
 
 - Roadmapを`items: [{id,targetType,targetId}]`へ移行した。空MariaDBへ全migrationを適用し、Lecture＋Sessionの作成・更新・再読込、Session単位とLecture集約の進捗、再放送Sessionの400拒否をAPIスモークで確認した。
 - 旧形式の2 Stage・3 Lecture Itemを`items IS NULL`の行として投入し、全項目がStage順・項目順で復元されることを確認した。新APIで更新後も旧`stages`は2 Stage・先頭2項目のまま保持され、新`items`だけが保存された。
