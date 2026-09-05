@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BasiqButton, BasiqCard, BasiqFormField, BasiqInput } from "basiq-ui";
+import { BasiqButton, BasiqCard, BasiqFormField, BasiqInput, BasiqSelect } from "basiq-ui";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
@@ -26,6 +26,12 @@ const fields = ref<Field[]>([]);
 const directory = ref<Directory>({ users: [], groups: [] });
 const loading = ref(true);
 const error = ref("");
+const allFieldsValue = "__all_fields__";
+
+const fieldItems = computed(() => [
+  { label: "すべての分野", value: allFieldsValue },
+  ...fields.value.map((field) => ({ label: field.name, value: field.id })),
+]);
 
 const visibleRoadmaps = computed(() => {
   const query = q.value.trim().toLocaleLowerCase("ja");
@@ -130,17 +136,20 @@ onMounted(load);
         </template>
         <form class="filter-grid" @submit.prevent="search">
           <BasiqFormField label="キーワード" class="keyword-field">
-            <BasiqInput v-model="q" type="search" placeholder="例：Web、Git、インフラ" />
+            <BasiqInput
+              v-model="q"
+              type="search"
+              placeholder="例：Web、Git、インフラ"
+              clearable
+              clear-label="キーワードをクリア"
+            />
           </BasiqFormField>
           <BasiqFormField label="分野">
-            <template #default="{ id, describedBy }">
-              <select :id="id" v-model="fieldId" :aria-describedby="describedBy">
-                <option value="">すべての分野</option>
-                <option v-for="field in fields" :key="field.id" :value="field.id">
-                  {{ field.name }}
-                </option>
-              </select>
-            </template>
+            <BasiqSelect
+              :model-value="fieldId || allFieldsValue"
+              :items="fieldItems"
+              @update:model-value="fieldId = $event === allFieldsValue ? '' : ($event ?? '')"
+            />
           </BasiqFormField>
           <BasiqFormField label="年度">
             <BasiqInput v-model="year" inputmode="numeric" placeholder="すべての年度" />

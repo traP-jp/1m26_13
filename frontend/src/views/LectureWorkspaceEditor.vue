@@ -3,8 +3,10 @@ import {
   BasiqButton,
   BasiqCard,
   BasiqCheckbox,
+  BasiqCombobox,
   BasiqFormField,
   BasiqInput,
+  BasiqSelect,
   BasiqSwitch,
   BasiqTabsContent,
   BasiqTabsList,
@@ -201,6 +203,110 @@ const supportWarnings = computed(
       lecturesError.value && "関連講習会の候補を取得できません。既存のつながりは保持されます。",
     ].filter(Boolean) as string[],
 );
+
+const unsetSelectValue = "__unset__";
+const sessionModeItems = [
+  { label: "空の開催", value: "empty" },
+  { label: "既存開催を複製", value: "duplicate" },
+];
+const organizerKindItems = [
+  { label: "未設定", value: unsetSelectValue },
+  { label: "個人", value: "user" },
+  { label: "グループ", value: "group" },
+];
+const relationTypeItems = [
+  { label: "先に学ぶ", value: "prerequisite" },
+  { label: "過去年度版", value: "previous_year" },
+  { label: "次に学ぶ", value: "recommended_next" },
+];
+
+function optionalSelectValue(value: unknown) {
+  return String(value ?? "") || unsetSelectValue;
+}
+function selectedValue(value: string | null) {
+  return value === unsetSelectValue ? "" : (value ?? "");
+}
+function selectedComboboxValue(value: string | string[] | null) {
+  return selectedValue(Array.isArray(value) ? (value[0] ?? null) : value);
+}
+function listedFlowClassItems(type: FlowClass["type"]) {
+  return flowClasses.value
+    .filter((entry) => entry.listed && entry.type === type)
+    .map((entry) => ({ label: entry.name, value: entry.id }));
+}
+function fieldItems(current: unknown) {
+  const currentId = String(current ?? "");
+  return [
+    { label: "未設定", value: unsetSelectValue },
+    ...(fieldsError.value && currentId
+      ? [{ label: `現在の設定 (${currentId})`, value: currentId }]
+      : []),
+    ...fields.value.map((field) => ({ label: field.name, value: field.id })),
+  ];
+}
+function instructorItems(current: unknown) {
+  const currentId = String(current ?? "");
+  return [
+    { label: "未設定", value: unsetSelectValue },
+    ...(directoryError.value && currentId
+      ? [{ label: `現在の講師 (${currentId})`, value: currentId }]
+      : []),
+    ...directory.value.users.map((user) => ({
+      description: `@${user.traqId}`,
+      label: user.displayName,
+      value: user.id,
+    })),
+  ];
+}
+function organizerItems(kind: "group" | "user", current: unknown) {
+  const currentId = String(current ?? "");
+  const items =
+    kind === "group"
+      ? directory.value.groups.map((group) => ({ label: group.name, value: group.id }))
+      : directory.value.users.map((user) => ({
+          description: `@${user.traqId}`,
+          label: user.displayName,
+          value: user.id,
+        }));
+  return [
+    ...(directoryError.value && currentId
+      ? [{ label: `現在の担当 (${currentId})`, value: currentId }]
+      : []),
+    ...items,
+  ];
+}
+function relatedLectureItems(current: string) {
+  return [
+    ...(lecturesError.value && current
+      ? [{ label: `現在の講習会 (${current})`, value: current }]
+      : []),
+    ...lectures.value
+      .filter((entry) => entry.id !== lecture.value?.id)
+      .map((entry) => ({ label: entry.name, value: entry.id })),
+  ];
+}
+function replacementTargetLabel(flow: Flow) {
+  if (flow.type === "lecture_pre") return "講習会";
+  if (flow.type === "lecture_post") return "事後";
+  return sessions.value.find((entry) => entry.id === flow.targetId)?.name ?? "開催";
+}
+function setSessionMode(value: string | null) {
+  if (value === "empty" || value === "duplicate") sessionForm.mode = value;
+}
+function setOrganizerKind(value: string | null) {
+  const kind = selectedValue(value);
+  complexForm.value = kind === "user" || kind === "group" ? { kind, id: "" } : null;
+}
+function setRelationType(relation: EditableRelation, value: string | null) {
+  if (value === "prerequisite" || value === "previous_year" || value === "recommended_next") {
+    relation.type = value;
+  }
+}
+function setReplacementTarget(value: string | null) {
+  replaceForm.flowId = value ?? "";
+  replaceForm.flowClassId =
+    workspace.value?.flows.find((entry) => entry.id === replaceForm.flowId)?.flowClassId ?? "";
+}
 
 const scalarLectureFields = [
   ["name", "講習会名", "text"],
@@ -815,51 +921,33 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
               required
               placeholder="例：Webエンジニアになろう講習会"
           /></BasiqFormField>
-          <label class="native-field"
-            ><span>講習会の事前Flow *</span
-            ><select v-model="createForm.lecturePreFlowClassId" required>
-              <option value="" disabled>選択してください</option>
-              <option
-                v-for="item in flowClasses.filter(
-                  (entry) => entry.listed && entry.type === 'lecture_pre',
-                )"
-                :key="item.id"
-                :value="item.id"
-              >
-                {{ item.name }}
-              </option>
-            </select></label
-          >
-          <label class="native-field"
-            ><span>第1回のメインFlow *</span
-            ><select v-model="createForm.sessionMainFlowClassId" required>
-              <option value="" disabled>選択してください</option>
-              <option
-                v-for="item in flowClasses.filter(
-                  (entry) => entry.listed && entry.type === 'session_main',
-                )"
-                :key="item.id"
-                :value="item.id"
-              >
-                {{ item.name }}
-              </option>
-            </select></label
-          >
-          <label class="native-field"
-            ><span>講習会の事後Flow *</span
-            ><select v-model="createForm.lecturePostFlowClassId" required>
-              <option value="" disabled>選択してください</option>
-              <option
-                v-for="item in flowClasses.filter(
-                  (entry) => entry.listed && entry.type === 'lecture_post',
-                )"
-                :key="item.id"
-                :value="item.id"
-              >
-                {{ item.name }}
-              </option>
-            </select></label
-          >
+          <BasiqFormField label="講習会の事前Flow" required>
+            <BasiqSelect
+              :model-value="createForm.lecturePreFlowClassId || null"
+              :items="listedFlowClassItems('lecture_pre')"
+              placeholder="選択してください"
+              required
+              @update:model-value="createForm.lecturePreFlowClassId = $event ?? ''"
+            />
+          </BasiqFormField>
+          <BasiqFormField label="第1回のメインFlow" required>
+            <BasiqSelect
+              :model-value="createForm.sessionMainFlowClassId || null"
+              :items="listedFlowClassItems('session_main')"
+              placeholder="選択してください"
+              required
+              @update:model-value="createForm.sessionMainFlowClassId = $event ?? ''"
+            />
+          </BasiqFormField>
+          <BasiqFormField label="講習会の事後Flow" required>
+            <BasiqSelect
+              :model-value="createForm.lecturePostFlowClassId || null"
+              :items="listedFlowClassItems('lecture_post')"
+              placeholder="選択してください"
+              required
+              @update:model-value="createForm.lecturePostFlowClassId = $event ?? ''"
+            />
+          </BasiqFormField>
         </div>
         <template #footer
           ><BasiqButton type="submit" :disabled="saving">{{
@@ -1037,25 +1125,16 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
                       )
                     "
                 /></label>
-                <label class="native-field"
-                  ><span>分野</span
-                  ><select
-                    :value="fieldValue('lecture', lecture.id, 'fieldId')"
+                <BasiqFormField label="分野">
+                  <BasiqSelect
+                    :model-value="optionalSelectValue(fieldValue('lecture', lecture.id, 'fieldId'))"
+                    :items="fieldItems(fieldValue('lecture', lecture.id, 'fieldId'))"
                     :disabled="Boolean(fieldsError)"
-                    @change="setField('lecture', lecture.id, 'fieldId', inputValue($event), true)"
-                  >
-                    <option
-                      v-if="fieldsError && fieldValue('lecture', lecture.id, 'fieldId')"
-                      :value="fieldValue('lecture', lecture.id, 'fieldId')"
-                    >
-                      現在の設定 ({{ fieldValue("lecture", lecture.id, "fieldId") }})
-                    </option>
-                    <option value="">未設定</option>
-                    <option v-for="field in fields" :key="field.id" :value="field.id">
-                      {{ field.name }}
-                    </option>
-                  </select></label
-                >
+                    @update:model-value="
+                      setField('lecture', lecture.id, 'fieldId', selectedValue($event), true)
+                    "
+                  />
+                </BasiqFormField>
                 <label class="switch-field"
                   ><BasiqSwitch
                     :model-value="Boolean(fieldValue('lecture', lecture.id, 'isIntroductory'))"
@@ -1143,27 +1222,27 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
                   :key="session.id"
                   class="session-mini"
                 >
-                  <strong>第{{ index + 1 }}回</strong
-                  ><label class="native-field"
-                    ><select
-                      :value="fieldValue('session', session.id, 'instructorId')"
-                      :disabled="Boolean(directoryError)"
-                      @change="
-                        setField('session', session.id, 'instructorId', inputValue($event), true)
+                  <strong>第{{ index + 1 }}回</strong>
+                  <BasiqFormField label="講師">
+                    <BasiqCombobox
+                      :model-value="
+                        optionalSelectValue(fieldValue('session', session.id, 'instructorId'))
                       "
-                    >
-                      <option
-                        v-if="directoryError && fieldValue('session', session.id, 'instructorId')"
-                        :value="fieldValue('session', session.id, 'instructorId')"
-                      >
-                        現在の講師 ({{ fieldValue("session", session.id, "instructorId") }})
-                      </option>
-                      <option value="">未設定</option>
-                      <option v-for="user in directory.users" :key="user.id" :value="user.id">
-                        {{ user.displayName }} (@{{ user.traqId }})
-                      </option>
-                    </select></label
-                  >
+                      :items="instructorItems(fieldValue('session', session.id, 'instructorId'))"
+                      :disabled="Boolean(directoryError)"
+                      placeholder="講師を選択"
+                      empty-text="候補がありません"
+                      @update:model-value="
+                        setField(
+                          'session',
+                          session.id,
+                          'instructorId',
+                          selectedComboboxValue($event),
+                          true,
+                        )
+                      "
+                    />
+                  </BasiqFormField>
                 </article>
               </div>
             </details>
@@ -1294,34 +1373,31 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
             >
           </header>
           <div class="form-stack">
-            <label class="native-field"
-              ><span>作り方</span
-              ><select v-model="sessionForm.mode">
-                <option value="empty">空の開催</option>
-                <option value="duplicate">既存開催を複製</option>
-              </select></label
-            ><label v-if="sessionForm.mode === 'duplicate'" class="native-field"
-              ><span>複製元</span
-              ><select v-model="sessionForm.sourceSessionId" required>
-                <option value="" disabled>選択してください</option>
-                <option v-for="session in sessions" :key="session.id" :value="session.id">
-                  {{ session.name }}
-                </option>
-              </select></label
-            ><label class="native-field"
-              ><span>メインFlow</span
-              ><select v-model="sessionForm.flowClassId" required>
-                <option
-                  v-for="item in flowClasses.filter(
-                    (entry) => entry.listed && entry.type === 'session_main',
-                  )"
-                  :key="item.id"
-                  :value="item.id"
-                >
-                  {{ item.name }}
-                </option>
-              </select></label
-            >
+            <BasiqFormField label="作り方">
+              <BasiqSelect
+                :model-value="sessionForm.mode"
+                :items="sessionModeItems"
+                @update:model-value="setSessionMode"
+              />
+            </BasiqFormField>
+            <BasiqFormField v-if="sessionForm.mode === 'duplicate'" label="複製元" required>
+              <BasiqSelect
+                :model-value="sessionForm.sourceSessionId || null"
+                :items="sessions.map((session) => ({ label: session.name, value: session.id }))"
+                placeholder="選択してください"
+                required
+                @update:model-value="sessionForm.sourceSessionId = $event ?? ''"
+              />
+            </BasiqFormField>
+            <BasiqFormField label="メインFlow" required>
+              <BasiqSelect
+                :model-value="sessionForm.flowClassId || null"
+                :items="listedFlowClassItems('session_main')"
+                placeholder="選択してください"
+                required
+                @update:model-value="sessionForm.flowClassId = $event ?? ''"
+              />
+            </BasiqFormField>
           </div>
           <footer><BasiqButton type="submit" :disabled="saving">追加する</BasiqButton></footer>
         </form>
@@ -1339,43 +1415,29 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
                 {{ (complexForm.value as any)?.id ?? "未設定" }}
                 です。
               </p>
-              <label class="native-field"
-                ><span>担当種別</span
-                ><select
-                  :value="(complexForm.value as any)?.kind ?? ''"
+              <BasiqFormField label="担当種別">
+                <BasiqSelect
+                  :model-value="optionalSelectValue((complexForm.value as any)?.kind)"
+                  :items="organizerKindItems"
                   :disabled="Boolean(directoryError)"
-                  @change="
-                    complexForm.value = inputValue($event)
-                      ? { kind: inputValue($event), id: '' }
-                      : null
+                  @update:model-value="setOrganizerKind"
+                />
+              </BasiqFormField>
+              <BasiqFormField v-if="(complexForm.value as any)?.kind" label="担当" required>
+                <BasiqCombobox
+                  :model-value="(complexForm.value as any).id || null"
+                  :items="
+                    organizerItems((complexForm.value as any).kind, (complexForm.value as any).id)
                   "
-                >
-                  <option value="">未設定</option>
-                  <option value="user">個人</option>
-                  <option value="group">グループ</option>
-                </select></label
-              ><label v-if="(complexForm.value as any)?.kind" class="native-field"
-                ><span>担当</span
-                ><select
-                  v-model="(complexForm.value as any).id"
                   :disabled="Boolean(directoryError)"
-                >
-                  <option v-if="directoryError" :value="(complexForm.value as any).id">
-                    現在の担当 ({{ (complexForm.value as any).id }})
-                  </option>
-                  <option value="" disabled>選択してください</option>
-                  <option
-                    v-for="entry in (complexForm.value as any).kind === 'group'
-                      ? directory.groups
-                      : directory.users"
-                    :key="entry.id"
-                    :value="entry.id"
-                  >
-                    {{ "name" in entry ? entry.name : `${entry.displayName} (@${entry.traqId})` }}
-                  </option>
-                </select></label
-              ></template
-            >
+                  placeholder="選択してください"
+                  empty-text="候補がありません"
+                  required
+                  @update:model-value="
+                    (complexForm.value as any).id = selectedComboboxValue($event)
+                  "
+                /> </BasiqFormField
+            ></template>
             <template v-else-if="complexForm.path === 'material'"
               ><BasiqFormField label="表示名"
                 ><BasiqInput
@@ -1414,23 +1476,24 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
             >
             <template v-else-if="complexForm.path === 'relations'"
               ><div v-for="(relation, index) in relationsValue()" :key="index" class="row-editor">
-                <select v-model="relation.type">
-                  <option value="prerequisite">先に学ぶ</option>
-                  <option value="previous_year">過去年度版</option>
-                  <option value="recommended_next">次に学ぶ</option></select
-                ><select v-model="relation.toLectureId">
-                  <option v-if="lecturesError" :value="relation.toLectureId">
-                    現在の講習会 ({{ relation.toLectureId }})
-                  </option>
-                  <option value="" disabled>講習会を選択</option>
-                  <option
-                    v-for="item in lectures.filter((entry) => entry.id !== lecture?.id)"
-                    :key="item.id"
-                    :value="item.id"
-                  >
-                    {{ item.name }}
-                  </option></select
-                ><BasiqButton
+                <BasiqFormField label="関係">
+                  <BasiqSelect
+                    :model-value="relation.type"
+                    :items="relationTypeItems"
+                    @update:model-value="setRelationType(relation, $event)"
+                  />
+                </BasiqFormField>
+                <BasiqFormField label="講習会">
+                  <BasiqCombobox
+                    :model-value="relation.toLectureId || null"
+                    :items="relatedLectureItems(relation.toLectureId)"
+                    :disabled="Boolean(lecturesError)"
+                    placeholder="講習会を選択"
+                    empty-text="候補がありません"
+                    @update:model-value="relation.toLectureId = selectedComboboxValue($event)"
+                  />
+                </BasiqFormField>
+                <BasiqButton
                   tone="neutral"
                   variant="outline"
                   type="button"
@@ -1495,34 +1558,25 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
             >
           </header>
           <div class="form-stack">
-            <label class="native-field"
-              ><span>対象</span
-              ><select
-                v-model="replaceForm.flowId"
-                @change="
-                  replaceForm.flowClassId =
-                    workspace?.flows.find((entry) => entry.id === replaceForm.flowId)
-                      ?.flowClassId ?? ''
+            <BasiqFormField label="対象">
+              <BasiqSelect
+                :model-value="replaceForm.flowId || null"
+                :items="
+                  (workspace?.flows ?? []).map((flow) => ({
+                    label: replacementTargetLabel(flow),
+                    value: flow.id,
+                  }))
                 "
-              >
-                <option v-for="flow in workspace?.flows" :key="flow.id" :value="flow.id">
-                  {{
-                    flow.type === "lecture_pre"
-                      ? "講習会"
-                      : flow.type === "lecture_post"
-                        ? "事後"
-                        : sessions.find((entry) => entry.id === flow.targetId)?.name
-                  }}
-                </option>
-              </select></label
-            ><label class="native-field"
-              ><span>新しいFlow</span
-              ><select v-model="replaceForm.flowClassId">
-                <option v-for="item in replacementCandidates" :key="item.id" :value="item.id">
-                  {{ item.name }}
-                </option>
-              </select></label
-            >
+                @update:model-value="setReplacementTarget"
+              />
+            </BasiqFormField>
+            <BasiqFormField label="新しいFlow">
+              <BasiqSelect
+                :model-value="replaceForm.flowClassId || null"
+                :items="replacementCandidates.map((item) => ({ label: item.name, value: item.id }))"
+                @update:model-value="replaceForm.flowClassId = $event ?? ''"
+              />
+            </BasiqFormField>
             <p>対象のデータは維持し、Flow本文・チェック・ページ位置を新しい内容へ置き換えます。</p>
           </div>
           <footer>
@@ -1856,8 +1910,6 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
 }
 
 .native-field input,
-.native-field select,
-.row-editor select,
 .session-mini input {
   width: 100%;
   min-height: 42px;
@@ -2018,6 +2070,7 @@ onBeforeUnmount(() => timers.forEach((timer) => clearTimeout(timer)));
 .row-editor {
   display: grid;
   grid-template-columns: 1fr 1.5fr auto;
+  align-items: end;
   gap: 8px;
 }
 
