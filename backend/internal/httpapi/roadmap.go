@@ -210,10 +210,16 @@ func (server server) GetProfile(ctx context.Context, request api.GetProfileReque
 		if err != nil {
 			continue
 		}
-		profile.Badges = append(profile.Badges, api.Badge{LectureId: lecture.ID, LectureName: lecture.Name, AcademicYearStart: lecture.AcademicYearStart, AcademicYearEnd: lecture.AcademicYearEnd, EarnedAt: earnedAt})
+		profile.Badges = append(profile.Badges, badgeToAPI(lecture, earnedAt))
 	}
 	for _, roadmap := range roadmaps {
 		profile.Roadmaps = append(profile.Roadmaps, roadmapToAPI(roadmap, completedLectures, completionTimesBySession(completions)))
 	}
 	return api.GetProfile200JSONResponse(profile), nil
+}
+
+func badgeToAPI(lecture domain.Lecture, earnedAt time.Time) api.Badge {
+	return api.Badge{LectureId: lecture.ID, LectureName: lecture.Name,
+		AcademicYearStart: lecture.AcademicYearStart, AcademicYearEnd: lecture.AcademicYearEnd,
+		EarnedAt: earnedAt, Organizer: organizerToAPI(lecture.Organizer)}
 }

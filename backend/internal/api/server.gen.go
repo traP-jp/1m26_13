@@ -253,6 +253,9 @@ type Badge struct {
 	EarnedAt          time.Time `json:"earnedAt"`
 	LectureId         LectureId `json:"lectureId"`
 	LectureName       string    `json:"lectureName"`
+
+	// Organizer Current lecture organizer, used for badge host color; omitted when unset.
+	Organizer *Organizer `json:"organizer,omitempty"`
 }
 
 // CurrentUser defines model for CurrentUser.
