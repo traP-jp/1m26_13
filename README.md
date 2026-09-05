@@ -36,3 +36,4 @@ npm run import:research
 - [講習会データスキーマ](./docs/workshop-schema.md)
 - [バックエンド設計](./docs/backend-design.md)
 - [過去講習会データの取り込み](./docs/research-import.md)
+- [LeQturesの設計原則](./docs/design-principles.md)

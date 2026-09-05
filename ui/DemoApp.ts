@@ -1908,7 +1908,7 @@ export default defineComponent({
                       <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">1</span><h3>講習会の名前を決めよう</h3></div>
                       <div class="form-grid">
                         <BasiqFormField class="full" label="講習会名" control-id="workshop-title"><BasiqInput id="workshop-title" v-model="editorDraft.title" :placeholder="makeRandomWorkshopTitle(editorDraft.id)" /></BasiqFormField>
-                        <BasiqFormField v-slot="{ id, describedBy, invalid, required }" label="開催年度" description="4月始まりの年度" control-id="workshop-year"><input :id="id" v-model.number="editorDraft.year" class="native-control" type="number" min="2000" max="2100" :aria-describedby="describedBy" :aria-invalid="invalid ? 'true' : undefined" :required="required"></BasiqFormField>
+                        <BasiqFormField v-slot="{ id, describedBy, invalid, required }" label="開催年度" control-id="workshop-year"><input :id="id" v-model.number="editorDraft.year" class="native-control" type="number" min="2000" max="2100" :aria-describedby="describedBy" :aria-invalid="invalid ? 'true' : undefined" :required="required"></BasiqFormField>
                       </div>
                     </section>
 
