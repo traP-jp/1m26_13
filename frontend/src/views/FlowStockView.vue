@@ -4,6 +4,7 @@ import {
   BasiqCard,
   BasiqFormField,
   BasiqInput,
+  BasiqSelect,
   BasiqSwitch,
   BasiqTextarea,
 } from "basiq-ui";
@@ -25,6 +26,16 @@ const form = reactive({
   listed: true,
   revision: 0,
 });
+const flowTypeItems = [
+  { label: "講習会の事前", value: "lecture_pre" },
+  { label: "各開催のメイン", value: "session_main" },
+  { label: "講習会の事後", value: "lecture_post" },
+];
+function setFlowType(value: string | null) {
+  if (value === "lecture_pre" || value === "session_main" || value === "lecture_post") {
+    form.type = value;
+  }
+}
 async function load() {
   loading.value = true;
   try {
@@ -102,14 +113,13 @@ onMounted(load);
             <BasiqFormField label="名前" required
               ><BasiqInput v-model="form.name" required
             /></BasiqFormField>
-            <label class="native-field"
-              ><span>分類</span
-              ><select v-model="form.type">
-                <option value="lecture_pre">講習会の事前</option>
-                <option value="session_main">各開催のメイン</option>
-                <option value="lecture_post">講習会の事後</option>
-              </select></label
-            >
+            <BasiqFormField label="分類">
+              <BasiqSelect
+                :model-value="form.type"
+                :items="flowTypeItems"
+                @update:model-value="setFlowType"
+              />
+            </BasiqFormField>
             <BasiqFormField label="Flow本文" required
               ><BasiqTextarea v-model="form.text" :rows="18" required
             /></BasiqFormField>
@@ -218,25 +228,6 @@ onMounted(load);
 .stock-side {
   display: grid;
   gap: 16px;
-}
-
-.native-field {
-  display: grid;
-  gap: 6px;
-  font-weight: 500;
-}
-
-.native-field > span {
-  font-size: 12px;
-}
-
-.native-field select {
-  min-height: 40px;
-  padding: 8px 11px;
-  border: 1px solid var(--basiq-color-border-control);
-  border-radius: var(--basiq-radius-sm);
-  color: inherit;
-  background: var(--basiq-color-surface-base);
 }
 
 .listing {

@@ -122,17 +122,16 @@ onMounted(load);
         </div>
         <div class="management-toolbar">
           <BasiqFormField class="search-field" control-id="roadmap-search">
-            <template #default="field"
-              ><div class="search-control">
-                <AppIcon name="search" :size="18" /><BasiqInput
-                  v-model="query"
-                  :id="field.id"
-                  type="search"
-                  placeholder="タイトル・概要・対象から検索"
-                  aria-label="ロードマップを検索"
-                  :aria-describedby="field.describedBy"
-                /></div
-            ></template>
+            <BasiqInput
+              v-model="query"
+              type="search"
+              placeholder="タイトル・概要・対象から検索"
+              aria-label="ロードマップを検索"
+              clearable
+              clear-label="検索条件をクリア"
+            >
+              <template #leading><AppIcon name="search" :size="18" /></template>
+            </BasiqInput>
           </BasiqFormField>
         </div>
         <BasiqTabs
@@ -295,23 +294,6 @@ onMounted(load);
 .management-toolbar {
   max-width: 520px;
   margin-bottom: 12px;
-}
-
-.search-control {
-  position: relative;
-}
-
-.search-control > :deep(.app-icon) {
-  position: absolute;
-  z-index: 1;
-  top: 11px;
-  left: 12px;
-  color: var(--basiq-color-content-subtle);
-  pointer-events: none;
-}
-
-.search-control :deep(input) {
-  padding-left: 38px;
 }
 
 .status-tabs {
