@@ -20,6 +20,8 @@ type LectureFilter struct {
 	Year         int
 	FieldID      string
 	IncludeDraft bool
+	Limit        int
+	Cursor       string
 }
 
 type LectureCreate struct {
@@ -44,7 +46,7 @@ type SessionOrderItem struct {
 
 type Repository interface {
 	ListFields(context.Context) ([]domain.Field, error)
-	ListLectures(context.Context, LectureFilter, string) ([]domain.Lecture, error)
+	ListLectures(context.Context, LectureFilter, string) (domain.LecturePage, error)
 	GetLecture(context.Context, string, string, bool) (domain.Lecture, error)
 	CreateLectureWorkspace(context.Context, LectureCreate, string) (domain.LectureWorkspace, error)
 	InheritLectureWorkspace(context.Context, LectureInherit, string) (domain.LectureWorkspace, error)

@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +13,17 @@ import (
 
 	"github.com/traP-jp/1m26_13/backend/internal/domain"
 )
+
+const (
+	defaultLecturePageSize  = 24
+	maxLecturePageSize      = 100
+	lectureCursorTimeLayout = "2006-01-02 15:04:05.000000"
+)
+
+type lectureCursor struct {
+	UpdatedAt string `json:"updatedAt"`
+	ID        uint64 `json:"id"`
+}
 
 type scanner interface{ Scan(...any) error }
 
@@ -72,8 +84,175 @@ func lectureSnapshot(lecture domain.Lecture) map[string]any {
 	}
 }
 
-func (store *MySQL) ListLectures(ctx context.Context, filter LectureFilter, userID string) ([]domain.Lecture, error) {
-	query := "SELECT l.id FROM lectures l WHERE 1=1"
+func lecturePageSize(value int) (int, error) {
+	if value == 0 {
+		return defaultLecturePageSize, nil
+	}
+	if value < 1 || value > maxLecturePageSize {
+		return 0, ErrInvalid
+	}
+	return value, nil
+}
+
+func encodeLectureCursor(lecture domain.Lecture) (string, error) {
+	id, err := strconv.ParseUint(lecture.ID, 10, 64)
+	if err != nil || id == 0 {
+		return "", ErrInvalid
+	}
+	value, err := json.Marshal(lectureCursor{
+		UpdatedAt: lecture.UpdatedAt.Format(lectureCursorTimeLayout),
+		ID:        id,
+	})
+	if err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(value), nil
+}
+
+func decodeLectureCursor(value string) (lectureCursor, error) {
+	decoded, err := base64.RawURLEncoding.DecodeString(value)
+	if err != nil {
+		return lectureCursor{}, ErrInvalid
+	}
+	var cursor lectureCursor
+	if err := json.Unmarshal(decoded, &cursor); err != nil {
+		return lectureCursor{}, ErrInvalid
+	}
+	if _, err := time.Parse(lectureCursorTimeLayout, cursor.UpdatedAt); err != nil {
+		return lectureCursor{}, ErrInvalid
+	}
+	if cursor.ID == 0 {
+		return lectureCursor{}, ErrInvalid
+	}
+	return cursor, nil
+}
+
+func queryValues(values []string) ([]any, string) {
+	args := make([]any, 0, len(values))
+	for _, value := range values {
+		args = append(args, value)
+	}
+	return args, strings.TrimSuffix(strings.Repeat("?,", len(values)), ",")
+}
+
+func (store *MySQL) hydrateLecturePage(ctx context.Context, lectures []domain.Lecture, includeDraft bool, userID string) error {
+	if len(lectures) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(lectures))
+	lectureIndexes := make(map[string]int, len(lectures))
+	for index := range lectures {
+		lectures[index].Relations = []domain.Relation{}
+		lectures[index].Sessions = []domain.Session{}
+		ids = append(ids, lectures[index].ID)
+		lectureIndexes[lectures[index].ID] = index
+	}
+	idArgs, placeholders := queryValues(ids)
+
+	relationRows, err := store.db.QueryContext(ctx, `SELECT from_lecture_id, to_lecture_id, relation_type
+		FROM lecture_relations WHERE from_lecture_id IN (`+placeholders+`)
+		ORDER BY from_lecture_id, relation_type, to_lecture_id`, idArgs...)
+	if err != nil {
+		return fmt.Errorf("list lecture relations: %w", err)
+	}
+	for relationRows.Next() {
+		var lectureID string
+		var relation domain.Relation
+		if err := relationRows.Scan(&lectureID, &relation.ToLectureID, &relation.Type); err != nil {
+			relationRows.Close()
+			return err
+		}
+		if index, ok := lectureIndexes[lectureID]; ok {
+			lectures[index].Relations = append(lectures[index].Relations, relation)
+		}
+	}
+	if err := relationRows.Err(); err != nil {
+		relationRows.Close()
+		return err
+	}
+	if err := relationRows.Close(); err != nil {
+		return err
+	}
+
+	sessionQuery := `SELECT id, lecture_id, name, description, display_order,
+		COALESCE(DATE_FORMAT(session_date, '%Y-%m-%d'), ''), COALESCE(TIME_FORMAT(start_time, '%H:%i'), ''),
+		location, COALESCE(knoq_url, ''), instructor_id, instructor_ids, material, resources, replay_of_session_ids, status,
+		revision, created_at, updated_at FROM sessions WHERE lecture_id IN (` + placeholders + `)`
+	if !includeDraft {
+		sessionQuery += " AND status = 'published'"
+	}
+	sessionQuery += " ORDER BY lecture_id, display_order, JSON_LENGTH(replay_of_session_ids), id"
+	sessionRows, err := store.db.QueryContext(ctx, sessionQuery, idArgs...)
+	if err != nil {
+		return fmt.Errorf("list lecture sessions: %w", err)
+	}
+	type sessionLocation struct{ lecture, session int }
+	sessionLocations := make(map[string]sessionLocation)
+	sessionIDs := make([]string, 0)
+	for sessionRows.Next() {
+		session, err := scanSession(sessionRows)
+		if err != nil {
+			sessionRows.Close()
+			return err
+		}
+		lectureIndex, ok := lectureIndexes[session.LectureID]
+		if !ok {
+			continue
+		}
+		lectures[lectureIndex].Sessions = append(lectures[lectureIndex].Sessions, session)
+		sessionIndex := len(lectures[lectureIndex].Sessions) - 1
+		sessionLocations[session.ID] = sessionLocation{lecture: lectureIndex, session: sessionIndex}
+		sessionIDs = append(sessionIDs, session.ID)
+	}
+	if err := sessionRows.Err(); err != nil {
+		sessionRows.Close()
+		return err
+	}
+	if err := sessionRows.Close(); err != nil {
+		return err
+	}
+
+	if userID == "" || len(sessionIDs) == 0 {
+		return nil
+	}
+	completionArgs, completionPlaceholders := queryValues(sessionIDs)
+	completionArgs = append([]any{userID}, completionArgs...)
+	completionRows, err := store.db.QueryContext(ctx, `SELECT session_id FROM session_completions
+		WHERE user_id = ? AND session_id IN (`+completionPlaceholders+`)`, completionArgs...)
+	if err != nil {
+		return fmt.Errorf("list lecture completions: %w", err)
+	}
+	for completionRows.Next() {
+		var sessionID string
+		if err := completionRows.Scan(&sessionID); err != nil {
+			completionRows.Close()
+			return err
+		}
+		if location, ok := sessionLocations[sessionID]; ok {
+			lectures[location.lecture].Sessions[location.session].IsCompleted = true
+		}
+	}
+	if err := completionRows.Err(); err != nil {
+		completionRows.Close()
+		return err
+	}
+	return completionRows.Close()
+}
+
+func (store *MySQL) ListLectures(ctx context.Context, filter LectureFilter, userID string) (domain.LecturePage, error) {
+	limit, err := lecturePageSize(filter.Limit)
+	if err != nil {
+		return domain.LecturePage{}, err
+	}
+	var cursor lectureCursor
+	if filter.Cursor != "" {
+		cursor, err = decodeLectureCursor(filter.Cursor)
+		if err != nil {
+			return domain.LecturePage{}, err
+		}
+	}
+
+	query := "SELECT " + lectureColumns + " FROM lectures l WHERE 1=1"
 	args := make([]any, 0)
 	if !filter.IncludeDraft {
 		query += " AND EXISTS (SELECT 1 FROM sessions s WHERE s.lecture_id = l.id AND s.status = 'published' AND JSON_LENGTH(s.replay_of_session_ids) = 0)"
@@ -91,32 +270,44 @@ func (store *MySQL) ListLectures(ctx context.Context, filter LectureFilter, user
 		query += " AND l.field_id = ?"
 		args = append(args, filter.FieldID)
 	}
-	query += " ORDER BY l.updated_at DESC, l.id LIMIT 200"
+	if filter.Cursor != "" {
+		query += " AND (l.updated_at < ? OR (l.updated_at = ? AND l.id < ?))"
+		args = append(args, cursor.UpdatedAt, cursor.UpdatedAt, cursor.ID)
+	}
+	query += " ORDER BY l.updated_at DESC, l.id DESC LIMIT ?"
+	args = append(args, limit+1)
 	rows, err := store.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("list lecture ids: %w", err)
+		return domain.LecturePage{}, fmt.Errorf("list lectures: %w", err)
 	}
-	ids := make([]string, 0)
+	lectures := make([]domain.Lecture, 0, limit+1)
 	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
+		lecture, err := scanLecture(rows)
+		if err != nil {
 			rows.Close()
-			return nil, err
+			return domain.LecturePage{}, err
 		}
-		ids = append(ids, id)
+		lectures = append(lectures, lecture)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return domain.LecturePage{}, err
 	}
 	if err := rows.Close(); err != nil {
-		return nil, err
+		return domain.LecturePage{}, err
 	}
-	result := make([]domain.Lecture, 0, len(ids))
-	for _, id := range ids {
-		lecture, err := store.GetLecture(ctx, id, userID, filter.IncludeDraft)
+	page := domain.LecturePage{Items: lectures}
+	if len(page.Items) > limit {
+		page.Items = page.Items[:limit]
+		page.NextCursor, err = encodeLectureCursor(page.Items[len(page.Items)-1])
 		if err != nil {
-			return nil, err
+			return domain.LecturePage{}, err
 		}
-		result = append(result, lecture)
 	}
-	return result, nil
+	if err := store.hydrateLecturePage(ctx, page.Items, filter.IncludeDraft, userID); err != nil {
+		return domain.LecturePage{}, err
+	}
+	return page, nil
 }
 
 func (store *MySQL) GetLecture(ctx context.Context, id, userID string, includeDraft bool) (domain.Lecture, error) {
@@ -132,52 +323,11 @@ func (store *MySQL) GetLecture(ctx context.Context, id, userID string, includeDr
 		return domain.Lecture{}, fmt.Errorf("get lecture: %w", err)
 	}
 
-	relationRows, err := store.db.QueryContext(ctx, `SELECT to_lecture_id, relation_type FROM lecture_relations
-		WHERE from_lecture_id = ? ORDER BY relation_type, to_lecture_id`, id)
-	if err != nil {
+	lectures := []domain.Lecture{lecture}
+	if err := store.hydrateLecturePage(ctx, lectures, includeDraft, userID); err != nil {
 		return domain.Lecture{}, err
 	}
-	lecture.Relations = make([]domain.Relation, 0)
-	for relationRows.Next() {
-		var relation domain.Relation
-		if err := relationRows.Scan(&relation.ToLectureID, &relation.Type); err != nil {
-			relationRows.Close()
-			return domain.Lecture{}, err
-		}
-		lecture.Relations = append(lecture.Relations, relation)
-	}
-	if err := relationRows.Close(); err != nil {
-		return domain.Lecture{}, err
-	}
-
-	query := `SELECT id, lecture_id, name, description, display_order,
-		COALESCE(DATE_FORMAT(session_date, '%Y-%m-%d'), ''), COALESCE(TIME_FORMAT(start_time, '%H:%i'), ''),
-		location, COALESCE(knoq_url, ''), instructor_id, instructor_ids, material, resources, replay_of_session_ids, status,
-		revision, created_at, updated_at FROM sessions WHERE lecture_id = ?`
-	if !includeDraft {
-		query += " AND status = 'published'"
-	}
-	query += " ORDER BY display_order, JSON_LENGTH(replay_of_session_ids), id"
-	rows, err := store.db.QueryContext(ctx, query, id)
-	if err != nil {
-		return domain.Lecture{}, err
-	}
-	lecture.Sessions = make([]domain.Session, 0)
-	for rows.Next() {
-		session, err := scanSession(rows)
-		if err != nil {
-			rows.Close()
-			return domain.Lecture{}, err
-		}
-		if userID != "" {
-			_ = store.db.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM session_completions WHERE user_id = ? AND session_id = ?)", userID, session.ID).Scan(&session.IsCompleted)
-		}
-		lecture.Sessions = append(lecture.Sessions, session)
-	}
-	if err := rows.Close(); err != nil {
-		return domain.Lecture{}, err
-	}
-	return lecture, nil
+	return lectures[0], nil
 }
 
 func encodeLecture(lecture domain.Lecture) ([]any, error) {

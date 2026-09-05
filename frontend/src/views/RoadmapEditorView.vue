@@ -14,7 +14,7 @@ import { useRoute, useRouter } from "vue-router";
 import {
   createRoadmap,
   getRoadmap,
-  listLectures,
+  listAllLectures,
   updateRoadmap,
   type Lecture,
   type Roadmap,
@@ -210,10 +210,10 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    if (isNew.value) lectures.value = await listLectures({ includeDraft: true });
+    if (isNew.value) lectures.value = await listAllLectures({ includeDraft: true });
     else {
       const [lectureValues, roadmap] = await Promise.all([
-        listLectures({ includeDraft: true }),
+        listAllLectures({ includeDraft: true }),
         getRoadmap(roadmapId.value, true),
       ]);
       lectures.value = lectureValues;

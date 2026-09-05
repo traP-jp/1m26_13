@@ -49,6 +49,10 @@ type Lecture struct {
 	Revision                                                             int
 	CreatedAt, UpdatedAt                                                 time.Time
 }
+type LecturePage struct {
+	Items      []Lecture
+	NextCursor string
+}
 type Session struct {
 	ID, LectureID, Name, Description   string
 	Order                              int

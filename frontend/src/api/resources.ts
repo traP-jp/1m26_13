@@ -2,6 +2,7 @@ import { apiClient } from "@/api/client";
 import type { components } from "@/api/schema";
 
 export type Lecture = components["schemas"]["Lecture"];
+export type LecturePage = components["schemas"]["LecturePage"];
 export type LectureCreate = components["schemas"]["LectureCreate"];
 export type LectureWorkspace = components["schemas"]["LectureWorkspace"];
 export type AttributePatch = components["schemas"]["AttributePatch"];
@@ -29,11 +30,31 @@ export async function listFields() {
   const { data, response } = await apiClient.GET("/fields");
   return result(response, data, "分野を取得できませんでした");
 }
-export async function listLectures(
-  query: { q?: string; year?: number; fieldId?: string; includeDraft?: boolean } = {},
-) {
+export type LectureListQuery = {
+  q?: string;
+  year?: number;
+  fieldId?: string;
+  includeDraft?: boolean;
+  limit?: number;
+  cursor?: string;
+};
+
+export async function listLectures(query: LectureListQuery = {}) {
   const { data, response } = await apiClient.GET("/lectures", { params: { query } });
   return result(response, data, "講習会を取得できませんでした");
+}
+export async function listAllLectures(query: Omit<LectureListQuery, "limit" | "cursor"> = {}) {
+  const items: Lecture[] = [];
+  let cursor: string | undefined;
+  const seenCursors = new Set<string>();
+  do {
+    const page = await listLectures({ ...query, limit: 100, cursor });
+    items.push(...page.items);
+    cursor = page.nextCursor;
+    if (cursor && seenCursors.has(cursor)) throw new Error("講習会の続き位置が重複しました");
+    if (cursor) seenCursors.add(cursor);
+  } while (cursor);
+  return items;
 }
 export async function getLecture(id: string, includeDraft = false) {
   const { data, response } = await apiClient.GET("/lectures/{lectureId}", {

@@ -614,6 +614,16 @@
 
 検証: frontend/backend全gate、引き継ぎAPIの実DB実行、PC/390px実ブラウザ、横overflowとconsole warning/error 0件を確認し、commit・push前に本人の画面確認を受ける。
 
+### P12. Lecture一覧をカーソルページングしN+1を解消する
+
+状態: 完了（2026-09-05）
+
+- Lecture一覧APIを`updatedAt DESC, id DESC`の安定順序とopaque cursorによるkeyset paginationへ移行する。
+- 1ページのLecture、Relation、Session、利用者の完了状態を一括取得し、件数に比例して増えていたDB queryを最大4回へ固定する。
+- ホームは24件ずつ「さらに表示」、運営ホームは直近4件だけを取得し、全候補が必要な編集面だけ100件単位で全pageを読む。
+
+検証: cursor境界、無効cursor、limit境界の単体テスト、MariaDB APIでの複数page・重複なし・更新日時降順、frontend/backend全gateとproduction buildを確認する。
+
 ## 停止条件
 
 - `PROJECT_BRIEF.md`の完了条件のうち、実装とローカル検証で達成可能な項目を満たしている。
