@@ -105,13 +105,12 @@ traP内で行われる講習会を一度きりの催しにせず、学習内容�
 
 ## ロードマップ
 
-- 複数Lectureを目標に沿った一本道の学び方としてまとめ、検索だけでは分からない順序・段階・理由を示す。
-- 段階名と説明を保持できる。βでの削除は採用しない。
-- 各段階のLectureは順序付きで、すべて必須とする。分岐、選択肢、「N件中M件」の条件は初期リリースに含めない。同じLectureを一つのロードマップへ重複配置しない。
-- 専用の完了状態を保存せず、Session完了から導出したLecture相当の進捗を使って項目・段階・全体の進捗を算出する。次に学ぶLectureは先頭から最初の未完了項目とする。
-- 公開・下書きを区別し、下書きを学習者へ表示しない。
-- Roadmapは`title`、`description`、`audience`、`published`、順序付きのStageとItemを持つ。Stageは安定ID、名前、説明を持ち、ItemはLecture IDと補足を持つ。
-- 公開Roadmapは1件以上の空でないStageと、重複しない公開Lectureだけを含む。公開後の編集は同じRoadmapへ即時反映し、進捗は現在の並びと現在のLecture完了条件から再計算する。初期リリースではRoadmap版を持たない。
+- Lectureと特定の通常Sessionを混在できる一次元の順序リストとして、目標に沿った一本道の学び方を示す。Stage、段階名、段階説明、項目メモは持たない。
+- Itemは安定ID、`targetType`（`lecture`または`session`）、`targetId`を持つ。同じ対象を一つのRoadmapへ重複配置しない。分岐、選択肢、「N件中M件」の条件は初期リリースに含めない。
+- 専用の完了状態を保存しない。Lecture Itemはpublishedな通常Session全件の完了、Session ItemはそのSessionの完了から導出し、先頭から最初の未完了Itemを現在地とする。
+- 再放送Sessionは選択・保存の対象外とする。公開Roadmapは1件以上のItemを持ち、Lecture Itemにはpublishedな通常Sessionが1件以上、Session Itemにはpublishedな通常Sessionを要求する。
+- 公開・下書きを区別し、下書きを学習者へ表示しない。公開後の編集は同じRoadmapへ即時反映し、進捗は現在の並びと完了記録から再計算する。初期リリースではRoadmap版を持たない。
+- Roadmap自体の削除機能は設けない。編集画面では順序リストからItemを外せる。
 
 ## 品質要件
 

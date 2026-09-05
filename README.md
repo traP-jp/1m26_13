@@ -126,7 +126,7 @@ APIは`/api/v1`以下で提供します。API schemaとendpoint pathのsource of
 - 通常Sessionを`order`順の回として表示するLecture詳細。複数回だけ`#第N回`で回を直接表示し、再放送は学習者向け画面へ表示しない
 - Session単位の完了、Lecture完了、バッジ、ロードマップ進捗の導出
 - `lecture_pre`、`session_main`、`lecture_post`のFlowClassと、対象ごとに1件の適用時スナップショットFlow
-- 段階を持つ一本道ロードマップ
+- Lectureと通常Sessionを混在できる、段階なしの一本道ロードマップ
 - Lecture / Session属性の後勝ち自動保存、競合通知、属性単位の更新イベント
 
 Lecture、Session、FlowClass、Flow、Roadmapの削除APIはありません。

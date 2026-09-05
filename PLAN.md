@@ -593,6 +593,16 @@
 
 検証: frontend全gate/build、backend全gate/build、空DB migration/API smoke、PC/390px実ブラウザをすべて成功させ、`STATUS.md`へ結果を記録する。
 
+### P10. Roadmapを段階なしの混在順序リストへ移行する
+
+状態: 完了（2026-09-05）
+
+- RoadmapのStageと項目メモを廃止し、Lectureと通常Sessionを混在できる順序付きItemへOpenAPI、domain、永続化、進捗導出を移行する。
+- 旧`stages`を破壊せずnullableな`items`を追加し、未移行行は全Stageの全項目を順序どおりLecture Itemへ読み替える。
+- 最新画面設計に合わせ、追加・変更の検索ダイアログ、項目を外す操作、グリップD&D、Alt＋矢印、固定保存操作を実装する。
+
+検証: 空DB migration、旧複数Stage互換、混在CRUD・進捗・再放送拒否、frontend/backend全gate、PC/390px実ブラウザで横overflowとconsole warning/error 0件を確認する。
+
 ## 停止条件
 
 - `PROJECT_BRIEF.md`の完了条件のうち、実装とローカル検証で達成可能な項目を満たしている。

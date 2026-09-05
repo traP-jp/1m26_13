@@ -1,7 +1,7 @@
 # Status
 
 更新日: 2026-09-05
-フェーズ: P9 講習会編集の実装と統合QAを完了。
+フェーズ: P10 Roadmapの段階なし混在順序リストへの移行と統合QAを完了。
 
 ## 現在地
 
@@ -41,7 +41,7 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 - 再放送を別Sessionとして保持し、API、DB、運営編集、作成機能で管理する。学習者向けLecture詳細の回数、タブ、本文には再放送を含めず、完了操作も置かない。
 - Session単位の自己申告完了。公開中の通常Session全件からLecture完了、badge alpha、Roadmap進捗を導出する。
 - StockのFlowClassと適用時スナップショットFlow。`lecture_pre`、`session_main`、`lecture_post`、formatVersion 1、本文内チェック、currentPageを実装した。
-- 段階名・説明と順序付きLectureを持つ一本道Roadmap。公開条件、次のLecture、進捗を実装した。
+- Lectureと通常Sessionを混在できる段階なしの一本道Roadmap。検索ダイアログ、並べ替え、公開条件、次のItem、進捗を実装した。
 - プロフィールのbadge、完了Session、Roadmapの3タブ。矢印/Home/End操作に対応した。
 - `badge-alpha-v1:${lectureName}`による決定論的なソリッド幾何学SVGとモーション低減。同名Lectureは年度や内部IDが異なっても同じ図形になる。
 - Lecture、Session、FlowClass、Flow、Roadmapの削除API・画面は実装していない。
@@ -52,6 +52,10 @@ Profileは固定commit内で欠落していたprototype pathを同commitの実�
 - `+`は空作成または複製によるSession追加、`一覧編集`は属性レーン、`…`はFlow変更、開催順、履歴、JSON書き出しを扱う。削除操作は置かない。
 
 ## 最終検証
+
+- Roadmapを`items: [{id,targetType,targetId}]`へ移行した。空MariaDBへ全migrationを適用し、Lecture＋Sessionの作成・更新・再読込、Session単位とLecture集約の進捗、再放送Sessionの400拒否をAPIスモークで確認した。
+- 旧形式の2 Stage・3 Lecture Itemを`items IS NULL`の行として投入し、全項目がStage順・項目順で復元されることを確認した。新APIで更新後も旧`stages`は2 Stage・先頭2項目のまま保持され、新`items`だけが保存された。
+- Roadmap編集を実ブラウザで新規空状態から操作し、講習会追加、開催追加、検索0件、対象変更、項目を外す、再追加、Alt＋矢印の並べ替え、公開、作成、編集保存、再読込、混在詳細表示を確認した。1280pxと390×844の双方で横overflow 0、console warning/error 0件だった。
 
 - directory APIだけを502にするローカルプロキシで補助データ障害を再現した。PCでは警告を表示したままFlowタブと一覧編集が操作でき、`directory=502`に対してworkspace、fields、FlowClass、Lecture候補は200で完了した。390px iframeでも`viewport=390`、`scrollWidth=390`、Flow本文あり、縮退警告ありを実測した。補助読込の成功・失敗テストを追加し、frontend Vitestは26件成功した。
 - 空DBのMariaDB 11.8とEchoを`127.0.0.1:8082`で起動し、講習会作成から第1回draft Sessionと3 Flowが原子的に作られることを確認した。講習会、各開催、事後の横タブは常に対応Flowを内容として表示し、同一画面でチェック、属性自動保存、ページ移動が永続化される。

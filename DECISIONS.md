@@ -857,7 +857,7 @@
 
 ## D-20260904-068 — Roadmapは段階を持つ現在値型の一本道にする
 
-- 状態: decided
+- 状態: superseded by D-20260905-091
 - 判断が必要だった理由: 順序だけでなく段階の意味を保持しつつ、公開条件と変更後の進捗を一意にする必要があった。
 - 決定: Roadmapはtitle、description、audience、published、安定IDを持つStage、順序付きLecture Itemを持つ。公開時は空Stage、重複Lecture、非公開Lectureを拒否し、進捗は現在値から再計算する。
 - 根拠: 初期の一本道を単純に表現し、元のSession完了事実を失わず編集できる。
@@ -1103,6 +1103,17 @@
 ---
 
 ## 追記テンプレート
+
+## D-20260905-091 — Roadmapを段階なしのLecture／Session混在順序リストにする
+
+- 状態: decided（D-20260904-057とD-20260904-068をsuperseded）
+- 判断が必要だった理由: 最新の画面設計ではStageや項目メモを使わず、Lecture全体と特定のSessionを同じ一本道へ配置する。既存のStage JSONを単純に置換すると、旧データの複数Stageと項目を失う可能性があった。
+- 選択肢: Stage配下のLecture Itemを維持する／`id`、`targetType`、`targetId`だけを持つ一次元Itemへ移行する。
+- 決定: 後者。Roadmapは`title`、`description`、`audience`、`published`と順序付きItemを持つ。`targetType`は`lecture`または`session`とし、再放送Sessionは対象にしない。Lecture ItemはLecture完了、Session Itemは対象Session完了から進捗を導出する。
+- 根拠: 一覧の各行が学習対象1件と直接対応し、画面、API、進捗の階層が一致する。特定回だけを学ぶ経路もLecture全体と同じリストで表現できる。
+- 影響: nullableな`roadmaps.items`を追加し、`items IS NULL`の旧行だけは全Stageの全Lectureを保存順に平坦化して読む。旧`stages`列はdropも上書きもせず、移行後の更新では新`items`だけを保存する。公開Roadmapは1件以上のItemと公開済み通常対象を要求する。Roadmap削除は実装せず、編集画面ではItemをリストから外せる。
+- 再検討する条件: 段階固有の説明、項目メモ、分岐、選択科目、または旧Stage構造を編集可能な形で復元する要件が確定した場合。
+- 参照: 本人が指定した最終画面設計commit `bb023b0acad3da6b89423fa7fc618153f5b14614`、本人の2026-09-05の明示判断。
 
 ## D-YYYYMMDD-NNN — 判断の題名
 
