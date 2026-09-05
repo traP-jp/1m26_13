@@ -1,7 +1,11 @@
+import researchedWorkshopRecords from "./researchedWorkshops.json";
+
 export type WorkshopStatus = "public" | "draft";
-export type OccurrenceStatus = "planned" | "held" | "cancelled" | "postponed";
+export type OccurrenceStatus = "unknown" | "planned" | "held" | "cancelled" | "postponed";
 export type OccurrenceRelation = "single" | "alternative" | "sequence" | "rebroadcast" | "unknown";
-export type ResourceType = "material" | "video" | "practice" | "source" | "repository";
+export type ResourceType = "material" | "video" | "live" | "practice" | "source" | "repository";
+export type KnowledgeState = "unknown" | "known";
+export type LineageBasis = "explicit" | "exact-title" | null;
 
 export type WorkshopOperator = {
   kind: "user" | "group";
@@ -28,6 +32,23 @@ export type WorkshopResource = {
   occurrenceId?: string;
 };
 
+export type WorkshopSource = {
+  id: string;
+  title: string;
+  url: string;
+  supportCount?: number;
+};
+
+export type WorkshopCollectionState = {
+  operators: KnowledgeState;
+  targetTeams: KnowledgeState;
+  occurrences: KnowledgeState;
+  resources: KnowledgeState;
+  previous: KnowledgeState;
+  prerequisites: KnowledgeState;
+  recommendations: KnowledgeState;
+};
+
 export type Occurrence = {
   id: string;
   title: string;
@@ -43,6 +64,7 @@ export type Occurrence = {
   offlineLocation: string;
   instructor: string;
   instructors: WorkshopOperator[];
+  instructorsKnown: boolean;
   relation: OccurrenceRelation;
   status: OccurrenceStatus;
   knoqUrl: string;
@@ -56,7 +78,10 @@ export type Revision = {
 
 export type Workshop = {
   id: string;
+  importKey: string;
+  origin: "research" | "local";
   lineageId: string;
+  lineageBasis: LineageBasis;
   title: string;
   year: number;
   status: WorkshopStatus;
@@ -82,8 +107,10 @@ export type Workshop = {
   previousIds: string[];
   occurrences: Occurrence[];
   resources: WorkshopResource[];
+  sources: WorkshopSource[];
   sourceUrl: string;
   sourceLabel: string;
+  collectionState: WorkshopCollectionState;
   revisions: Revision[];
 };
 
@@ -92,6 +119,9 @@ const wiki2026 = "https://wiki.trap.jp/Event/welcome/26/lecture";
 type WorkshopWithOptionalStepOneFields = Omit<
   Workshop,
   | "operators"
+  | "importKey"
+  | "origin"
+  | "lineageBasis"
   | "targetTeams"
   | "isZeroToOne"
   | "previousTextRefs"
@@ -100,10 +130,15 @@ type WorkshopWithOptionalStepOneFields = Omit<
   | "workshopChannel"
   | "requestSetup"
   | "reflectionUrl"
+  | "sources"
+  | "collectionState"
   | "occurrences"
 > & Partial<Pick<
   Workshop,
   | "operators"
+  | "importKey"
+  | "origin"
+  | "lineageBasis"
   | "targetTeams"
   | "isZeroToOne"
   | "previousTextRefs"
@@ -112,6 +147,8 @@ type WorkshopWithOptionalStepOneFields = Omit<
   | "workshopChannel"
   | "requestSetup"
   | "reflectionUrl"
+  | "sources"
+  | "collectionState"
 >> & {
   occurrences: Array<Omit<Occurrence,
     | "startTime"
@@ -120,6 +157,7 @@ type WorkshopWithOptionalStepOneFields = Omit<
     | "onlineLocation"
     | "offlineLocation"
     | "instructors"
+    | "instructorsKnown"
   > & Partial<Pick<Occurrence,
     | "startTime"
     | "endTime"
@@ -127,6 +165,7 @@ type WorkshopWithOptionalStepOneFields = Omit<
     | "onlineLocation"
     | "offlineLocation"
     | "instructors"
+    | "instructorsKnown"
   >>>;
 };
 
@@ -171,6 +210,9 @@ const normalizeOccurrence = (occurrence: WorkshopWithOptionalStepOneFields["occu
       : legacyInstructor
         ? [{ kind: "user", id: `legacy-${legacyInstructor}`, name: legacyInstructor }]
         : [],
+    instructorsKnown: typeof occurrence.instructorsKnown === "boolean"
+      ? occurrence.instructorsKnown
+      : Boolean(legacyInstructor) || Array.isArray(occurrence.instructors),
   };
 };
 
@@ -183,6 +225,13 @@ const normalizeTeamName = (team: string) => {
 /** Adds Step 1 defaults to seed data and drafts saved before these fields existed. */
 export const normalizeWorkshop = (workshop: WorkshopWithOptionalStepOneFields): Workshop => ({
   ...workshop,
+  importKey: typeof workshop.importKey === "string" ? workshop.importKey : "",
+  origin: workshop.origin === "research" ? "research" : "local",
+  lineageBasis: workshop.lineageBasis === "exact-title" || workshop.lineageBasis === "explicit"
+    ? workshop.lineageBasis
+    : workshop.previousIds.length
+      ? "explicit"
+      : null,
   team: normalizeTeamName(workshop.team),
   operators: Array.isArray(workshop.operators) ? workshop.operators.filter(isOperator) : [],
   workshopChannel: isWorkshopChannel(workshop.workshopChannel) ? workshop.workshopChannel : null,
@@ -206,6 +255,25 @@ export const normalizeWorkshop = (workshop: WorkshopWithOptionalStepOneFields): 
   requestSetup: workshop.requestSetup === true,
   reflectionUrl: typeof workshop.reflectionUrl === "string" ? workshop.reflectionUrl : "",
   occurrences: workshop.occurrences.map(normalizeOccurrence),
+  sources: Array.isArray(workshop.sources)
+    ? workshop.sources.filter((source): source is WorkshopSource => (
+      Boolean(source)
+      && typeof source.id === "string"
+      && typeof source.title === "string"
+      && typeof source.url === "string"
+    ))
+    : workshop.sourceUrl
+      ? [{ id: `legacy-source-${workshop.id}`, title: workshop.sourceLabel || "移行元", url: workshop.sourceUrl }]
+      : [],
+  collectionState: {
+    operators: workshop.collectionState?.operators ?? (Array.isArray(workshop.operators) ? "known" : "unknown"),
+    targetTeams: workshop.collectionState?.targetTeams ?? (Array.isArray(workshop.targetTeams) ? "known" : "unknown"),
+    occurrences: workshop.collectionState?.occurrences ?? "known",
+    resources: workshop.collectionState?.resources ?? "known",
+    previous: workshop.collectionState?.previous ?? "known",
+    prerequisites: workshop.collectionState?.prerequisites ?? "known",
+    recommendations: workshop.collectionState?.recommendations ?? "known",
+  },
 });
 
 export const getAcademicYear = (date = new Date()): number => (
@@ -568,7 +636,156 @@ const seedWorkshopRecords: WorkshopWithOptionalStepOneFields[] = [
   },
 ];
 
-export const seedWorkshops: Workshop[] = seedWorkshopRecords.map(normalizeWorkshop);
+const legacySeedWorkshops: Workshop[] = seedWorkshopRecords.map(normalizeWorkshop);
+const importedSeedWorkshops = (researchedWorkshopRecords as unknown as WorkshopWithOptionalStepOneFields[])
+  .map(normalizeWorkshop);
+
+/** The researched catalog is the immutable baseline; browser-local edits are layered over it. */
+export const seedWorkshops: Workshop[] = importedSeedWorkshops;
+
+const normalizeIdentityTitle = (title: string) => title
+  .normalize("NFKC")
+  .replace(/^(?:19|20)\d{2}(?:年度)?\s*/u, "")
+  .replace(/\*([^*]+)\*/gu, "$1")
+  .replace(/\s+/gu, " ")
+  .trim()
+  .toLocaleLowerCase("ja");
+
+const workshopIdentityKey = (workshop: Pick<Workshop, "year" | "title">) => (
+  `${workshop.year}\u0000${normalizeIdentityTitle(workshop.title)}`
+);
+
+const seedById = new Map(seedWorkshops.map((workshop) => [workshop.id, workshop]));
+const seedByIdentity = new Map(seedWorkshops.map((workshop) => [workshopIdentityKey(workshop), workshop]));
+const legacySeedIds = new Set(legacySeedWorkshops.map((workshop) => workshop.id));
+
+const normalizeSourceUrl = (url: string) => {
+  try {
+    return new URL(url).href;
+  } catch {
+    return url.trim();
+  }
+};
+
+const seedIdsBySourceUrl = new Map<string, Set<string>>();
+for (const workshop of seedWorkshops) {
+  const urls = new Set([
+    workshop.sourceUrl,
+    ...workshop.sources.map((source) => source.url),
+  ].filter(Boolean).map(normalizeSourceUrl));
+  for (const url of urls) {
+    const ids = seedIdsBySourceUrl.get(url) ?? new Set<string>();
+    ids.add(workshop.id);
+    seedIdsBySourceUrl.set(url, ids);
+  }
+}
+
+const seedByUniqueSourceUrl = new Map<string, Workshop>();
+for (const [url, ids] of seedIdsBySourceUrl) {
+  if (ids.size !== 1) continue;
+  const workshop = seedById.get([...ids][0]);
+  if (workshop) seedByUniqueSourceUrl.set(url, workshop);
+}
+
+const findSeedBySource = (workshop: Workshop) => {
+  const candidates = new Set([
+    workshop.sourceUrl,
+    ...workshop.sources.map((source) => source.url),
+  ].filter(Boolean).map(normalizeSourceUrl));
+  const matchedIds = new Set<string>();
+  for (const url of candidates) {
+    const match = seedByUniqueSourceUrl.get(url);
+    if (match) matchedIds.add(match.id);
+  }
+  return matchedIds.size === 1 ? seedById.get([...matchedIds][0]) : undefined;
+};
+
+const wasEditedLocally = (workshop: Workshop) => workshop.status === "draft"
+  || workshop.revisions.some((revision) => revision.by !== "データ移行");
+
+export const mergeStoredWorkshops = (stored: unknown[]): {
+  workshops: Workshop[];
+  idRemap: Map<string, string>;
+} => {
+  const merged = cloneSeedWorkshops();
+  const mergedIndexById = new Map(merged.map((workshop, index) => [workshop.id, index]));
+  const idRemap = new Map<string, string>();
+
+  for (const value of stored) {
+    if (!value || typeof value !== "object") continue;
+    const input = value as Partial<Workshop>;
+    if (typeof input.id !== "string" || !Array.isArray(input.occurrences) || !Array.isArray(input.resources)) continue;
+    let workshop: Workshop;
+    try {
+      workshop = normalizeWorkshop(input as WorkshopWithOptionalStepOneFields);
+    } catch {
+      continue;
+    }
+
+    if (workshop.status === "draft") {
+      const index = mergedIndexById.get(workshop.id);
+      if (index === undefined) {
+        mergedIndexById.set(workshop.id, merged.length);
+        merged.push(workshop);
+      } else {
+        merged[index] = workshop;
+      }
+      continue;
+    }
+
+    const baseline = seedById.get(workshop.id)
+      ?? seedByIdentity.get(workshopIdentityKey(workshop))
+      ?? findSeedBySource(workshop);
+    if (baseline) {
+      idRemap.set(workshop.id, baseline.id);
+      if (!wasEditedLocally(workshop)) continue;
+      const replacement = normalizeWorkshop({
+        ...baseline,
+        ...workshop,
+        id: baseline.id,
+        importKey: baseline.importKey,
+        origin: baseline.origin,
+        lineageId: baseline.lineageId,
+        lineageBasis: baseline.lineageBasis,
+        sources: baseline.sources,
+        sourceUrl: baseline.sourceUrl,
+        sourceLabel: baseline.sourceLabel,
+      });
+      const index = mergedIndexById.get(baseline.id);
+      if (index !== undefined) merged[index] = replacement;
+      continue;
+    }
+
+    if (!legacySeedIds.has(workshop.id) && wasEditedLocally(workshop)) {
+      mergedIndexById.set(workshop.id, merged.length);
+      merged.push(workshop);
+    }
+  }
+
+  for (const workshop of merged) {
+    workshop.previousIds = workshop.previousIds.map((id) => idRemap.get(id) ?? id);
+    for (const references of [workshop.previousTextRefs, workshop.prerequisiteRefs, workshop.recommendedRefs]) {
+      for (const reference of references) {
+        if (reference.kind === "workshop") reference.workshopId = idRemap.get(reference.workshopId) ?? reference.workshopId;
+      }
+    }
+  }
+
+  return { workshops: merged, idRemap };
+};
+
+export const serializeLocalWorkshops = (workshops: Workshop[]): Workshop[] => workshops.filter((workshop) => {
+  const baseline = seedById.get(workshop.id);
+  return !baseline || JSON.stringify(workshop) !== JSON.stringify(baseline);
+});
+
+export const remapCompletionIds = (
+  completions: Record<string, string>,
+  idRemap: Map<string, string>,
+): Record<string, string> => Object.fromEntries(Object.entries(completions).map(([id, completedAt]) => [
+  idRemap.get(id) ?? id,
+  completedAt,
+]));
 
 export const cloneSeedWorkshops = (): Workshop[] => JSON.parse(JSON.stringify(seedWorkshops));
 
@@ -577,7 +794,10 @@ export const makeBlankWorkshop = (): Workshop => {
   const draftId = `draft-${createdAt}`;
   return {
     id: draftId,
+    importKey: "",
+    origin: "local",
     lineageId: `new-${createdAt}`,
+    lineageBasis: null,
     title: "",
     year: getAcademicYear(),
     status: "draft",
@@ -617,14 +837,25 @@ export const makeBlankWorkshop = (): Workshop => {
         offlineLocation: "",
         instructor: "",
         instructors: [],
+        instructorsKnown: true,
         relation: "single",
         status: "planned",
         knoqUrl: "",
       },
     ],
     resources: [],
+    sources: [],
     sourceUrl: "",
     sourceLabel: "",
+    collectionState: {
+      operators: "known",
+      targetTeams: "known",
+      occurrences: "known",
+      resources: "known",
+      previous: "known",
+      prerequisites: "known",
+      recommendations: "known",
+    },
     revisions: [],
   };
 };
@@ -651,6 +882,7 @@ export const inheritWorkshop = (source: Workshop): Workshop => {
   next.contact = "";
   next.tags = [...source.tags];
   next.previousIds = [source.id];
+  next.lineageBasis = "explicit";
   next.occurrences = source.occurrences.map((occurrence, index) => ({
     ...occurrence,
     id: `occurrence-${Date.now()}-${index}`,
@@ -665,6 +897,7 @@ export const inheritWorkshop = (source: Workshop): Workshop => {
     offlineLocation: "",
     instructor: "",
     instructors: [],
+    instructorsKnown: true,
     knoqUrl: "",
     status: "planned",
   }));

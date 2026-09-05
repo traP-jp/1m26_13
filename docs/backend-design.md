@@ -221,6 +221,10 @@ OIDC開始からcallbackまでの短い状態は `oauth_transactions(state_hash,
 | `channel_id` | TEXT | NULL、traQ UUID |
 | `channel_path_snapshot` | TEXT | NULL。未解決ならパスだけでも保存可 |
 | `retrospective_url` | TEXT | NULL |
+| `operators_state` | TEXT | `unknown | known` |
+| `target_teams_state` | TEXT | `unknown | known` |
+| `occurrences_state` | TEXT | `unknown | known` |
+| `resources_state` | TEXT | `unknown | known` |
 | `lifecycle` | TEXT | `draft | public | archived` |
 | `archived_from` | TEXT | NULLまたは `draft | public`。復元先を保持 |
 | `owner_user_id` | TEXT | FK NULL。手動作成のdraftでは必須、取込由来のpublicではNULL可 |
@@ -255,6 +259,8 @@ OIDC開始からcallbackまでの短い状態は `oauth_transactions(state_hash,
 
 未解決のtraQ名もインポートできるよう、運営メンバーの `actor_id` はNULLを許し、選択時点の名前を必ず保存する。解決済みactorだけ、`(workshop_id, actor_id)` のpartial unique indexで重複を防ぐ。
 
+各 `*_state` は、子行が0件の時にも「調査したが該当なし (`known`)」と「調査では未確認 (`unknown`)」を区別するために必要である。手動作成した講習会は最初から `known` とする。インポートでは入力JSONの `null` を `unknown`、空配列を `known` として保存し、公開JSONへ同じ意味で戻す。
+
 ### 6.4 開催枠
 
 #### `occurrences`
@@ -274,6 +280,7 @@ OIDC開始からcallbackまでの短い状態は `oauth_transactions(state_hash,
 | `knoq_url` | TEXT | NULL |
 | `status` | TEXT | `unknown | planned | held | cancelled | postponed` |
 | `relation_kind` | TEXT | `single | sequence | alternative | rebroadcast | unknown` |
+| `instructors_state` | TEXT | `unknown | known` |
 | `created_at_ms` | INTEGER | NOT NULL |
 | `updated_at_ms` | INTEGER | NOT NULL |
 
@@ -283,7 +290,7 @@ OIDC開始からcallbackまでの短い状態は `oauth_transactions(state_hash,
 
 #### `occurrence_instructors`
 
-`id`、`occurrence_id`、`traq_user_id NULL`、`name_snapshot`、`sort_order` を持つ。講師は複数可。APIで、解決済みの参照がtraQユーザーであることを検証する。
+`id`、`occurrence_id`、`traq_user_id NULL`、`name_snapshot`、`sort_order` を持つ。講師は複数可。APIで、解決済みの参照がtraQユーザーであることを検証する。講師行が0件の場合は、親の `instructors_state` から未確認か該当なしを復元する。
 
 #### `occurrence_venues`
 
@@ -335,6 +342,10 @@ OIDC開始からcallbackまでの短い状態は `oauth_transactions(state_hash,
 | `free_text` | TEXT | NULL |
 | `sort_order` | INTEGER | NOT NULL |
 | `created_at_ms` | INTEGER | NOT NULL |
+
+#### `workshop_relation_states`
+
+`(workshop_id, relation_kind)` を主キーとし、`relation_kind` は `previous | prerequisite | recommendation`、`knowledge_state` は `unknown | known` とする。relationが0件でも、収集元の `null` と空配列を区別できるようにする。
 
 `target_workshop_id` と `free_text` は必ず片方だけを持つ。自己参照は禁止する。`previous` の確定リンクは、参照先年度が古く、循環しないことをサービス層で検証する。
 
@@ -470,6 +481,7 @@ lineageが変わる操作では、影響する全workshopの `version` をguard�
 - 公開講習会から閲覧できない下書きへのrelationは、公開JSONから必ず除外する。自動で自由テキストへ変換しない。
 - 受講完了は `(user_id, workshop_id)` で一意。動画閲覧やページ閲覧から自動完了にしない。
 - ランダム名の単語は実行時にtraQ/Wikiを巡回せず、確認済みの静的リストを使う。
+- 取込由来のnullable collectionは、正規化後も `null`（未確認）と `[]`（確認済み・該当なし）を往復できる。
 - 公開済み講習会をhard deleteしない。取り下げは復元可能なarchiveとし、archiveされた関連先はIDと名前snapshotを残してテキスト表示する。
 
 開催枠の `relation_kind` だけでは「第1回・第2回が順番で、各回に別日程がある」という複雑な構造は表せない。v1ではタイトルと `relation_kind` で扱い、必要になった時に `sequence_index` と `alternative_group_id` を追加する。受講完了条件には使わない。

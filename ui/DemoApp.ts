@@ -33,7 +33,10 @@ import {
   cloneSeedWorkshops,
   inheritWorkshop,
   makeBlankWorkshop,
+  mergeStoredWorkshops,
   normalizeWorkshop,
+  remapCompletionIds,
+  serializeLocalWorkshops,
   type Occurrence,
   type ResourceType,
   type Workshop,
@@ -77,10 +80,31 @@ type RelationEntryView = {
   meta: string;
 };
 
-const WORKSHOP_STORAGE_KEY = "trap-workshop-demo:workshops-v3";
-const COMPLETION_STORAGE_KEY = "trap-workshop-demo:completions-v3";
-const VISIBILITY_STORAGE_KEY = "trap-workshop-demo:profile-visible-v3";
+const WORKSHOP_STORAGE_KEY = "trap-workshop-demo:workshops-v4";
+const COMPLETION_STORAGE_KEY = "trap-workshop-demo:completions-v4";
+const VISIBILITY_STORAGE_KEY = "trap-workshop-demo:profile-visible-v4";
+const LEGACY_WORKSHOP_STORAGE_KEY = "trap-workshop-demo:workshops-v3";
+const LEGACY_COMPLETION_STORAGE_KEY = "trap-workshop-demo:completions-v3";
+const LEGACY_VISIBILITY_STORAGE_KEY = "trap-workshop-demo:profile-visible-v3";
 const TRAQ_USER_ICON_URL = "https://q.trap.jp/api/v3/public/icon/rurun";
+
+const readStoredJson = <T,>(
+  primaryKey: string,
+  legacyKey: string,
+  isValid: (value: unknown) => value is T,
+): T | null => {
+  for (const key of [primaryKey, legacyKey]) {
+    const stored = localStorage.getItem(key);
+    if (stored === null) continue;
+    try {
+      const parsed: unknown = JSON.parse(stored);
+      if (isValid(parsed)) return parsed;
+    } catch {
+      // Try the legacy value if a newer entry is malformed.
+    }
+  }
+  return null;
+};
 
 const TRAP_TEAMS = [
   "アルゴリズム班",
@@ -177,6 +201,7 @@ const routeTitle = (route: Route, workshop?: Workshop | null) => {
 const typeLabel: Record<ResourceType, string> = {
   material: "資料",
   video: "動画",
+  live: "配信",
   practice: "実習",
   source: "記録",
   repository: "リポジトリ",
@@ -355,6 +380,7 @@ export default defineComponent({
           ...occurrence.instructors.map((instructor) => instructor.name),
         ]),
         ...workshop.resources.flatMap((resource) => [resource.title, resource.note ?? ""]),
+        ...workshop.sources.map((source) => source.title),
         ...workshop.previousTextRefs.map(relationReferenceText),
         ...workshop.prerequisiteRefs.map(relationReferenceText),
         ...workshop.recommendedRefs.map(relationReferenceText),
@@ -600,6 +626,10 @@ export default defineComponent({
       );
     }
 
+    function resourcesForScope(occurrenceId?: string) {
+      return editorDraft.value.resources.filter((resource) => resource.occurrenceId === occurrenceId);
+    }
+
     function addResource(type: ResourceType, occurrenceId?: string) {
       const resourceNumber = resourcesFor(type, occurrenceId).length + 1;
       editorDraft.value.resources.push({
@@ -772,6 +802,7 @@ export default defineComponent({
       if (status === "held") return "開催済み";
       if (status === "cancelled") return "中止";
       if (status === "postponed") return "延期";
+      if (status === "unknown") return "状態未確認";
       return "開催予定";
     }
 
@@ -911,7 +942,12 @@ export default defineComponent({
 
     function instructorNames(occurrence: Occurrence) {
       if (occurrence.instructors.length) return occurrence.instructors.map(operatorLabel).join("、");
-      return occurrence.instructor.trim() || "未登録";
+      if (occurrence.instructor.trim()) return occurrence.instructor.trim();
+      return occurrence.instructorsKnown ? "登録なし" : "調査では未確認";
+    }
+
+    function collectionEmptyLabel(workshop: Workshop, key: keyof Workshop["collectionState"]) {
+      return workshop.collectionState[key] === "unknown" ? "調査では未確認" : "登録なし";
     }
 
     function operatorAvatar(candidate: TraqDirectoryCandidate) {
@@ -1220,7 +1256,7 @@ export default defineComponent({
 
     function persistWorkshops() {
       if (!hydrated.value) return;
-      localStorage.setItem(WORKSHOP_STORAGE_KEY, JSON.stringify(workshops.value));
+      localStorage.setItem(WORKSHOP_STORAGE_KEY, JSON.stringify(serializeLocalWorkshops(workshops.value)));
     }
 
     function persistCompletions() {
@@ -1305,6 +1341,7 @@ export default defineComponent({
         offlineLocation: "",
         instructor: "",
         instructors: [],
+        instructorsKnown: true,
         relation,
         status: "planned",
         knoqUrl: "",
@@ -1374,6 +1411,9 @@ export default defineComponent({
       localStorage.removeItem(WORKSHOP_STORAGE_KEY);
       localStorage.removeItem(COMPLETION_STORAGE_KEY);
       localStorage.removeItem(VISIBILITY_STORAGE_KEY);
+      localStorage.removeItem(LEGACY_WORKSHOP_STORAGE_KEY);
+      localStorage.removeItem(LEGACY_COMPLETION_STORAGE_KEY);
+      localStorage.removeItem(LEGACY_VISIBILITY_STORAGE_KEY);
       refreshRandomWorkshops();
       resetDialogOpen.value = false;
       showToast("デモを初期状態に戻しました");
@@ -1381,23 +1421,40 @@ export default defineComponent({
     }
 
     onMounted(() => {
-      const savedWorkshops = localStorage.getItem(WORKSHOP_STORAGE_KEY);
-      const savedCompletions = localStorage.getItem(COMPLETION_STORAGE_KEY);
-      const savedVisibility = localStorage.getItem(VISIBILITY_STORAGE_KEY);
+      const savedWorkshops = readStoredJson(
+        WORKSHOP_STORAGE_KEY,
+        LEGACY_WORKSHOP_STORAGE_KEY,
+        (value): value is unknown[] => Array.isArray(value),
+      );
+      const savedCompletions = readStoredJson(
+        COMPLETION_STORAGE_KEY,
+        LEGACY_COMPLETION_STORAGE_KEY,
+        (value): value is Record<string, string> => (
+          Boolean(value)
+          && typeof value === "object"
+          && !Array.isArray(value)
+          && Object.values(value as Record<string, unknown>).every((item) => typeof item === "string")
+        ),
+      );
+      const savedVisibility = readStoredJson(
+        VISIBILITY_STORAGE_KEY,
+        LEGACY_VISIBILITY_STORAGE_KEY,
+        (value): value is boolean => typeof value === "boolean",
+      );
+      let idRemap = new Map<string, string>();
       if (savedWorkshops) {
-        try {
-          const parsed = JSON.parse(savedWorkshops);
-          workshops.value = Array.isArray(parsed) && parsed.every((item) => item && typeof item.id === "string" && Array.isArray(item.occurrences) && Array.isArray(item.resources))
-            ? parsed.map((item) => normalizeWorkshop(item as Workshop))
-            : cloneSeedWorkshops();
-        } catch { workshops.value = cloneSeedWorkshops(); }
+        const merged = mergeStoredWorkshops(savedWorkshops);
+        workshops.value = merged.workshops;
+        idRemap = merged.idRemap;
       }
       if (savedCompletions) {
-        try { completedAt.value = JSON.parse(savedCompletions); } catch { completedAt.value = {}; }
+        completedAt.value = remapCompletionIds(savedCompletions, idRemap);
       }
-      profileVisible.value = savedVisibility === "true";
+      profileVisible.value = savedVisibility ?? false;
       refreshRandomWorkshops();
       hydrated.value = true;
+      persistWorkshops();
+      persistCompletions();
       window.addEventListener("hashchange", updateRoute);
       void updateRoute();
     });
@@ -1441,6 +1498,7 @@ export default defineComponent({
       closeLecturerSuggestions,
       completedAt,
       completedWorkshops,
+      collectionEmptyLabel,
       collaboratorText,
       completionDate,
       copyText,
@@ -1507,6 +1565,7 @@ export default defineComponent({
       removeResource,
       resetDemo,
       resourcesFor,
+      resourcesForScope,
       returnFromDetail,
       route,
       saveDraft,
@@ -1712,8 +1771,8 @@ export default defineComponent({
                     <dl class="facts">
                       <div><dt>開催年度</dt><dd>{{ selectedWorkshop.year }}年度</dd></div>
                       <div><dt>運営元</dt><dd>{{ selectedWorkshop.team || '未登録' }}</dd></div>
-                      <div><dt>運営メンバー</dt><dd>{{ selectedWorkshop.operators.length ? selectedWorkshop.operators.map(operatorLabel).join('、') : '未登録' }}</dd></div>
-                      <div><dt>対象班</dt><dd>{{ selectedWorkshop.targetTeams.join('、') || '未登録' }}</dd></div>
+                      <div><dt>運営メンバー</dt><dd>{{ selectedWorkshop.operators.length ? selectedWorkshop.operators.map(operatorLabel).join('、') : collectionEmptyLabel(selectedWorkshop, 'operators') }}</dd></div>
+                      <div><dt>対象班</dt><dd>{{ selectedWorkshop.targetTeams.length ? selectedWorkshop.targetTeams.join('、') : collectionEmptyLabel(selectedWorkshop, 'targetTeams') }}</dd></div>
                       <div><dt>0→1講習会</dt><dd>{{ selectedWorkshop.isZeroToOne === null ? '未登録' : selectedWorkshop.isZeroToOne ? 'はい' : 'いいえ' }}</dd></div>
                       <div><dt>講習会チャンネル</dt><dd>{{ selectedWorkshop.workshopChannel?.path || '未登録' }}</dd></div>
                     </dl>
@@ -1740,14 +1799,15 @@ export default defineComponent({
                         </dl>
                       </BasiqCard>
                     </div>
-                    <BasiqCard v-else class="empty-inline">開催枠はまだ登録されていません。</BasiqCard>
+                    <BasiqCard v-else class="empty-inline">{{ collectionEmptyLabel(selectedWorkshop, 'occurrences') === '調査では未確認' ? '開催枠は調査では確認できませんでした。' : '開催枠は登録されていません。' }}</BasiqCard>
                   </section>
                   <section id="resources" class="detail-section">
                     <div class="section-title-row"><h2>資料・動画・関連情報</h2><span>{{ selectedWorkshop.resources.length }}件</span></div>
                     <div v-if="selectedWorkshop.resources.length" class="resource-list">
-                      <article v-for="resource in selectedWorkshop.resources" :key="resource.id"><BasiqTag :label="typeLabel[resource.type]" /><div><h3>{{ resource.title }}</h3><small v-if="resource.occurrenceId">{{ occurrenceTitle(resource.occurrenceId) }}</small><p v-if="resource.note">{{ resource.note }}</p></div><a v-if="resource.url" :href="resource.url" target="_blank" rel="noreferrer">開く ↗</a><span v-else class="unavailable">URL未登録</span></article>
+                      <article v-for="resource in selectedWorkshop.resources.slice(0, 12)" :key="resource.id"><BasiqTag :label="typeLabel[resource.type]" /><div><h3>{{ resource.title }}</h3><small v-if="resource.occurrenceId">{{ occurrenceTitle(resource.occurrenceId) }}</small><p v-if="resource.note">{{ resource.note }}</p></div><a v-if="resource.url" :href="resource.url" target="_blank" rel="noopener noreferrer">開く ↗</a><span v-else class="unavailable">URL未登録</span></article>
                     </div>
-                    <BasiqCard v-else class="empty-inline">資料・動画はまだ登録されていません。この講習会は記録として検索できます。</BasiqCard>
+                    <details v-if="selectedWorkshop.resources.length > 12" class="history"><summary>残り{{ selectedWorkshop.resources.length - 12 }}件を表示</summary><div class="resource-list"><article v-for="resource in selectedWorkshop.resources.slice(12)" :key="resource.id"><BasiqTag :label="typeLabel[resource.type]" /><div><h3>{{ resource.title }}</h3><small v-if="resource.occurrenceId">{{ occurrenceTitle(resource.occurrenceId) }}</small><p v-if="resource.note">{{ resource.note }}</p></div><a v-if="resource.url" :href="resource.url" target="_blank" rel="noopener noreferrer">開く ↗</a><span v-else class="unavailable">URL未登録</span></article></div></details>
+                    <BasiqCard v-else class="empty-inline">{{ collectionEmptyLabel(selectedWorkshop, 'resources') === '調査では未確認' ? '資料・動画は調査では確認できませんでした。' : '資料・動画は登録されていません。' }}</BasiqCard>
                   </section>
                   <section id="relations" class="detail-section">
                     <h2>関連する講習会</h2>
@@ -1760,7 +1820,7 @@ export default defineComponent({
                             <button v-if="entry.kind === 'workshop' && entry.workshopId" type="button" @click="openWorkshop(entry.workshopId)">{{ entry.label }}<small v-if="entry.meta">{{ entry.meta }}</small></button>
                             <span v-else>{{ entry.label }}</span>
                           </template>
-                          <span v-if="!selectedWorkshop.prerequisites && !publicRelationEntries(selectedWorkshop, 'prerequisite').length">未登録</span>
+                          <span v-if="!selectedWorkshop.prerequisites && !publicRelationEntries(selectedWorkshop, 'prerequisite').length">{{ collectionEmptyLabel(selectedWorkshop, 'prerequisites') }}</span>
                         </dd>
                       </div>
                       <div>
@@ -1770,14 +1830,14 @@ export default defineComponent({
                             <button v-if="entry.kind === 'workshop' && entry.workshopId" type="button" @click="openWorkshop(entry.workshopId)">{{ entry.label }}<small v-if="entry.meta">{{ entry.meta }}</small></button>
                             <span v-else>{{ entry.label }}</span>
                           </template>
-                          <span v-if="!publicRelationEntries(selectedWorkshop, 'recommended').length">未登録</span>
+                          <span v-if="!publicRelationEntries(selectedWorkshop, 'recommended').length">{{ collectionEmptyLabel(selectedWorkshop, 'recommendations') }}</span>
                         </dd>
                       </div>
                     </dl>
                   </section>
                   <section id="lineage" class="detail-section">
                     <h2>引き継ぎのつながり</h2>
-                    <p class="section-note">各年度は別の講習会です。矢印をたどって前後の講習会を開けます。</p>
+                    <p class="section-note">各年度は別の講習会です。矢印をたどって前後の講習会を開けます。<span v-if="selectedWorkshop.lineageBasis === 'exact-title'">このつながりは同じ講習会名と年度から判定しています。</span></p>
                     <div class="lineage-map" v-if="previousWorkshops.length || nextWorkshops.length">
                       <div class="lineage-side"><small>引き継ぎ元</small><button v-for="workshop in previousWorkshops" :key="workshop.id" type="button" @click="openWorkshop(workshop.id)"><span>{{ workshop.year }}年度</span><strong>{{ workshop.title }}</strong></button><span v-if="!previousWorkshops.length">なし</span></div>
                       <span class="lineage-arrow" aria-hidden="true">→</span>
@@ -1785,7 +1845,7 @@ export default defineComponent({
                       <span class="lineage-arrow" aria-hidden="true">→</span>
                       <div class="lineage-side"><small>この講習会を引き継いだもの</small><button v-for="workshop in nextWorkshops" :key="workshop.id" type="button" @click="openWorkshop(workshop.id)"><span>{{ workshop.year }}年度</span><strong>{{ workshop.title }}</strong></button><span v-if="!nextWorkshops.length">まだありません</span></div>
                     </div>
-                    <BasiqCard v-else class="empty-inline">引き継ぎ関係はまだ登録されていません。</BasiqCard>
+                    <BasiqCard v-else class="empty-inline">{{ collectionEmptyLabel(selectedWorkshop, 'previous') === '調査では未確認' ? '引き継ぎ関係は調査では確認できませんでした。' : '引き継ぎ関係は登録されていません。' }}</BasiqCard>
                     <dl v-if="selectedWorkshop.previousTextRefs.length" class="stacked-facts lineage-notes"><div><dt>対応関係のメモ</dt><dd><span v-for="entry in selectedWorkshop.previousTextRefs" :key="entry.kind === 'text' ? entry.text : entry.workshopId">{{ entry.kind === 'text' ? entry.text : '' }}</span></dd></div></dl>
                   </section>
                   <section id="retrospective" class="detail-section">
@@ -1793,7 +1853,7 @@ export default defineComponent({
                     <a v-if="selectedWorkshop.reflectionUrl" :href="selectedWorkshop.reflectionUrl" target="_blank" rel="noreferrer">振り返り・引き継ぎ資料を開く ↗</a>
                     <BasiqCard v-else class="empty-inline">振り返り・引き継ぎ資料はまだ登録されていません。</BasiqCard>
                   </section>
-                  <section id="management" class="detail-section"><h2>更新情報</h2><dl class="stacked-facts"><div><dt>作成・編集</dt><dd>{{ selectedWorkshop.creators.join('、') || '移行元では未確認' }}</dd></div><div><dt>情報源</dt><dd><a v-if="selectedWorkshop.sourceUrl" :href="selectedWorkshop.sourceUrl" target="_blank" rel="noreferrer">{{ selectedWorkshop.sourceLabel || '元のページを開く' }} ↗</a><span v-else>このサービスで新規作成</span></dd></div></dl><details v-if="selectedWorkshop.revisions.length" class="history"><summary>編集履歴（{{ selectedWorkshop.revisions.length }}件）</summary><ol><li v-for="revision in selectedWorkshop.revisions" :key="revision.at + revision.summary"><span>{{ revision.at }}</span><strong>{{ revision.summary }}</strong><small>{{ revision.by }}</small></li></ol></details><BasiqCard v-else class="empty-inline">このサービス上での編集履歴はまだありません。</BasiqCard></section>
+                  <section id="management" class="detail-section"><h2>更新情報</h2><dl class="stacked-facts"><div><dt>作成・編集</dt><dd>{{ selectedWorkshop.creators.join('、') || '移行元では未確認' }}</dd></div><div><dt>情報源</dt><dd>{{ selectedWorkshop.sources.length ? selectedWorkshop.sources.length + '件' : 'このサービスで新規作成' }}</dd></div></dl><details v-if="selectedWorkshop.sources.length" class="history source-history"><summary>情報源を表示（{{ selectedWorkshop.sources.length }}件）</summary><ul><li v-for="source in selectedWorkshop.sources" :key="source.id"><a :href="source.url" target="_blank" rel="noopener noreferrer">{{ source.title }} ↗</a></li></ul></details><details v-if="selectedWorkshop.revisions.length" class="history"><summary>編集履歴（{{ selectedWorkshop.revisions.length }}件）</summary><ol><li v-for="revision in selectedWorkshop.revisions" :key="revision.at + revision.summary"><span>{{ revision.at }}</span><strong>{{ revision.summary }}</strong><small>{{ revision.by }}</small></li></ol></details><BasiqCard v-else class="empty-inline">このサービス上での編集履歴はまだありません。</BasiqCard></section>
                   <section class="completion-panel"><div><h2>受講記録</h2><p>この講習会を受講したら、講習会全体を受講完了として記録します。</p></div><BasiqButton v-if="!completedAt[selectedWorkshop.id]" type="button" @click="toggleCompletion(selectedWorkshop)">この講習会を受講完了</BasiqButton><div v-else class="completed-action"><strong>✓ {{ completionDate(selectedWorkshop.id) }}に完了</strong><BasiqButton type="button" tone="danger" variant="outline" @click="toggleCompletion(selectedWorkshop)">取り消す</BasiqButton></div></section>
                 </article>
                 <aside class="detail-index">
@@ -2008,8 +2068,8 @@ export default defineComponent({
                     <section id="materials-common" class="editor-subsection">
                       <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">1</span><h3>講習会全体の資料</h3></div>
                       <div class="material-heading-action"><BasiqButton type="button" tone="neutral" variant="outline" @click="addResource('material')">資料を追加</BasiqButton></div>
-                      <div v-for="resource in resourcesFor('material')" :key="resource.id" class="link-editor-row">
-                        <BasiqFormField label="名前"><BasiqInput v-model="resource.title" /></BasiqFormField>
+                      <div v-for="resource in resourcesForScope()" :key="resource.id" class="link-editor-row">
+                        <BasiqFormField :label="'名前（' + typeLabel[resource.type] + '）'"><BasiqInput v-model="resource.title" /></BasiqFormField>
                         <BasiqFormField label="URL"><BasiqInput :model-value="resource.url ?? ''" type="url" placeholder="https://..." @update:model-value="resource.url = $event || null" /></BasiqFormField>
                         <BasiqButton type="button" tone="danger" variant="outline" :aria-label="resource.title + 'を削除'" @click="removeResource(resource.id)">削除</BasiqButton>
                       </div>
@@ -2017,8 +2077,8 @@ export default defineComponent({
                     <section v-for="(occurrence, index) in editorDraft.occurrences" :id="'materials-' + occurrence.id" :key="occurrence.id" class="editor-subsection">
                       <div class="subsection-heading"><span class="subsection-number" aria-hidden="true">{{ index + 2 }}</span><h3>{{ occurrence.title || '名称未定の開催枠' }}の資料</h3></div>
                       <div class="material-heading-action"><BasiqButton type="button" tone="neutral" variant="outline" @click="addResource('material', occurrence.id)">資料を追加</BasiqButton></div>
-                      <div v-for="resource in resourcesFor('material', occurrence.id)" :key="resource.id" class="link-editor-row">
-                        <BasiqFormField label="名前"><BasiqInput v-model="resource.title" /></BasiqFormField>
+                      <div v-for="resource in resourcesForScope(occurrence.id)" :key="resource.id" class="link-editor-row">
+                        <BasiqFormField :label="'名前（' + typeLabel[resource.type] + '）'"><BasiqInput v-model="resource.title" /></BasiqFormField>
                         <BasiqFormField label="URL"><BasiqInput :model-value="resource.url ?? ''" type="url" placeholder="https://..." @update:model-value="resource.url = $event || null" /></BasiqFormField>
                         <BasiqButton type="button" tone="danger" variant="outline" :aria-label="resource.title + 'を削除'" @click="removeResource(resource.id)">削除</BasiqButton>
                       </div>
