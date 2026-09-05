@@ -89,13 +89,26 @@ ol {
 }
 
 .app-theme,
-.app-shell {
+.app-layout {
+  height: 100dvh;
   min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
 }
 
-.app-shell {
-  display: grid;
-  grid-template-columns: var(--app-sidebar) minmax(0, 1fr);
+.app-layout {
+  --basiq-layout-sidebar-width: var(--app-sidebar);
+}
+
+.desktop-layout > div {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.desktop-layout > div:last-child {
+  scrollbar-gutter: stable;
 }
 
 .skip-link {
@@ -115,9 +128,7 @@ ol {
 }
 
 .site-sidebar {
-  position: sticky;
-  top: 0;
-  height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--basiq-color-border-separator);
@@ -164,79 +175,31 @@ ol {
 }
 
 .desktop-nav {
-  padding-block: 32px;
+  padding: 32px 16px;
 }
 
 .desktop-nav > p,
 .desktop-operation > p {
-  margin: 0 24px 8px;
+  margin: 0 8px 8px;
   color: var(--basiq-color-content-subtle);
   font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.08em;
 }
 
-.desktop-nav a {
-  min-height: 50px;
-  display: flex;
-  align-items: center;
+.navigation-link > a {
   gap: 12px;
-  padding: 0 24px 0 21px;
-  border-left: 3px solid transparent;
-  color: var(--basiq-color-content-subtle);
   font-weight: 700;
-  text-decoration: none;
-}
-
-.desktop-nav a:hover {
-  background: var(--basiq-color-surface-muted);
-}
-
-.desktop-nav a.router-link-active {
-  border-left-color: var(--basiq-color-accent-default);
-  color: var(--basiq-color-content-accent);
-  background: var(--app-accent-soft);
 }
 
 .desktop-operation {
   margin-top: auto;
-  padding: 24px;
+  padding: 24px 16px;
   border-top: 1px solid var(--basiq-color-border-separator);
 }
 
 .desktop-operation > p {
-  margin-inline: 0;
-}
-
-.operation-link,
-.stock-link {
-  min-height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 1px solid var(--basiq-color-border-control);
-  border-radius: var(--basiq-radius-sm);
-  background: var(--basiq-color-surface-base);
-  font-size: 0.86rem;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.stock-link {
-  min-height: 34px;
-  margin-top: 8px;
-  border-color: transparent;
-  color: var(--basiq-color-content-subtle);
-  background: transparent;
-  font-size: 0.76rem;
-}
-
-.operation-link.router-link-active,
-.stock-link.router-link-active {
-  border-color: var(--basiq-color-accent-default);
-  color: var(--basiq-color-content-accent);
-  background: var(--app-accent-soft);
+  margin-inline: 8px;
 }
 
 .site-version {
@@ -247,11 +210,15 @@ ol {
 
 .site-workspace {
   min-width: 0;
+  min-height: 100%;
   background: var(--basiq-color-surface-base);
 }
 
-.mobile-header,
-.mobile-nav {
+.layout-content {
+  min-height: 100%;
+}
+
+.mobile-header {
   display: none;
 }
 
@@ -619,22 +586,37 @@ ol {
   white-space: pre-wrap;
 }
 
-@media (width <= 760px) {
+@media (width < 48rem) {
   body {
     font-size: 14px;
   }
 
-  .app-shell {
-    display: block;
-    min-height: 100dvh;
+  /*
+   * BasiqPushNavigationLayout reserves a 40px edge rail for its control.
+   * Keep the control over the header, but let the page itself use the full viewport width.
+   */
+  .mobile-layout > div:nth-child(2) {
+    height: 100%;
+    min-height: 0;
+    padding-left: 0;
+    overflow: hidden;
   }
 
-  .site-sidebar {
-    display: none;
+  .mobile-layout .layout-content {
+    height: 100dvh;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
   }
 
-  .site-workspace {
-    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  .mobile-layout > div:nth-child(2) > div:first-child {
+    z-index: 30;
+    pointer-events: none;
+  }
+
+  .mobile-layout > div:nth-child(2) > div:first-child > button {
+    pointer-events: auto;
   }
 
   .mobile-header {
@@ -645,7 +627,7 @@ ol {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 9px 16px;
+    padding: 9px 16px 9px 48px;
     border-bottom: 1px solid var(--basiq-color-border-separator);
     background: color-mix(in srgb, var(--basiq-color-surface-base) 96%, transparent);
     backdrop-filter: blur(12px);
@@ -667,38 +649,6 @@ ol {
   .mobile-header > span {
     color: var(--basiq-color-content-subtle);
     font-size: 0.72rem;
-  }
-
-  .mobile-nav {
-    position: fixed;
-    z-index: 40;
-    inset: auto 0 0;
-    min-height: 64px;
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    padding-bottom: env(safe-area-inset-bottom);
-    border-top: 1px solid var(--basiq-color-border-separator);
-    background: var(--basiq-color-surface-base);
-  }
-
-  .mobile-nav a {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    border-top: 3px solid transparent;
-    color: var(--basiq-color-content-subtle);
-    font-size: 0.64rem;
-    font-weight: 700;
-    text-decoration: none;
-  }
-
-  .mobile-nav a.router-link-active {
-    border-top-color: var(--basiq-color-accent-default);
-    color: var(--basiq-color-content-accent);
-    background: var(--app-accent-soft);
   }
 
   .page {
